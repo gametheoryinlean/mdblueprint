@@ -254,7 +254,7 @@ uncertain
 
 May propose new nodes: no. It may request a review if the mismatch reveals a missing concept.
 
-## 5. Admission Referee
+## 6. Admission Referee
 
 Purpose: decide whether staged nodes and review reports are sufficient to admit a node.
 

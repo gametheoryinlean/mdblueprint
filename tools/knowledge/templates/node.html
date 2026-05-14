@@ -45,7 +45,7 @@
   {% endif %}
 
   <section class="body">
-    {{ body_html }}
+    {{ body_html | safe }}
   </section>
 
   {% if node.tags %}

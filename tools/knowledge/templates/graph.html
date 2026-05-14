@@ -2,9 +2,10 @@
 {% block content %}
 <h1>Dependency Graph</h1>
 <div id="graph-container" style="width:100%;height:600px;border:1px solid var(--border);border-radius:4px;"></div>
-<script src="https://cdn.jsdelivr.net/npm/cytoscape@3/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.29.2/dist/cytoscape.min.js"
+        crossorigin="anonymous"></script>
 <script>
-  fetch('graph.json')
+  fetch('{{ root }}graph.json')
     .then(r => r.json())
     .then(data => {
       const elements = [];
@@ -34,6 +35,10 @@
         ],
         layout: { name: 'breadthfirst', directed: true, spacingFactor: 1.5 }
       });
+    })
+    .catch(err => {
+      document.getElementById('graph-container').textContent =
+        'Failed to load graph: ' + err.message;
     });
 </script>
 {% endblock %}

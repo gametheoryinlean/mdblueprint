@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import markdown
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from tools.knowledge.export import write_graph_json
 from tools.knowledge.graph import build_graph
@@ -37,7 +37,10 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
 
     g, _ = build_graph(all_nodes)
     md = markdown.Markdown(extensions=["tables"])
-    env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=False)
+    env = Environment(
+        loader=FileSystemLoader(TEMPLATE_DIR),
+        autoescape=select_autoescape(["html"]),
+    )
 
     # Group by topic
     topics: dict[str, list] = defaultdict(list)
@@ -49,6 +52,10 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
     topic_names = sorted(topics.keys())
 
     # Clean and create output
+    resolved_out = output_dir.resolve()
+    resolved_root = knowledge_root.resolve()
+    if resolved_out == resolved_root or resolved_root.is_relative_to(resolved_out):
+        raise ValueError(f"Refusing to delete {output_dir}: would remove source tree")
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)

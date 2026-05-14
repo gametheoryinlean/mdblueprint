@@ -18,7 +18,7 @@ When turning admitted knowledge nodes into Lean declarations or proof skeletons.
 
 - Never add admitted Markdown nodes directly.
 - Never generate final DAG edges.
-- If the Lean formalization weakens the mathematical statement, write a review note.
+- Must not weaken the mathematical statement without a review note explaining the discrepancy.
 - Proposed auxiliary nodes must explain why existing nodes are insufficient.
 
 ## New-node request format

@@ -33,8 +33,12 @@ class TestLeanIndex:
 
     def test_sorry_detection(self):
         idx = index_lean_project(LEAN_FIXTURES)
-        assert len(idx.sorry_decls) > 0
-        assert "StrategicGame.IsNashEquilibrium.of_dominant" in idx.sorry_decls
+        assert idx.sorry_decls == ["StrategicGame.IsNashEquilibrium.of_dominant"]
+
+    def test_no_false_positive_sorry(self):
+        idx = index_lean_project(LEAN_FIXTURES)
+        assert not idx.declarations["StrategicGame.IsBestResponse"].has_sorry
+        assert not idx.declarations["StrategicGame.IsNashEquilibrium"].has_sorry
 
     def test_modules(self):
         idx = index_lean_project(LEAN_FIXTURES)

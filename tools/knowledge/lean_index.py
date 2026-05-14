@@ -17,8 +17,9 @@ DECL_KEYWORDS = re.compile(
 
 SORRY_RE = re.compile(r"\bsorry\b")
 ADMIT_RE = re.compile(r"\badmit\b")
-NAMESPACE_RE = re.compile(r"^namespace\s+(\S+)", re.MULTILINE)
-END_NAMESPACE_RE = re.compile(r"^end\s+(\S+)", re.MULTILINE)
+NAMESPACE_RE = re.compile(r"^(?:namespace|section)\s+(\S+)", re.MULTILINE)
+END_NAMED_RE = re.compile(r"^end\s+(\S+)", re.MULTILINE)
+END_BARE_RE = re.compile(r"^end\s*$")
 
 
 @dataclass(frozen=True)
@@ -71,18 +72,26 @@ def index_lean_project(lean_root: Path) -> LeanIndex:
         module = _module_name(lean_file, lean_root)
         idx.modules[module] = lean_file
 
-        lines = lean_file.read_text(encoding="utf-8").splitlines()
+        try:
+            lines = lean_file.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
         namespace_stack: list[str] = []
 
         for lineno, line in enumerate(lines, start=1):
-            # Track namespaces
+            # Track namespace/section scopes
             ns_match = NAMESPACE_RE.match(line)
             if ns_match:
                 namespace_stack.append(ns_match.group(1))
                 continue
-            end_match = END_NAMESPACE_RE.match(line)
-            if end_match:
-                if namespace_stack and namespace_stack[-1] == end_match.group(1):
+            end_named = END_NAMED_RE.match(line)
+            if end_named:
+                name = end_named.group(1)
+                if namespace_stack and namespace_stack[-1] == name:
+                    namespace_stack.pop()
+                continue
+            if END_BARE_RE.match(line):
+                if namespace_stack:
                     namespace_stack.pop()
                 continue
 
@@ -94,8 +103,15 @@ def index_lean_project(lean_root: Path) -> LeanIndex:
             prefix = ".".join(namespace_stack)
             qualified = f"{prefix}.{name}" if prefix else name
 
-            # Check for sorry in the declaration body (rough heuristic: next 50 lines)
-            body_text = "\n".join(lines[lineno - 1:lineno + 50])
+            # Check for sorry in the declaration body up to the next declaration
+            next_decl_line = len(lines)
+            for i in range(lineno, min(lineno + 50, len(lines))):
+                if i == lineno - 1:
+                    continue
+                if DECL_KEYWORDS.match(lines[i].lstrip()):
+                    next_decl_line = i
+                    break
+            body_text = "\n".join(lines[lineno - 1:next_decl_line])
             has_sorry = bool(SORRY_RE.search(body_text)) or bool(ADMIT_RE.search(body_text))
 
             decl = LeanDeclaration(

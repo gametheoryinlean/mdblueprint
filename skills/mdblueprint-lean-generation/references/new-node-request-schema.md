@@ -17,4 +17,5 @@ proposed_uses:
   - <dependency node ids>
 source_justification: |
   Why this should be a reusable node rather than a local Lean lemma.
+status: pending | approved | rejected | blocked_by_lean_error | request_human
 ```

@@ -16,6 +16,12 @@ When authoring mathematical content for the knowledge base.
 - [ ] Source spans with artifact binding if content comes from a reference
 - [ ] Incomplete statements marked with review status, not hidden
 
+## Must not
+
+- Must not set `status: admitted` without review evidence — use `staged` for new content.
+- Must not write operational content (implementation notes, status tracking, TODOs) in the Markdown body.
+- Must not invent dependencies beyond what can be justified from the source or existing nodes.
+
 ## Must read
 
 - `docs/node-format.md`
