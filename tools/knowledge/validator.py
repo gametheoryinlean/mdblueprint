@@ -1,0 +1,119 @@
+"""Schema validation for knowledge nodes."""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from tools.knowledge.models import (
+    ADMITTED_STATUSES,
+    DEFINITION_KINDS,
+    FORBIDDEN_HEADINGS,
+    MATH_KINDS,
+    STAGED_STATUSES,
+    STATEMENT_KINDS,
+    VALID_ALIGNMENT_VALUES,
+    VALID_DEFINITION_VALUES,
+    VALID_KINDS,
+    VALID_LOCATOR_FORMATS,
+    VALID_PROOF_VALUES,
+    VALID_STATEMENT_VALUES,
+    VALID_STATUSES,
+    Node,
+)
+
+
+@dataclass
+class Diagnostic:
+    level: str  # "error" or "warning"
+    node_id: str
+    message: str
+    file_path: Path | None = None
+
+    def __str__(self) -> str:
+        loc = str(self.file_path) if self.file_path else self.node_id
+        return f"[{self.level.upper()}] {loc}: {self.message}"
+
+
+def _heading_re():
+    return re.compile(r"^##\s+(.+)$", re.MULTILINE)
+
+
+def validate_node(node: Node, *, is_staged_dir: bool = False) -> list[Diagnostic]:
+    diags: list[Diagnostic] = []
+    nid = node.id or "<no-id>"
+    fp = node.file_path
+
+    def err(msg: str) -> None:
+        diags.append(Diagnostic("error", nid, msg, fp))
+
+    def warn(msg: str) -> None:
+        diags.append(Diagnostic("warning", nid, msg, fp))
+
+    # Required fields for all nodes
+    if not node.id:
+        err("missing required field: id")
+    if not node.title:
+        err("missing required field: title")
+    if not node.kind:
+        err("missing required field: kind")
+    elif node.kind not in VALID_KINDS:
+        err(f"invalid kind: {node.kind!r}")
+    if not node.status:
+        err("missing required field: status")
+    elif node.status not in VALID_STATUSES:
+        err(f"invalid status: {node.status!r}")
+
+    # Directory-status consistency
+    if is_staged_dir and node.status in ADMITTED_STATUSES:
+        err(f"node in staged/ has admitted status: {node.status!r}")
+    if not is_staged_dir and node.status in STAGED_STATUSES:
+        err(f"node in nodes/ has staged status: {node.status!r}")
+
+    # Verification field applicability
+    v = node.verification
+    if v is not None:
+        if v.statement is not None and v.definition is not None:
+            err("verification has both 'statement' and 'definition'; use one per kind")
+        if v.statement is not None:
+            if node.kind in DEFINITION_KINDS:
+                warn(f"kind {node.kind!r} should use 'definition' not 'statement' in verification")
+            if v.statement not in VALID_STATEMENT_VALUES:
+                err(f"invalid verification.statement value: {v.statement!r}")
+        if v.definition is not None:
+            if node.kind in STATEMENT_KINDS:
+                warn(f"kind {node.kind!r} should use 'statement' not 'definition' in verification")
+            if v.definition not in VALID_DEFINITION_VALUES:
+                err(f"invalid verification.definition value: {v.definition!r}")
+        if v.proof is not None and v.proof not in VALID_PROOF_VALUES:
+            err(f"invalid verification.proof value: {v.proof!r}")
+        if v.alignment is not None and v.alignment not in VALID_ALIGNMENT_VALUES:
+            err(f"invalid verification.alignment value: {v.alignment!r}")
+
+    # Source span artifact binding
+    src = node.source
+    if src is not None:
+        artifact_ids = {a.id for a in src.artifacts}
+        for span in src.spans:
+            if span.artifact is not None and span.artifact not in artifact_ids:
+                err(f"source span references unknown artifact: {span.artifact!r}")
+            if span.format is not None and span.format not in VALID_LOCATOR_FORMATS:
+                warn(f"unknown source span format: {span.format!r}")
+
+    # Lean section for external-theorem
+    if node.kind == "external-theorem":
+        if node.lean is None or not node.lean.modules or not node.lean.declarations:
+            err("external-theorem must have lean.modules and lean.declarations filled")
+
+    # Forbidden headings in body
+    for m in _heading_re().finditer(node.body):
+        heading = m.group(1).strip().lower()
+        if heading in FORBIDDEN_HEADINGS:
+            err(f"forbidden operational heading in body: {m.group(1).strip()!r}")
+
+    # Admitted-only checks
+    if node.status in ADMITTED_STATUSES and not is_staged_dir:
+        if not node.uses and node.uses != []:
+            warn("admitted node missing 'uses' field")
+
+    return diags

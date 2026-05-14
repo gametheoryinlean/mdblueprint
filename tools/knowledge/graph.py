@@ -1,0 +1,140 @@
+"""DAG builder and graph operations for knowledge nodes."""
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass, field
+
+from tools.knowledge.models import MATH_KINDS, Node
+from tools.knowledge.validator import Diagnostic
+
+
+@dataclass
+class KnowledgeGraph:
+    nodes: dict[str, Node] = field(default_factory=dict)
+    edges: dict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
+    reverse_edges: dict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
+
+
+def build_graph(nodes: list[Node]) -> tuple[KnowledgeGraph, list[Diagnostic]]:
+    diags: list[Diagnostic] = []
+    g = KnowledgeGraph()
+
+    # Detect duplicate ids
+    seen_ids: dict[str, Node] = {}
+    for node in nodes:
+        if not node.id:
+            continue
+        if node.id in seen_ids:
+            prev = seen_ids[node.id]
+            diags.append(Diagnostic(
+                "error", node.id,
+                f"duplicate node id (also in {prev.file_path})",
+                node.file_path,
+            ))
+            continue
+        seen_ids[node.id] = node
+        g.nodes[node.id] = node
+
+    # Build edges and check dependencies
+    for nid, node in g.nodes.items():
+        for dep in node.uses:
+            if dep not in g.nodes:
+                level = "warning" if node.status == "staged" else "error"
+                diags.append(Diagnostic(
+                    level, nid,
+                    f"dependency not found: {dep!r}",
+                    node.file_path,
+                ))
+            else:
+                g.edges[nid].append(dep)
+                g.reverse_edges[dep].append(nid)
+
+                # Task reference constraint
+                dep_node = g.nodes[dep]
+                if node.kind in MATH_KINDS and dep_node.kind == "task":
+                    diags.append(Diagnostic(
+                        "error", nid,
+                        f"mathematical node references task node: {dep!r}",
+                        node.file_path,
+                    ))
+
+    # Cycle detection via DFS
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color: dict[str, int] = {nid: WHITE for nid in g.nodes}
+    parent: dict[str, str | None] = {nid: None for nid in g.nodes}
+
+    def dfs(u: str) -> list[str] | None:
+        color[u] = GRAY
+        for v in g.edges.get(u, []):
+            if v not in color:
+                continue
+            if color[v] == GRAY:
+                cycle = [v, u]
+                p = parent.get(u)
+                while p is not None and p != v:
+                    cycle.append(p)
+                    p = parent.get(p)
+                cycle.reverse()
+                return cycle
+            if color[v] == WHITE:
+                parent[v] = u
+                result = dfs(v)
+                if result is not None:
+                    return result
+        color[u] = BLACK
+        return None
+
+    for nid in g.nodes:
+        if color.get(nid) == WHITE:
+            cycle = dfs(nid)
+            if cycle is not None:
+                cycle_str = " -> ".join(cycle)
+                diags.append(Diagnostic(
+                    "error", cycle[0],
+                    f"dependency cycle: {cycle_str}",
+                ))
+                break
+
+    return g, diags
+
+
+def topological_sort(g: KnowledgeGraph) -> list[str]:
+    in_degree: dict[str, int] = {nid: 0 for nid in g.nodes}
+    for nid, deps in g.edges.items():
+        for dep in deps:
+            if dep in in_degree:
+                in_degree[nid] = in_degree.get(nid, 0)
+
+    # Kahn's algorithm
+    for nid, deps in g.edges.items():
+        for dep in deps:
+            if dep in in_degree:
+                pass  # edges go from nid -> dep (nid uses dep)
+
+    # Recompute: in_degree[nid] = number of nodes that nid depends on
+    # For topological sort, we want nodes with no remaining dependencies first
+    in_deg: dict[str, int] = {nid: 0 for nid in g.nodes}
+    for nid, deps in g.edges.items():
+        for dep in deps:
+            if dep in in_deg:
+                in_deg[nid] += 1
+
+    # BFS-based topological sort (dependencies before dependents)
+    # A node is ready when all its dependencies are processed
+    # Actually, we want: dep before nid. So reverse: in_deg of nid = len(edges[nid])
+    # and we process nid when all deps are done.
+    # Use reverse_edges to know who depends on a dep.
+    ready: list[str] = sorted(nid for nid, d in in_deg.items() if d == 0)
+    result: list[str] = []
+    remaining = dict(in_deg)
+
+    while ready:
+        nid = ready.pop(0)
+        result.append(nid)
+        for dependent in sorted(g.reverse_edges.get(nid, [])):
+            if dependent in remaining:
+                remaining[dependent] -= 1
+                if remaining[dependent] == 0:
+                    ready.append(dependent)
+
+    return result
