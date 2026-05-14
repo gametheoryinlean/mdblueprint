@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ topic }}</h1>
+
+<table class="node-table">
+  <thead>
+    <tr><th>ID</th><th>Title</th><th>Kind</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+  {% for node in nodes %}
+    <tr>
+      <td><a href="{{ node.id | replace('.', '_') }}.html">{{ node.id }}</a></td>
+      <td>{{ node.title }}</td>
+      <td><span class="badge kind-{{ node.kind }}">{{ node.kind }}</span></td>
+      <td><span class="badge status-{{ node.status }}">{{ node.status }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
