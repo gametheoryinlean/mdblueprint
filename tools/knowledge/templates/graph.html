@@ -38,20 +38,27 @@
       <article class="thm {{ graph_node.kind }}_thmwrapper theorem-style-{{ graph_node.kind }}">
         <header class="{{ graph_node.kind }}_thmheading thm-heading">
           <span class="{{ graph_node.kind }}_thmcaption thm-caption">{{ graph_node.caption }}</span>
-          <span class="{{ graph_node.kind }}_thmlabel thm-label">{{ graph_node.label }}</span>
           <span class="{{ graph_node.kind }}_thmtitle thm-title">{{ graph_node.title }}</span>
           <span class="thm-status thm-status-{{ graph_node.status }}">{{ graph_node.status }}</span>
         </header>
         <div class="{{ graph_node.kind }}_thmcontent thm-content">
           <div class="body graph-modal-body">
             {{ payload.body_html | safe }}
+            {% if payload.proof_html %}
+            <details class="proof-details">
+              <summary>Proof</summary>
+              <div class="proof-body">
+                {{ payload.proof_html | safe }}
+              </div>
+            </details>
+            {% endif %}
           </div>
           <p><a href="{{ root }}{{ node_href_from_root(graph_node.id) }}">Open node page</a></p>
           {% if payload.deps %}
           <h2>Uses</h2>
           <ul class="uses">
             {% for dep in payload.deps %}
-            <li><a href="{{ root }}{{ node_href_from_root(dep.id) }}">{{ dep.id }}</a> — {{ dep.title }}</li>
+            <li><a href="{{ root }}{{ node_href_from_root(dep.id) }}">{{ dep.title }}</a></li>
             {% endfor %}
           </ul>
           {% endif %}

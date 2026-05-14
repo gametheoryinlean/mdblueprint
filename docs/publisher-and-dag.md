@@ -26,7 +26,10 @@ LLMs must not generate:
 The generated site should include:
 
 - topic navigation by directory;
+- keyword navigation from node tags;
+- a title-first hierarchical index grouped by topic;
 - node pages with rendered Markdown math;
+- proof sections collapsed by default when a Markdown body contains a proof marker;
 - dependency and reverse-dependency lists;
 - status badges from YAML;
 - Lean declaration links or names from YAML;
@@ -42,7 +45,9 @@ The generated site intentionally follows leanblueprint's presentation style with
 - Browser JavaScript renders the DOT and handles modal interaction only.
 - Dependencies display as `dependency -> dependent`, even though internal graph edges store `dependent -> dependency`.
 - Definitions and concepts use box nodes; theorem-like nodes use ellipse nodes; examples and tasks use distinct shapes.
+- Visible labels prefer node titles. Stable node ids remain available in URLs, anchors, and machine data.
 - Status and formalization fields determine border and fill colors: not-ready nodes are orange, ready admitted nodes are blue, formalized statements are green-bordered, formalized definitions are light green, and fully proved theorem-like nodes are dark green.
+- Node pages and graph modals keep proof text in a collapsed `<details>` section by default.
 - `dep_graph_document.html` is the leanblueprint-style graph page; `graph.html` is preserved as a compatibility alias.
 
 ## Lean Compatibility

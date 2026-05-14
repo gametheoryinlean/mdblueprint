@@ -20,13 +20,26 @@
     }
   }
 
+  function graphNodeVisibleLabel(node) {
+    const labels = Array.from(node.querySelectorAll("text"))
+      .map((text) => text.textContent.trim())
+      .filter(Boolean);
+    return labels.join(" ").trim();
+  }
+
   function bindGraphInteractions() {
     document.querySelectorAll("#graph .node").forEach((node) => {
+      const graphNodeId = node.querySelector("title")?.textContent?.trim();
+      const visibleLabel = graphNodeVisibleLabel(node) || graphNodeId || "Node";
+      const titleElement = node.querySelector("title");
+      if (graphNodeId) node.dataset.graphNodeId = graphNodeId;
+      if (titleElement) titleElement.textContent = visibleLabel;
+      node.setAttribute("aria-label", visibleLabel);
       node.setAttribute("tabindex", "0");
       node.setAttribute("role", "button");
       node.addEventListener("click", () => {
-        const title = node.querySelector("title")?.textContent?.trim();
-        const mapped = title ? document.querySelector(`[data-graph-node="${cssEscape(title)}"]`) : null;
+        const nodeId = node.dataset.graphNodeId;
+        const mapped = nodeId ? document.querySelector(`[data-graph-node="${cssEscape(nodeId)}"]`) : null;
         if (mapped) showGraphModalElement(mapped);
       });
       node.addEventListener("keydown", (event) => {

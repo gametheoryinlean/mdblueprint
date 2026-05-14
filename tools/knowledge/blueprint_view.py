@@ -144,7 +144,7 @@ def build_blueprint_graph(g: KnowledgeGraph) -> BlueprintGraphView:
             BlueprintNodeView(
                 id=node.id,
                 html_id=html_id(node.id),
-                label=display_label(node.id),
+                label=node.title,
                 title=node.title,
                 caption=kind_caption(node.kind),
                 kind=node.kind,

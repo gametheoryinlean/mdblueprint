@@ -1,6 +1,7 @@
 """Generate static HTML site from knowledge nodes."""
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from collections import defaultdict
@@ -15,6 +16,7 @@ from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
+PROOF_MARKER_RE = re.compile(r"(?im)(^|\n)(?P<marker>\s*(?:\*{1,2}Proof\.\*{1,2}|Proof\.|##\s+Proof)\s*)")
 
 
 def _node_href(node_id: str, from_topic: str | None = None) -> str:
@@ -31,6 +33,44 @@ def _node_href_from_root(node_id: str) -> str:
     topic = parts[0] if len(parts) > 1 else "misc"
     filename = node_id.replace(".", "_") + ".html"
     return f"{topic}/{filename}"
+
+
+def _titleize(value: str) -> str:
+    return value.replace("_", " ").replace("-", " ").title()
+
+
+def _split_proof_markdown(body: str) -> tuple[str, str | None]:
+    match = PROOF_MARKER_RE.search(body)
+    if match is None:
+        return body, None
+    statement = body[:match.start()].rstrip()
+    proof = body[match.end():].lstrip()
+    return statement, proof or None
+
+
+def _render_body(md: markdown.Markdown, body: str) -> dict[str, str | None]:
+    statement_md, proof_md = _split_proof_markdown(body)
+    md.reset()
+    statement_html = md.convert(statement_md)
+    proof_html = None
+    if proof_md is not None:
+        md.reset()
+        proof_html = md.convert(proof_md)
+    return {
+        "body_html": statement_html,
+        "proof_html": proof_html,
+    }
+
+
+def _summary_payload(node, blueprint_nodes: dict, href: str) -> dict:
+    return {
+        "id": node.id,
+        "title": node.title,
+        "kind": node.kind,
+        "status": node.status,
+        "href": href,
+        "view": blueprint_nodes[node.id],
+    }
 
 
 def publish(knowledge_root: Path, output_dir: Path) -> None:
@@ -62,6 +102,11 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
         topics[topic].append(node)
 
     topic_names = sorted(topics.keys())
+    keywords: dict[str, list] = defaultdict(list)
+    for node in all_nodes:
+        for tag in node.tags:
+            keywords[tag].append(node)
+    keyword_names = sorted(keywords.keys())
 
     # Clean and create output
     resolved_out = output_dir.resolve()
@@ -105,24 +150,27 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
                 })
 
         md.reset()
+        rendered = _render_body(md, node.body)
         node_payloads[node.id] = {
             "node": node,
             "view": blueprint_nodes[node.id],
-            "body_html": md.convert(node.body),
+            "body_html": rendered["body_html"],
+            "proof_html": rendered["proof_html"],
             "deps": deps,
             "dependents": dependents,
         }
 
     # Index page
-    index_nodes = []
-    for node in sorted(all_nodes, key=lambda n: n.id):
-        index_nodes.append({
-            "id": node.id,
-            "title": node.title,
-            "kind": node.kind,
-            "status": node.status,
-            "href": _node_href(node.id),
-            "view": blueprint_nodes[node.id],
+    topic_groups = []
+    for topic in topic_names:
+        topic_groups.append({
+            "name": topic,
+            "title": _titleize(topic),
+            "href": f"{topic}/index.html",
+            "nodes": [
+                _summary_payload(node, blueprint_nodes, _node_href(node.id))
+                for node in sorted(topics[topic], key=lambda n: n.title)
+            ],
         })
     tmpl = env.get_template("index.html")
     (output_dir / "index.html").write_text(
@@ -130,7 +178,8 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
             title="Knowledge Base",
             root="",
             topics=topic_names,
-            nodes=index_nodes,
+            keywords=keyword_names,
+            topic_groups=topic_groups,
             node_count=len(all_nodes),
             topic_count=len(topic_names),
         ),
@@ -143,6 +192,7 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
         title="Dependency graph",
         root="",
         topics=topic_names,
+        keywords=keyword_names,
         graph_dot=blueprint_dot,
         graph_nodes=[node_payloads[view.id] for view in blueprint_graph.nodes],
     )
@@ -154,6 +204,27 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
         graph_html,
         encoding="utf-8",
     )
+
+    # Keyword pages
+    keyword_dir = output_dir / "keywords"
+    keyword_dir.mkdir(parents=True, exist_ok=True)
+    tmpl = env.get_template("keyword.html")
+    for keyword in keyword_names:
+        keyword_nodes = sorted(keywords[keyword], key=lambda n: n.title)
+        (keyword_dir / f"{keyword}.html").write_text(
+            tmpl.render(
+                title=f"Keyword: {keyword}",
+                root="../",
+                topics=topic_names,
+                keywords=keyword_names,
+                keyword=keyword,
+                nodes=[
+                    _summary_payload(node, blueprint_nodes, f"../{_node_href(node.id)}")
+                    for node in keyword_nodes
+                ],
+            ),
+            encoding="utf-8",
+        )
 
     # Topic pages and node pages
     for topic, topic_nodes in topics.items():
@@ -167,9 +238,13 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
                 title=topic,
                 root="../",
                 topics=topic_names,
+                keywords=keyword_names,
                 topic=topic,
-                nodes=sorted(topic_nodes, key=lambda n: n.id),
-                node_views=blueprint_nodes,
+                topic_title=_titleize(topic),
+                nodes=[
+                    _summary_payload(node, blueprint_nodes, node.id.replace(".", "_") + ".html")
+                    for node in sorted(topic_nodes, key=lambda n: n.title)
+                ],
             ),
             encoding="utf-8",
         )
@@ -185,9 +260,11 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
                     title=node.title,
                     root="../",
                     topics=topic_names,
+                    keywords=keyword_names,
                     node=node,
                     node_view=payload["view"],
                     body_html=payload["body_html"],
+                    proof_html=payload["proof_html"],
                     deps=payload["deps"],
                     dependents=payload["dependents"],
                 ),

@@ -3,13 +3,11 @@
 <article class="{{ node.kind }}_thmwrapper theorem-style-{{ node.kind }} node-page" id="{{ node_view.html_id }}">
   <header class="{{ node.kind }}_thmheading thm-heading">
     <span class="{{ node.kind }}_thmcaption thm-caption">{{ node_view.caption }}</span>
-    <span class="{{ node.kind }}_thmlabel thm-label">{{ node_view.label }}</span>
     <span class="{{ node.kind }}_thmtitle thm-title">{{ node.title }}</span>
     <div class="thm_header_extras">
       {% if node.status in ["formalized", "proved"] %}<span class="checkmark">✓</span>{% endif %}
       <span class="badge kind-{{ node.kind }}">{{ node.kind }}</span>
       <span class="badge status-{{ node.status }}">{{ node.status }}</span>
-      <code class="node-id">{{ node.id }}</code>
     </div>
     <div class="thm_header_hidden_extras">
       <a class="permalink" href="#{{ node_view.html_id }}">#</a>
@@ -28,7 +26,7 @@
       <header><h1>Uses</h1><button class="closebtn" type="button">x</button></header>
       <ul class="uses">
         {% for dep in deps %}
-        <li><a href="{{ dep.href }}">{{ dep.id }}</a> — {{ dep.title }}</li>
+        <li><a href="{{ dep.href }}">{{ dep.title }}</a></li>
         {% endfor %}
       </ul>
     </div>
@@ -53,6 +51,14 @@
 
   <div class="{{ node.kind }}_thmcontent thm-content body">
     {{ body_html | safe }}
+    {% if proof_html %}
+    <details class="proof-details">
+      <summary>Proof</summary>
+      <div class="proof-body">
+        {{ proof_html | safe }}
+      </div>
+    </details>
+    {% endif %}
   </div>
 
   {% if dependents %}
@@ -60,7 +66,7 @@
     <h2>Used by</h2>
     <ul>
       {% for dep in dependents %}
-      <li><a href="{{ dep.href }}">{{ dep.id }}</a> — {{ dep.title }}</li>
+      <li><a href="{{ dep.href }}">{{ dep.title }}</a></li>
       {% endfor %}
     </ul>
   </section>

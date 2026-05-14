@@ -17,11 +17,24 @@
 <body>
   <nav class="sidebar">
     <a class="logo" href="{{ root }}index.html">mdblueprint</a>
-    <ul class="topic-list">
-    {% for topic in topics %}
-      <li><a href="{{ root }}{{ topic }}/index.html">{{ topic }}</a></li>
-    {% endfor %}
-    </ul>
+    <section class="nav-section" aria-labelledby="nav-topics">
+      <h2 id="nav-topics">Topics</h2>
+      <ul class="topic-list nav-list">
+      {% for topic in topics %}
+        <li><a href="{{ root }}{{ topic }}/index.html">{{ topic }}</a></li>
+      {% endfor %}
+      </ul>
+    </section>
+    {% if keywords %}
+    <section class="nav-section" aria-labelledby="nav-keywords">
+      <h2 id="nav-keywords">Keywords</h2>
+      <ul class="keyword-list nav-list">
+      {% for keyword in keywords %}
+        <li><a href="{{ root }}keywords/{{ keyword }}.html">{{ keyword }}</a></li>
+      {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
     <a class="nav-link" href="{{ root }}dep_graph_document.html">Dependency graph</a>
   </nav>
   <main>

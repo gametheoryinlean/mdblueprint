@@ -6,19 +6,20 @@
   <p><a href="dep_graph_document.html">Dependency graph</a></p>
 </section>
 
-<table class="node-table">
-  <thead>
-    <tr><th>ID</th><th>Title</th><th>Kind</th><th>Status</th></tr>
-  </thead>
-  <tbody>
-  {% for node in nodes %}
-    <tr>
-      <td><a href="{{ node.href }}">{{ node.id }}</a></td>
-      <td>{{ node.title }}</td>
-      <td><span class="badge kind-{{ node.kind }}">{{ node.kind }}</span></td>
-      <td><span class="badge status-{{ node.status }}">{{ node.status }}</span></td>
-    </tr>
+<nav class="blueprint-index-outline" aria-label="Knowledge outline">
+  {% for group in topic_groups %}
+  <section class="outline-topic">
+    <h2><a href="{{ group.href }}">{{ group.title }}</a></h2>
+    <ol class="outline-node-list">
+      {% for node in group.nodes %}
+      <li>
+        <a class="outline-node-title" href="{{ node.href }}">{{ node.title }}</a>
+        <span class="{{ node.kind }}_thmcaption thm-caption">{{ node.view.caption }}</span>
+        <span class="badge status-{{ node.status }}">{{ node.status }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
   {% endfor %}
-  </tbody>
-</table>
+</nav>
 {% endblock %}

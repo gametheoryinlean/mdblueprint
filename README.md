@@ -8,7 +8,7 @@ The durable source is a directory of small Markdown nodes:
 docs/knowledge/nodes/**/*.md
 ```
 
-Python tools parse those nodes, validate the dependency DAG, check mechanical Lean references, and generate a leanblueprint-style static website. The publisher keeps Markdown nodes as the durable source and emits theorem/definition wrappers, Uses and Lean declaration modals, and a Graphviz-style dependency graph. It does not use LaTeX, plasTeX, or leanblueprint as the source pipeline.
+Python tools parse those nodes, validate the dependency DAG, check mechanical Lean references, and generate a leanblueprint-style static website. The publisher keeps Markdown nodes as the durable source and emits a title-first topic outline, keyword pages, theorem/definition wrappers, collapsed proof sections, Uses and Lean declaration modals, and a Graphviz-style dependency graph. It does not use LaTeX, plasTeX, or leanblueprint as the source pipeline.
 
 LLM agents may extract candidate nodes, review statements and proofs, generate Lean proposals, and judge semantic MD-Lean alignment, but they do not generate the final DAG or website.
 
@@ -95,11 +95,12 @@ docs/knowledge/
 
 ## Status
 
-The first four implementation phases are complete, with the publisher now using leanblueprint-style output:
+The core implementation phases are complete, with the publisher now using leanblueprint-style output:
 
 1. **Deterministic core** — parser, validator, DAG, graph.json, static site
 2. **Lean integration** — declaration extractor, reference prechecks, sorry detection
 3. **Agent contracts** — prompt templates and report schemas for 6 agent roles
 4. **Admission workflow** — staged-to-admitted with generality gate and review validation
+5. **Leanblueprint-style publisher** — title-first navigation, theorem wrappers, proof folding, keyword pages, and Graphviz dependency views
 
 The full test suite is the source of truth for current coverage and test counts.
