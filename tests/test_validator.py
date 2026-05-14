@@ -5,9 +5,10 @@ import pytest
 from tools.knowledge.parser import parse_file, parse_node
 from tools.knowledge.validator import validate_node
 
-NODES_DIR = Path("docs/knowledge/nodes/strategic_games")
-STAGED_DIR = Path("docs/knowledge/staged")
-INVALID_DIR = Path("tests/fixtures/invalid")
+_TESTS_DIR = Path(__file__).parent
+NODES_DIR = _TESTS_DIR.parent / "docs" / "knowledge" / "nodes" / "strategic_games"
+STAGED_DIR = _TESTS_DIR.parent / "docs" / "knowledge" / "staged"
+INVALID_DIR = _TESTS_DIR / "fixtures" / "invalid"
 
 
 class TestValidAdmitted:
@@ -96,3 +97,94 @@ class TestSourceSpanBinding:
         diags = validate_node(node)
         errors = [d for d in diags if d.level == "error"]
         assert any("nonexistent-artifact" in d.message for d in errors)
+
+
+class TestInvalidKindAndStatus:
+    def test_invalid_kind(self):
+        node = parse_node("---\nid: t.x\ntitle: X\nkind: bogus\nstatus: admitted\nuses: []\n---\n\n# X\n")
+        diags = validate_node(node)
+        assert any("invalid kind" in d.message for d in diags)
+
+    def test_invalid_status(self):
+        node = parse_node("---\nid: t.x\ntitle: X\nkind: definition\nstatus: bogus\nuses: []\n---\n\n# X\n")
+        diags = validate_node(node)
+        assert any("invalid status" in d.message for d in diags)
+
+    def test_missing_title(self):
+        node = parse_node("---\nid: t.x\nkind: definition\nstatus: admitted\nuses: []\n---\n\n# X\n")
+        diags = validate_node(node)
+        assert any("title" in d.message for d in diags)
+
+
+class TestVerificationValues:
+    def test_invalid_statement_value(self):
+        text = "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: admitted\nuses: []\nverification:\n  statement: bogus\n---\n\n# X\n"
+        node = parse_node(text)
+        diags = validate_node(node)
+        assert any("verification.statement" in d.message for d in diags)
+
+    def test_invalid_definition_value(self):
+        text = "---\nid: t.x\ntitle: X\nkind: definition\nstatus: admitted\nuses: []\nverification:\n  definition: bogus\n---\n\n# X\n"
+        node = parse_node(text)
+        diags = validate_node(node)
+        assert any("verification.definition" in d.message for d in diags)
+
+    def test_invalid_proof_value(self):
+        text = "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: admitted\nuses: []\nverification:\n  statement: accepted\n  proof: bogus\n---\n\n# X\n"
+        node = parse_node(text)
+        diags = validate_node(node)
+        assert any("verification.proof" in d.message for d in diags)
+
+    def test_invalid_alignment_value(self):
+        text = "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: admitted\nuses: []\nverification:\n  statement: accepted\n  alignment: bogus\n---\n\n# X\n"
+        node = parse_node(text)
+        diags = validate_node(node)
+        assert any("verification.alignment" in d.message for d in diags)
+
+    def test_statement_on_definition_kind_warns(self):
+        text = "---\nid: t.x\ntitle: X\nkind: definition\nstatus: admitted\nuses: []\nverification:\n  statement: accepted\n---\n\n# X\n"
+        node = parse_node(text)
+        diags = validate_node(node)
+        warns = [d for d in diags if d.level == "warning"]
+        assert any("definition" in d.message and "statement" in d.message for d in warns)
+
+    def test_definition_on_theorem_kind_warns(self):
+        text = "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: admitted\nuses: []\nverification:\n  definition: accepted\n---\n\n# X\n"
+        node = parse_node(text)
+        diags = validate_node(node)
+        warns = [d for d in diags if d.level == "warning"]
+        assert any("statement" in d.message and "definition" in d.message for d in warns)
+
+
+class TestExternalTheorem:
+    def test_external_theorem_missing_lean(self):
+        text = "---\nid: t.x\ntitle: X\nkind: external-theorem\nstatus: admitted\nuses: []\n---\n\n# X\n"
+        node = parse_node(text)
+        diags = validate_node(node)
+        assert any("external-theorem" in d.message and "lean" in d.message for d in diags)
+
+
+class TestDiagnosticStr:
+    def test_with_file_path(self):
+        from tools.knowledge.validator import Diagnostic
+        d = Diagnostic("error", "test.node", "test msg", Path("foo.md"))
+        assert "[ERROR] foo.md: test msg" == str(d)
+
+    def test_without_file_path(self):
+        from tools.knowledge.validator import Diagnostic
+        d = Diagnostic("warning", "test.node", "test msg")
+        assert "[WARNING] test.node: test msg" == str(d)
+
+
+class TestSourceSpanFormat:
+    def test_unknown_locator_format_warns(self):
+        text = (
+            "---\nid: t.x\ntitle: X\nkind: definition\nstatus: admitted\nuses: []\n"
+            "source:\n  artifacts:\n    - id: a1\n      path: foo.pdf\n"
+            "  spans:\n    - artifact: a1\n      locator: p42\n      format: unknown-fmt\n"
+            "---\n\n# X\n"
+        )
+        node = parse_node(text)
+        diags = validate_node(node)
+        warns = [d for d in diags if d.level == "warning"]
+        assert any("unknown-fmt" in d.message for d in warns)

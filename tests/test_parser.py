@@ -4,8 +4,9 @@ import pytest
 
 from tools.knowledge.parser import parse_node, parse_file, scan_directory
 
-NODES_DIR = Path("docs/knowledge/nodes/strategic_games")
-STAGED_DIR = Path("docs/knowledge/staged")
+_TESTS_DIR = Path(__file__).parent
+NODES_DIR = _TESTS_DIR.parent / "docs" / "knowledge" / "nodes" / "strategic_games"
+STAGED_DIR = _TESTS_DIR.parent / "docs" / "knowledge" / "staged"
 
 
 class TestParseNode:

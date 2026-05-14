@@ -5,7 +5,7 @@ from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
 from tools.knowledge.export import export_graph_json, write_graph_json
 
-NODES_DIR = Path("docs/knowledge/nodes/strategic_games")
+NODES_DIR = Path(__file__).parent.parent / "docs" / "knowledge" / "nodes" / "strategic_games"
 
 
 class TestExportGraphJson:

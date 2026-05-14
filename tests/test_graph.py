@@ -3,9 +3,10 @@ from pathlib import Path
 from tools.knowledge.graph import build_graph, topological_sort
 from tools.knowledge.parser import parse_file, scan_directory
 
-NODES_DIR = Path("docs/knowledge/nodes/strategic_games")
-STAGED_DIR = Path("docs/knowledge/staged")
-INVALID_DIR = Path("tests/fixtures/invalid")
+_TESTS_DIR = Path(__file__).parent
+NODES_DIR = _TESTS_DIR.parent / "docs" / "knowledge" / "nodes" / "strategic_games"
+STAGED_DIR = _TESTS_DIR.parent / "docs" / "knowledge" / "staged"
+INVALID_DIR = _TESTS_DIR / "fixtures" / "invalid"
 
 
 class TestBuildGraph:
