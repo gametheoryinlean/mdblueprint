@@ -57,6 +57,17 @@ The Markdown body of a report can explain reasons, but the decision must be mach
 | MD-Lean Alignment Verifier | Judge semantic alignment | `docs/knowledge/reviews/` | final status directly |
 | Admission Referee | Decide whether reports justify admission | admission report, optional controlled move | direct mathematical rewriting without record |
 
+External-theorem nodes bypass Source-to-MD extraction and are admitted directly after
+alignment verification. See section 4 for details.
+
+## Requests Format
+
+Report files under `docs/knowledge/requests/` follow the schema defined in
+[node-format.md](node-format.md#requests-format). Every agent that may propose new
+nodes must write a request file rather than creating a staged candidate directly.
+The request file is the machine-readable justification that the Admission Referee
+evaluates.
+
 ## 1. Source-to-MD Agent
 
 Purpose: convert PDFs, books, papers, TeX, or notes into staged Markdown candidate nodes.
@@ -92,6 +103,7 @@ Rules:
 - It must not write admitted nodes directly.
 - It must not invent dependencies beyond what it can justify from the source or existing node index.
 - If the source statement is narrower than the likely reusable mathematical form, it should propose the broader form as a question, not as admitted truth.
+- Before creating a staged candidate, it must search the existing node index (admitted and staged) for a node covering the same content. If a near-duplicate exists, it should write a review or request noting the overlap instead of creating a second staged file.
 
 ## 2. MD Node Verifiers
 
@@ -182,7 +194,31 @@ Rules:
   - source or mathematical justification;
   - whether the node is a definition, lemma, theorem, example, or task.
 
-## 4. MD-Lean Alignment Verifier
+## 4. External-Theorem Admission Path
+
+`external-theorem` nodes reference results that are already proved in Lean (Mathlib or
+another library). They do not go through the staged extraction flow. Instead:
+
+```text
+human or Source-to-MD agent identifies the external theorem
+  -> creates an admitted external-theorem node directly, with lean section filled
+  -> MD-Lean Alignment Verifier checks that the Markdown statement matches the Lean signature
+  -> Admission Referee reviews alignment report and confirms admission
+```
+
+Because the proof already exists in Lean, no proof verifier report is required.
+The statement verifier is still recommended to check that the Markdown formulation is
+mathematically accurate and not more or less general than the Lean declaration.
+
+Required for external-theorem admission (no staged phase):
+
+- `lean.modules` and `lean.declarations` filled and mechanically verified to exist;
+- statement verifier report: `accepted`;
+- alignment verifier report: `aligned` or `lean_stronger` with a note explaining the
+  acceptable discrepancy;
+- generality gate: required (same as for theorem kind).
+
+## 5. MD-Lean Alignment Verifier
 
 Purpose: decide whether a Lean declaration semantically matches the Markdown node.
 

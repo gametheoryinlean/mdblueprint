@@ -12,12 +12,14 @@ lean:
     - ExtensiveGame.SubgamePerfectEquilibrium
 source:
   artifacts:
-    - references/game-theory-book.pdf
+    - id: game-theory-book
+      path: references/game-theory-book.pdf
   spans:
-    - locator: "Chapter 4, page 123"
+    - artifact: game-theory-book
+      locator: "Chapter 4, page 123"
+      format: book-page
       note: "Definition of subgame perfect equilibrium"
 verification:
-  statement: accepted
   definition: accepted
   proof: not_applicable
   alignment: pending
