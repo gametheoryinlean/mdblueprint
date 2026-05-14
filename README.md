@@ -35,14 +35,68 @@ Python tools:
 - [Publisher and DAG](docs/publisher-and-dag.md)
 - [Reference Repositories](docs/reference-repos.md)
 
-## First Implementation Target
+## Quickstart
 
-The first useful version should be deterministic and local:
+```bash
+# Install
+uv sync          # or: pip install -e .
 
-1. Parse Markdown nodes with YAML frontmatter.
-2. Validate required metadata and body hygiene.
-3. Build a dependency DAG from `uses`.
-4. Emit `graph.json`.
-5. Generate a small static website from the parsed nodes.
+# Validate the knowledge base
+python -m tools.knowledge.check docs/knowledge
 
-Semantic review and Lean generation can be layered on top after the deterministic core exists.
+# Validate with Lean reference prechecks
+python -m tools.knowledge.check docs/knowledge --lean-root path/to/lean/project
+
+# Generate the static site
+python -m tools.knowledge.publish docs/knowledge
+
+# Index Lean declarations
+python -m tools.knowledge.lean_index path/to/lean/project
+
+# Admit a staged node
+python -m tools.knowledge.admit docs/knowledge/staged/node.md docs/knowledge
+
+# Run tests
+uv run --with pytest --with pytest-cov python -m pytest --cov=tools
+```
+
+## Project Structure
+
+```text
+tools/knowledge/
+  models.py       # Node, LeanRef, Source, Verification dataclasses
+  parser.py       # YAML frontmatter + Markdown body parser
+  validator.py    # Schema validation (admitted and staged profiles)
+  graph.py        # DAG builder with cycle detection and topological sort
+  export.py       # Deterministic graph.json generator
+  check.py        # CLI: structural checks with optional Lean prechecks
+  publish.py      # Static HTML site generator (Jinja2, MathJax, Cytoscape.js)
+  lean_index.py   # Lean 4 declaration extractor
+  lean_check.py   # Mechanical Lean reference prechecks
+  admit.py        # Staged-to-admitted workflow with review validation
+
+skills/           # Agent prompt templates and report schemas
+  mdblueprint-source-extraction/
+  mdblueprint-node-review/
+  mdblueprint-lean-generation/
+  mdblueprint-alignment-review/
+  mdblueprint-node-author/
+  mdblueprint-publish/
+
+docs/knowledge/
+  nodes/          # Admitted knowledge nodes (durable truth)
+  staged/         # Candidate nodes awaiting review
+  reviews/        # Verifier and referee reports
+  requests/       # Proposed new nodes
+```
+
+## Status
+
+All four implementation phases are complete:
+
+1. **Deterministic core** — parser, validator, DAG, graph.json, static site
+2. **Lean integration** — declaration extractor, reference prechecks, sorry detection
+3. **Agent contracts** — prompt templates and report schemas for 6 agent roles
+4. **Admission workflow** — staged-to-admitted with generality gate and review validation
+
+91 tests, 89% coverage.
