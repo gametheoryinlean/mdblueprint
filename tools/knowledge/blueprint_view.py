@@ -53,7 +53,7 @@ def display_label(node_id: str) -> str:
 
 
 def html_id(node_id: str) -> str:
-    safe = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "-" for ch in node_id)
+    safe = "".join(ch if ch.isalnum() or ch == "_" else f"-{ord(ch):x}-" for ch in node_id)
     return f"node-{safe}"
 
 

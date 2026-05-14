@@ -24,7 +24,11 @@ def test_display_label_uses_last_id_component():
 
 
 def test_html_id_is_stable_and_selector_safe():
-    assert html_id("strategic_games.dominant_implies_nash") == "node-strategic_games-dominant_implies_nash"
+    assert html_id("strategic_games.dominant_implies_nash") == "node-strategic_games-2e-dominant_implies_nash"
+
+
+def test_html_id_distinguishes_different_punctuation():
+    assert html_id("topic.a-b") != html_id("topic.a.b")
 
 
 def test_dot_quote_escapes_quotes_backslashes_and_newlines():

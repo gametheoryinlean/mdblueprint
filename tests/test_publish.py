@@ -91,7 +91,7 @@ class TestPublish:
         graph_js = (site / "graph.js").read_text()
 
         assert "dep-modal-container" in graph_page
-        assert "node-strategic_games-strategic_game-modal" in graph_page
+        assert "node-strategic_games-2e-strategic_game-modal" in graph_page
         assert "Lean declarations" in graph_page
         assert "showGraphModalElement(mapped)" in graph_js
 
