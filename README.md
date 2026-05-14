@@ -288,7 +288,7 @@ The source file remains plain Markdown; proof folding is a presentation-layer fe
 
 ## AI And Agent Instructions
 
-AI agents are welcome in this repository, but they must preserve the source/build boundary.
+AI agents are welcome in this repository, but they must preserve the source/build boundary. The authoritative, detailed version is [docs/agent-contracts.md](docs/agent-contracts.md). This README repeats the operational contract so an agent can start safely from this file alone.
 
 Before changing anything, an agent should read:
 
@@ -296,7 +296,36 @@ Before changing anything, an agent should read:
 - [docs/agent-contracts.md](docs/agent-contracts.md)
 - [docs/publisher-and-dag.md](docs/publisher-and-dag.md)
 
-### Agents May
+### Universal Agent Contract
+
+Every agent must state or infer these fields before it writes files:
+
+- role: one of the contracts below;
+- inputs: exact files, source excerpts, Lean modules, or command outputs used;
+- outputs: exact files to write or patches to propose;
+- allowed write locations;
+- forbidden write locations;
+- decision vocabulary;
+- uncertainty behavior;
+- whether it may propose new nodes.
+
+Every report-like output must start with machine-readable metadata:
+
+```yaml
+agent: source-to-md | statement-verifier | proof-verifier | lean-generator | alignment-verifier | admission-referee
+target:
+  node_id: optional.node.id
+  path: docs/knowledge/staged/example.md
+decision: one value from this agent's decision vocabulary
+created_at: "ISO-8601 timestamp"
+inputs:
+  - path/or/source/identifier
+summary: one short sentence
+```
+
+The report body may explain reasoning in prose, but the `decision` field must remain machine-readable.
+
+### Global Permissions
 
 - create staged candidate nodes under `docs/knowledge/staged/`;
 - write review reports under `docs/knowledge/reviews/`;
@@ -305,7 +334,7 @@ Before changing anything, an agent should read:
 - edit admitted nodes only when the human explicitly asks for that exact edit;
 - run check, publish, and test commands.
 
-### Agents Must Not
+### Global Prohibitions
 
 - generate final `graph.json` by hand;
 - generate final HTML pages by hand;
@@ -316,6 +345,334 @@ Before changing anything, an agent should read:
 - put process notes, reviewer comments, or implementation plans in a node body;
 - silently broaden or weaken a mathematical statement;
 - treat Lean reference existence as semantic alignment.
+
+### Source-to-MD Contract
+
+Purpose: convert PDFs, books, papers, TeX, or notes into staged Markdown candidate nodes.
+
+Inputs:
+
+- source files or source excerpts;
+- source manifest or citation information;
+- target topic directory;
+- existing admitted and staged node index.
+
+Allowed writes:
+
+- `docs/knowledge/staged/**/*.md`;
+- uncertainty or extraction notes under `docs/knowledge/reviews/`.
+
+Forbidden writes:
+
+- `docs/knowledge/nodes/**`;
+- generated site files;
+- `graph.json`.
+
+Decision vocabulary:
+
+```text
+extracted
+partial
+uncertain
+blocked
+```
+
+Rules:
+
+- search existing nodes before creating a candidate;
+- preserve source locators in `source.artifacts` and `source.spans`;
+- extract one reusable mathematical object per node;
+- use `status: staged` or a `needs_*` status;
+- do not invent dependencies beyond source evidence or existing node ids;
+- if the source statement is narrower than the likely reusable form, keep the source-local claim and ask the generality question in a report.
+
+May propose new nodes: yes, but only as staged candidates with source locators.
+
+### Statement Or Definition Verifier Contract
+
+Purpose: check that a staged or admitted statement/definition is mathematically correct, well-scoped, and general enough.
+
+Inputs:
+
+- target node;
+- dependencies named by `uses`;
+- source spans when available;
+- project notation conventions when available.
+
+Allowed writes:
+
+- review reports under `docs/knowledge/reviews/`;
+- optional revision or missing-dependency requests under `docs/knowledge/requests/`.
+
+Forbidden writes:
+
+- admitted nodes;
+- generated site files;
+- final graph artifacts.
+
+Decision vocabulary:
+
+```text
+accepted
+needs_revision
+rejected
+```
+
+Rules:
+
+- verify assumptions, notation, dependency adequacy, and generality;
+- ask: "What is the most general useful form of this statement, and is the current form acceptable?";
+- do not silently rewrite admitted truth;
+- if a dependency is missing or a statement should be split, write a request rather than directly creating admitted content.
+
+May propose new nodes: only through `docs/knowledge/requests/`.
+
+### Proof Verifier Contract
+
+Purpose: check that proof text or a proof sketch proves the stated result.
+
+Inputs:
+
+- node statement;
+- proof body or proof sketch;
+- dependencies named by `uses`;
+- relevant source spans or Lean declarations if available.
+
+Allowed writes:
+
+- proof review reports under `docs/knowledge/reviews/`;
+- optional missing-lemma requests under `docs/knowledge/requests/`.
+
+Forbidden writes:
+
+- admitted nodes;
+- generated graph or site files;
+- silent proof repairs without a report.
+
+Decision vocabulary:
+
+```text
+accepted
+gap
+critical
+```
+
+Rules:
+
+- identify exact gaps, hidden assumptions, circular reasoning, or misuse of prior nodes;
+- distinguish a local proof gap from a reusable missing lemma;
+- write a request for a reusable missing lemma instead of inserting it as admitted truth.
+
+May propose new nodes: only through `docs/knowledge/requests/`.
+
+### MD-to-Lean Generator Contract
+
+Purpose: generate Lean declarations, proof skeletons, or Lean patch proposals from admitted Markdown nodes.
+
+Inputs:
+
+- admitted target node;
+- dependency nodes;
+- Lean declaration index;
+- existing Lean modules.
+
+Allowed writes:
+
+- Lean patch proposals or generated Lean files when the human asks for code work;
+- `docs/knowledge/requests/` for missing auxiliary mathematical nodes;
+- optional review notes explaining formalization choices.
+
+Forbidden writes:
+
+- admitted Markdown nodes without a human request;
+- final graph or site files;
+- weakened Markdown statements without a review note.
+
+Decision vocabulary:
+
+```text
+generated
+blocked_by_missing_node
+blocked_by_missing_definition
+blocked_by_lean_error
+request_human
+```
+
+Rules:
+
+- generate Lean against admitted Markdown, not staged truth;
+- preserve the mathematical statement unless a report explicitly explains the mismatch;
+- propose auxiliary mathematical content only through `docs/knowledge/requests/`;
+- explain why a proposed auxiliary result should be a reusable node rather than a local Lean lemma.
+
+May propose new nodes: yes, only through `docs/knowledge/requests/`.
+
+### External-Theorem Admission Contract
+
+Purpose: admit a Markdown node for a theorem already proved in Lean, such as Mathlib or another Lean library result.
+
+Inputs:
+
+- Lean module and declaration names;
+- Markdown statement;
+- source or Lean locator;
+- alignment review evidence.
+
+Allowed writes:
+
+- admitted `external-theorem` node only when the workflow explicitly chooses the external-theorem direct-admission path;
+- alignment and admission reports under `docs/knowledge/reviews/`.
+
+Forbidden writes:
+
+- generated graph or site files;
+- external-theorem nodes without Lean module and declaration references.
+
+Decision vocabulary:
+
+```text
+admit_external
+needs_alignment
+needs_statement_review
+needs_human_decision
+reject
+```
+
+Required node fields:
+
+- `kind: external-theorem`;
+- `lean.modules`;
+- `lean.declarations`;
+- `verification.statement`;
+- `verification.alignment`;
+- completed `generality` gate.
+
+Required checks:
+
+- `lean.modules` and `lean.declarations` exist mechanically;
+- statement verifier decision is `accepted`;
+- alignment verifier decision is `aligned` or an explicitly acceptable `lean_stronger`;
+- no proof verifier is required when the proof already exists in Lean.
+
+Forbidden behavior:
+
+- do not use external theorem admission to bypass statement review;
+- do not claim semantic alignment from declaration existence alone.
+
+### MD-Lean Alignment Verifier Contract
+
+Purpose: decide whether a Lean declaration semantically matches a Markdown node.
+
+Inputs:
+
+- Markdown node and dependencies;
+- Lean module and declaration references;
+- Lean declaration index or signatures;
+- mechanical precheck output.
+
+Allowed writes:
+
+- alignment reports under `docs/knowledge/reviews/`.
+
+Forbidden writes:
+
+- final status updates;
+- admitted node rewrites;
+- generated graph or site files.
+
+Decision vocabulary:
+
+```text
+aligned
+lean_stronger
+lean_weaker
+lean_special_case
+lean_extra_hypotheses
+lean_missing_hypotheses
+definition_mismatch
+uncertain
+```
+
+Rules:
+
+- run or consume deterministic Lean reference prechecks first;
+- report extra hypotheses, missing hypotheses, weaker conclusions, stronger conclusions, specialization, or definition mismatch;
+- do not treat Python prechecks as semantic proof;
+- return an alignment report, not an automatic truth update.
+
+May propose new nodes: no. It may request human review when a mismatch reveals missing mathematical content.
+
+### Admission Referee Contract
+
+Purpose: decide whether a staged node and its evidence justify admission.
+
+Inputs:
+
+- staged candidate node;
+- statement or definition verifier report;
+- proof verifier report when proof content exists;
+- generality gate answer;
+- deterministic Python check report.
+
+Allowed writes:
+
+- admission report under `docs/knowledge/reviews/`;
+- controlled move into `docs/knowledge/nodes/` only when the workflow explicitly approves admission.
+
+Forbidden writes:
+
+- direct mathematical rewriting without a report;
+- admission when dependencies are missing or cyclic;
+- admission without a completed generality gate;
+- silent resolution of conflicting reports.
+
+Decision vocabulary:
+
+```text
+admit
+needs_revision
+needs_human_decision
+reject
+```
+
+Rules:
+
+- if reports disagree, return `needs_human_decision`;
+- if checks fail, return `needs_revision` or `reject`;
+- when approved, use the admission workflow rather than manually copying files:
+
+```bash
+uv run python -m tools.knowledge.admit docs/knowledge/staged/example.md docs/knowledge
+```
+
+May propose new nodes: no.
+
+### Request File Contract
+
+Any agent that wants new mathematical content but is not allowed to create an admitted node must write a request under `docs/knowledge/requests/`.
+
+Required shape:
+
+```yaml
+request_id: req-2026-001
+kind: new-node | split-node | generalize-node | missing-dependency | lean-bridge
+requested_by: <agent name>
+created_at: "ISO-8601 timestamp"
+target_kind: <node kind>
+proposed_id: <candidate stable id>
+proposed_title: <one-line title>
+summary: <one sentence>
+reason: |
+  Why existing nodes are insufficient.
+proposed_statement: |
+  The most general useful form of the proposed content.
+proposed_uses:
+  - existing.node.id
+source_justification: |
+  Source or mathematical reason this should be a reusable node.
+```
+
+Request files are proposals. They are not admitted mathematical truth.
 
 ### Agent Checklist For Node Work
 
