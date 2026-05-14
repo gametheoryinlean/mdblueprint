@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} — mdblueprint</title>
+  <link rel="stylesheet" href="{{ root }}style.css">
+  <script defer>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <nav class="sidebar">
+    <a class="logo" href="{{ root }}index.html">mdblueprint</a>
+    <ul class="topic-list">
+    {% for topic in topics %}
+      <li><a href="{{ root }}{{ topic }}/index.html">{{ topic }}</a></li>
+    {% endfor %}
+    </ul>
+    <a class="nav-link" href="{{ root }}graph.html">DAG View</a>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

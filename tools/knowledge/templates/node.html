@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<article class="node-page">
+  <header>
+    <h1>{{ node.title }}</h1>
+    <div class="meta">
+      <span class="badge kind-{{ node.kind }}">{{ node.kind }}</span>
+      <span class="badge status-{{ node.status }}">{{ node.status }}</span>
+      <code class="node-id">{{ node.id }}</code>
+    </div>
+  </header>
+
+  {% if deps %}
+  <section class="deps">
+    <h2>Dependencies</h2>
+    <ul>
+    {% for dep in deps %}
+      <li><a href="{{ dep.href }}">{{ dep.id }}</a> — {{ dep.title }}</li>
+    {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if dependents %}
+  <section class="deps">
+    <h2>Used by</h2>
+    <ul>
+    {% for dep in dependents %}
+      <li><a href="{{ dep.href }}">{{ dep.id }}</a> — {{ dep.title }}</li>
+    {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if node.lean %}
+  <section class="lean-info">
+    <h2>Lean</h2>
+    <ul>
+    {% for decl in node.lean.declarations %}
+      <li><code>{{ decl }}</code></li>
+    {% endfor %}
+    </ul>
+    <p class="lean-modules">Modules: {% for m in node.lean.modules %}<code>{{ m }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  </section>
+  {% endif %}
+
+  <section class="body">
+    {{ body_html }}
+  </section>
+
+  {% if node.tags %}
+  <footer class="tags">
+    {% for tag in node.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+  </footer>
+  {% endif %}
+</article>
+{% endblock %}
