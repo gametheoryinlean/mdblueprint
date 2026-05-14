@@ -1,15 +1,20 @@
 """Comprehensive structural checks for knowledge nodes."""
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
 from tools.knowledge.graph import build_graph
-from tools.knowledge.parser import scan_directory, parse_file
+from tools.knowledge.lean_check import check_lean_references
+from tools.knowledge.lean_index import index_lean_project
+from tools.knowledge.parser import scan_directory
 from tools.knowledge.validator import Diagnostic, validate_node
 
 
-def check_knowledge_base(root: Path) -> list[Diagnostic]:
+def check_knowledge_base(
+    root: Path, *, lean_root: Path | None = None
+) -> list[Diagnostic]:
     diags: list[Diagnostic] = []
     nodes_dir = root / "nodes"
     staged_dir = root / "staged"
@@ -17,25 +22,41 @@ def check_knowledge_base(root: Path) -> list[Diagnostic]:
 
     if nodes_dir.exists():
         for node in scan_directory(nodes_dir):
-            node_diags = validate_node(node, is_staged_dir=False)
-            diags.extend(node_diags)
+            diags.extend(validate_node(node, is_staged_dir=False))
             all_nodes.append(node)
 
     if staged_dir.exists():
         for node in scan_directory(staged_dir):
-            node_diags = validate_node(node, is_staged_dir=True)
-            diags.extend(node_diags)
+            diags.extend(validate_node(node, is_staged_dir=True))
             all_nodes.append(node)
 
     _, graph_diags = build_graph(all_nodes)
     diags.extend(graph_diags)
 
+    if lean_root is not None and lean_root.is_dir():
+        idx = index_lean_project(lean_root)
+        diags.extend(check_lean_references(all_nodes, idx))
+
     return diags
 
 
 def main() -> None:
-    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("docs/knowledge")
-    diags = check_knowledge_base(root)
+    parser = argparse.ArgumentParser(
+        description="Structural checks for a Markdown knowledge base",
+    )
+    parser.add_argument(
+        "root", nargs="?", default="docs/knowledge",
+        help="path to the knowledge base root (default: docs/knowledge)",
+    )
+    parser.add_argument(
+        "--lean-root", default=None,
+        help="path to a Lean project root for reference prechecks",
+    )
+    args = parser.parse_args()
+
+    root = Path(args.root)
+    lean_root = Path(args.lean_root) if args.lean_root else None
+    diags = check_knowledge_base(root, lean_root=lean_root)
 
     errors = [d for d in diags if d.level == "error"]
     warnings = [d for d in diags if d.level == "warning"]

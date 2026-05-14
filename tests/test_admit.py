@@ -1,4 +1,6 @@
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -119,3 +121,49 @@ class TestAdmitPlacement:
         result = admit_node(staged, kb, require_reviews=False)
         assert result.success
         assert "strategic_games" in str(result.target_path)
+
+
+class TestAdmitCLI:
+    def test_cli_no_args_shows_usage(self):
+        result = subprocess.run(
+            [sys.executable, "-m", "tools.knowledge.admit"],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 1
+        assert "Usage" in result.stdout
+
+    def test_cli_successful_admission(self, tmp_path):
+        kb = _setup_test_knowledge(tmp_path)
+        staged = kb / "staged" / "mixed_strategy.md"
+
+        text = staged.read_text()
+        text = text.replace(
+            "tags:",
+            "generality:\n  reviewed: true\n  prompt: test\n  verdict: ok\ntags:",
+        )
+        staged.write_text(text)
+
+        reviews_dir = kb / "reviews"
+        reviews_dir.mkdir(exist_ok=True)
+        (reviews_dir / "review.md").write_text(
+            "---\nagent: statement-verifier\ntarget:\n  node_id: strategic_games.mixed_strategy\n"
+            "decision: accepted\n---\nOK.\n"
+        )
+
+        result = subprocess.run(
+            [sys.executable, "-m", "tools.knowledge.admit", str(staged), str(kb)],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0
+        assert "Admitted" in result.stdout
+
+    def test_cli_blocked_admission(self, tmp_path):
+        kb = _setup_test_knowledge(tmp_path)
+        staged = kb / "staged" / "mixed_strategy.md"
+
+        result = subprocess.run(
+            [sys.executable, "-m", "tools.knowledge.admit", str(staged), str(kb)],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 1
+        assert "blocked" in result.stdout.lower()
