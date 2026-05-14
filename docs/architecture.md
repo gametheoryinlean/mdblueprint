@@ -108,7 +108,15 @@ Admission invariants:
 
 ## Generality Gate
 
-Every definition, lemma, proposition, theorem, and external theorem must pass a generality gate before admission.
+The following kinds must pass a generality gate before admission:
+
+```text
+definition
+lemma
+proposition
+theorem
+external-theorem
+```
 
 The reviewer must explicitly answer:
 
@@ -120,7 +128,21 @@ What assumptions might be removable?
 What hypotheses are only artifacts of the source presentation?
 ```
 
-If the answer is unclear after serious review, the node remains staged or receives `needs_statement_review`.
+If the answer is unclear after serious review, the node remains staged or receives
+`needs_statement_review` (for theorem/lemma kinds) or `needs_definition_review`
+(for definition kinds).
+
+The following kinds are exempt from the generality gate:
+
+```text
+concept       — organising ideas rather than mathematical claims; no gate required
+example       — intentionally specific by design; no gate required
+proof-plan    — a sketch or plan, not a complete mathematical claim; no gate required
+task          — a work item, not a mathematical claim; no gate required
+```
+
+Exempt kinds may still receive an informal generality note if the reviewer judges it
+useful, but this note does not block admission.
 
 ## Implementation Phases
 
