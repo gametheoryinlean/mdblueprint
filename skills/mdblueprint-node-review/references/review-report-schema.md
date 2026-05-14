@@ -49,6 +49,7 @@ created_at: "ISO-8601"
 inputs:
   - <statement verifier report>
   - <proof verifier report if applicable>
+  - <generality gate answer>
   - <python check output>
 summary: <one sentence>
 ```

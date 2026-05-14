@@ -11,7 +11,7 @@
   </header>
 
   {% if deps %}
-  <section class="deps">
+  <section class="deps deps-required">
     <h2>Dependencies</h2>
     <ul>
     {% for dep in deps %}
@@ -22,7 +22,7 @@
   {% endif %}
 
   {% if dependents %}
-  <section class="deps">
+  <section class="deps deps-used-by">
     <h2>Used by</h2>
     <ul>
     {% for dep in dependents %}

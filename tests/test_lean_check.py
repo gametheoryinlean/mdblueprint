@@ -4,7 +4,7 @@ from tools.knowledge.lean_check import check_lean_references
 from tools.knowledge.lean_index import index_lean_project
 from tools.knowledge.models import LeanRef, Node
 
-LEAN_FIXTURES = Path("tests/fixtures/lean")
+LEAN_FIXTURES = Path(__file__).parent / "fixtures" / "lean"
 
 
 def _make_idx():

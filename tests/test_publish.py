@@ -3,7 +3,7 @@ from pathlib import Path
 
 from tools.knowledge.publish import publish
 
-KNOWLEDGE_ROOT = Path("docs/knowledge")
+KNOWLEDGE_ROOT = Path(__file__).parent.parent / "docs" / "knowledge"
 
 
 class TestPublish:

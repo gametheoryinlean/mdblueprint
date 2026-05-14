@@ -2,7 +2,7 @@ from pathlib import Path
 
 from tools.knowledge.lean_index import index_lean_project
 
-LEAN_FIXTURES = Path("tests/fixtures/lean")
+LEAN_FIXTURES = Path(__file__).parent / "fixtures" / "lean"
 
 
 class TestLeanIndex:
@@ -30,6 +30,11 @@ class TestLeanIndex:
         assert "StrategicGame.IsNashEquilibrium.of_dominant" in idx.declarations
         decl = idx.declarations["StrategicGame.IsNashEquilibrium.of_dominant"]
         assert decl.kind == "theorem"
+
+    def test_kind_is_canonical(self):
+        idx = index_lean_project(LEAN_FIXTURES)
+        for decl in idx.declarations.values():
+            assert " " not in decl.kind, f"{decl.qualified_name} has non-canonical kind {decl.kind!r}"
 
     def test_sorry_detection(self):
         idx = index_lean_project(LEAN_FIXTURES)

@@ -9,8 +9,9 @@ import pytest
 
 from tools.knowledge.check import check_knowledge_base
 
-KNOWLEDGE_ROOT = Path("docs/knowledge")
-LEAN_FIXTURES = Path("tests/fixtures/lean")
+_TESTS_DIR = Path(__file__).parent
+KNOWLEDGE_ROOT = _TESTS_DIR.parent / "docs" / "knowledge"
+LEAN_FIXTURES = _TESTS_DIR / "fixtures" / "lean"
 
 
 class TestCheckKnowledgeBase:

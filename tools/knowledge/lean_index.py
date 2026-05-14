@@ -12,13 +12,23 @@ DECL_KEYWORDS = re.compile(
     r"noncomputable def|noncomputable instance|"
     r"protected def|protected theorem|protected lemma|"
     r"private def|private theorem|private lemma)\s+",
-    re.MULTILINE,
 )
+
+_CANONICAL_KIND: dict[str, str] = {
+    "noncomputable def": "def",
+    "noncomputable instance": "instance",
+    "protected def": "def",
+    "protected theorem": "theorem",
+    "protected lemma": "lemma",
+    "private def": "def",
+    "private theorem": "theorem",
+    "private lemma": "lemma",
+}
 
 SORRY_RE = re.compile(r"\bsorry\b")
 ADMIT_RE = re.compile(r"\badmit\b")
-NAMESPACE_RE = re.compile(r"^(?:namespace|section)\s+(\S+)", re.MULTILINE)
-END_NAMED_RE = re.compile(r"^end\s+(\S+)", re.MULTILINE)
+NAMESPACE_RE = re.compile(r"^(?:namespace|section)\s+(\S+)")
+END_NAMED_RE = re.compile(r"^end\s+(\S+)")
 END_BARE_RE = re.compile(r"^end\s*$")
 
 
@@ -37,6 +47,7 @@ class LeanIndex:
     declarations: dict[str, LeanDeclaration] = field(default_factory=dict)
     sorry_decls: list[str] = field(default_factory=list)
     modules: dict[str, Path] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
 
 
 def _extract_decl_name(line: str) -> tuple[str, str] | None:
@@ -44,19 +55,15 @@ def _extract_decl_name(line: str) -> tuple[str, str] | None:
     if m is None:
         return None
     keyword = m.group(1)
+    canonical = _CANONICAL_KIND.get(keyword, keyword)
     rest = line.lstrip()[m.end():]
-    # Extract the name (up to space, colon, open brace/paren, or where)
-    name_match = re.match(r"[{(\[].*?[})\]]\s*", rest)
-    if name_match:
-        rest = rest[name_match.end():]
     name_match = re.match(r"(\S+)", rest)
     if name_match is None:
         return None
     name = name_match.group(1).rstrip(":")
-    # Strip implicit parameters from the name
     if "{" in name or "(" in name or "[" in name:
         return None
-    return keyword, name
+    return canonical, name
 
 
 def _module_name(file: Path, lean_root: Path) -> str:
@@ -122,6 +129,12 @@ def index_lean_project(lean_root: Path) -> LeanIndex:
                 line=lineno,
                 has_sorry=has_sorry,
             )
+            if qualified in idx.declarations:
+                prev = idx.declarations[qualified]
+                idx.warnings.append(
+                    f"duplicate declaration {qualified!r}: "
+                    f"{prev.file}:{prev.line} and {lean_file}:{lineno}"
+                )
             idx.declarations[qualified] = decl
             if has_sorry:
                 idx.sorry_decls.append(qualified)

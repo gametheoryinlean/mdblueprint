@@ -7,7 +7,7 @@ import pytest
 
 from tools.knowledge.admit import admit_node
 
-KNOWLEDGE_ROOT = Path("docs/knowledge")
+KNOWLEDGE_ROOT = Path(__file__).parent.parent / "docs" / "knowledge"
 
 
 def _setup_test_knowledge(tmp_path):

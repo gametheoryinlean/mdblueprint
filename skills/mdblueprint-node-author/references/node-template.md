@@ -22,10 +22,9 @@ source:
       locator: "<locator string>"
       format: <book-page | section | arxiv-theorem | lean-location | url>
       note: "<optional note>"
-verification:
-  statement: <accepted | needs_revision | rejected>  # for theorem kinds
-  # OR
-  definition: <accepted | needs_revision | rejected>  # for definition kinds
+verification:                          # pick ONE of statement/definition:
+  statement: <accepted | needs_revision | rejected>   # theorem, lemma, proposition, external-theorem
+  definition: <accepted | needs_revision | rejected>  # definition
   proof: <accepted | gap | critical | not_applicable>
   alignment: <aligned | pending | mismatch>
 generality:
