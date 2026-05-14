@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
 from tools.knowledge.graph import KnowledgeGraph
 
 
@@ -43,3 +44,7 @@ def write_graph_json(g: KnowledgeGraph, output: Path) -> None:
     data = export_graph_json(g)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def export_blueprint_dot(g: KnowledgeGraph) -> str:
+    return graph_to_dot(build_blueprint_graph(g))

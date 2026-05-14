@@ -22,10 +22,11 @@
       <li><a href="{{ root }}{{ topic }}/index.html">{{ topic }}</a></li>
     {% endfor %}
     </ul>
-    <a class="nav-link" href="{{ root }}graph.html">DAG View</a>
+    <a class="nav-link" href="{{ root }}dep_graph_document.html">Dependency graph</a>
   </nav>
   <main>
     {% block content %}{% endblock %}
   </main>
+  <script src="{{ root }}graph.js"></script>
 </body>
 </html>

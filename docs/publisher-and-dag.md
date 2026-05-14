@@ -10,7 +10,7 @@ docs/knowledge/nodes/**/*.md
   -> Python schema validator
   -> Python DAG builder from uses
   -> Python static-site generator
-  -> graph.json, index.html, node pages
+  -> graph.json, DOT, index.html, graph page, node pages
 ```
 
 LLMs must not generate:
@@ -30,9 +30,20 @@ The generated site should include:
 - dependency and reverse-dependency lists;
 - status badges from YAML;
 - Lean declaration links or names from YAML;
-- an interactive DAG view backed by Python-generated `graph.json`.
+- an interactive dependency graph backed by Python-generated DOT.
 
-The frontend can use JavaScript to render the graph, but the graph data must come from Python.
+The frontend can use JavaScript to render the graph, but the graph data and presentation semantics must come from Python.
+
+## Leanblueprint-Style Output
+
+The generated site intentionally follows leanblueprint's presentation style without adopting its TeX/plasTeX source model. Markdown nodes remain the durable source, and Python owns the graph and formalization semantics.
+
+- Python emits all graph semantics and DOT attributes.
+- Browser JavaScript renders the DOT and handles modal interaction only.
+- Dependencies display as `dependency -> dependent`, even though internal graph edges store `dependent -> dependency`.
+- Definitions and concepts use box nodes; theorem-like nodes use ellipse nodes; examples and tasks use distinct shapes.
+- Status and formalization fields determine border and fill colors: not-ready nodes are orange, ready admitted nodes are blue, formalized statements are green-bordered, formalized definitions are light green, and fully proved theorem-like nodes are dark green.
+- `dep_graph_document.html` is the leanblueprint-style graph page; `graph.html` is preserved as a compatibility alias.
 
 ## Lean Compatibility
 

@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
 from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
 from tools.knowledge.export import export_graph_json, write_graph_json
@@ -63,3 +64,28 @@ class TestExportGraphJson:
         data = export_graph_json(g)
         sg = next(n for n in data["nodes"] if n["id"] == "strategic_games.strategic_game")
         assert "strategic_games.strategy_profile" in sg.get("used_by", [])
+
+    def test_blueprint_dot_uses_dependency_to_dependent_direction(self):
+        nodes = scan_directory(NODES_DIR)
+        g, _ = build_graph(nodes)
+        view = build_blueprint_graph(g)
+        dot = graph_to_dot(view)
+
+        assert '"strategic_games.strategic_game" -> "strategic_games.strategy_profile"' in dot
+
+    def test_blueprint_dot_uses_leanblueprint_shapes(self):
+        nodes = scan_directory(NODES_DIR)
+        g, _ = build_graph(nodes)
+        view = build_blueprint_graph(g)
+        dot = graph_to_dot(view)
+
+        assert 'shape="box"' in dot
+        assert 'shape="ellipse"' in dot
+
+    def test_existing_graph_json_shape_is_unchanged(self):
+        nodes = scan_directory(NODES_DIR)
+        g, _ = build_graph(nodes)
+        data = export_graph_json(g)
+
+        assert set(data) == {"nodes", "edges"}
+        assert {"from": "strategic_games.strategy_profile", "to": "strategic_games.strategic_game"} in data["edges"]

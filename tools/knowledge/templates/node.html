@@ -1,52 +1,70 @@
 {% extends "base.html" %}
 {% block content %}
-<article class="node-page">
-  <header>
-    <h1>{{ node.title }}</h1>
-    <div class="meta">
+<article class="{{ node.kind }}_thmwrapper theorem-style-{{ node.kind }} node-page" id="{{ node_view.html_id }}">
+  <header class="{{ node.kind }}_thmheading thm-heading">
+    <span class="{{ node.kind }}_thmcaption thm-caption">{{ node_view.caption }}</span>
+    <span class="{{ node.kind }}_thmlabel thm-label">{{ node_view.label }}</span>
+    <span class="{{ node.kind }}_thmtitle thm-title">{{ node.title }}</span>
+    <div class="thm_header_extras">
+      {% if node.status in ["formalized", "proved"] %}<span class="checkmark">✓</span>{% endif %}
       <span class="badge kind-{{ node.kind }}">{{ node.kind }}</span>
       <span class="badge status-{{ node.status }}">{{ node.status }}</span>
       <code class="node-id">{{ node.id }}</code>
     </div>
+    <div class="thm_header_hidden_extras">
+      <a class="permalink" href="#{{ node_view.html_id }}">#</a>
+      {% if deps %}
+      <button class="modal-trigger" type="button" data-modal-target="uses-modal">Uses</button>
+      {% endif %}
+      {% if node.lean %}
+      <button class="modal-trigger lean" type="button" data-modal-target="lean-modal">L∃∀N</button>
+      {% endif %}
+    </div>
   </header>
 
   {% if deps %}
-  <section class="deps deps-required">
-    <h2>Dependencies</h2>
-    <ul>
-    {% for dep in deps %}
-      <li><a href="{{ dep.href }}">{{ dep.id }}</a> — {{ dep.title }}</li>
-    {% endfor %}
-    </ul>
-  </section>
+  <div class="modal-container" id="uses-modal" hidden>
+    <div class="modal-content">
+      <header><h1>Uses</h1><button class="closebtn" type="button">x</button></header>
+      <ul class="uses">
+        {% for dep in deps %}
+        <li><a href="{{ dep.href }}">{{ dep.id }}</a> — {{ dep.title }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
   {% endif %}
+
+  {% if node.lean %}
+  <div class="modal-container" id="lean-modal" hidden>
+    <div class="modal-content">
+      <header><h1>Lean declarations</h1><button class="closebtn" type="button">x</button></header>
+      <ul class="uses">
+        {% for decl in node.lean.declarations %}
+        <li><code>{{ decl }}</code></li>
+        {% endfor %}
+      </ul>
+      {% if node.lean.modules %}
+      <p class="lean-modules">Modules: {% for m in node.lean.modules %}<code>{{ m }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="{{ node.kind }}_thmcontent thm-content body">
+    {{ body_html | safe }}
+  </div>
 
   {% if dependents %}
   <section class="deps deps-used-by">
     <h2>Used by</h2>
     <ul>
-    {% for dep in dependents %}
+      {% for dep in dependents %}
       <li><a href="{{ dep.href }}">{{ dep.id }}</a> — {{ dep.title }}</li>
-    {% endfor %}
+      {% endfor %}
     </ul>
   </section>
   {% endif %}
-
-  {% if node.lean %}
-  <section class="lean-info">
-    <h2>Lean</h2>
-    <ul>
-    {% for decl in node.lean.declarations %}
-      <li><code>{{ decl }}</code></li>
-    {% endfor %}
-    </ul>
-    <p class="lean-modules">Modules: {% for m in node.lean.modules %}<code>{{ m }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
-  </section>
-  {% endif %}
-
-  <section class="body">
-    {{ body_html | safe }}
-  </section>
 
   {% if node.tags %}
   <footer class="tags">

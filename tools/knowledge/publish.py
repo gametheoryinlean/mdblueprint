@@ -9,6 +9,7 @@ from pathlib import Path
 import markdown
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
 from tools.knowledge.export import write_graph_json
 from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
@@ -25,6 +26,13 @@ def _node_href(node_id: str, from_topic: str | None = None) -> str:
     return f"../{topic}/{filename}" if from_topic else f"{topic}/{filename}"
 
 
+def _node_href_from_root(node_id: str) -> str:
+    parts = node_id.split(".")
+    topic = parts[0] if len(parts) > 1 else "misc"
+    filename = node_id.replace(".", "_") + ".html"
+    return f"{topic}/{filename}"
+
+
 def publish(knowledge_root: Path, output_dir: Path) -> None:
     nodes_dir = knowledge_root / "nodes"
     staged_dir = knowledge_root / "staged"
@@ -36,11 +44,15 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
         all_nodes.extend(scan_directory(staged_dir))
 
     g, _ = build_graph(all_nodes)
+    blueprint_graph = build_blueprint_graph(g)
+    blueprint_dot = graph_to_dot(blueprint_graph)
+    blueprint_nodes = {view.id: view for view in blueprint_graph.nodes}
     md = markdown.Markdown(extensions=["tables"])
     env = Environment(
         loader=FileSystemLoader(TEMPLATE_DIR),
         autoescape=select_autoescape(["html"]),
     )
+    env.globals["node_href_from_root"] = _node_href_from_root
 
     # Group by topic
     topics: dict[str, list] = defaultdict(list)
@@ -62,9 +74,44 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
 
     # Copy CSS
     shutil.copy(TEMPLATE_DIR / "style.css", output_dir / "style.css")
+    shutil.copy(TEMPLATE_DIR / "graph.js", output_dir / "graph.js")
 
     # Write graph.json
     write_graph_json(g, output_dir / "graph.json")
+
+    node_payloads = {}
+    for node in all_nodes:
+        parts = node.id.split(".")
+        topic = parts[0] if len(parts) > 1 else "misc"
+
+        deps = []
+        for dep_id in node.uses:
+            dep_node = g.nodes.get(dep_id)
+            if dep_node:
+                deps.append({
+                    "id": dep_id,
+                    "title": dep_node.title,
+                    "href": _node_href(dep_id, from_topic=topic),
+                })
+
+        dependents = []
+        for rev_id in sorted(g.reverse_edges.get(node.id, [])):
+            rev_node = g.nodes.get(rev_id)
+            if rev_node:
+                dependents.append({
+                    "id": rev_id,
+                    "title": rev_node.title,
+                    "href": _node_href(rev_id, from_topic=topic),
+                })
+
+        md.reset()
+        node_payloads[node.id] = {
+            "node": node,
+            "view": blueprint_nodes[node.id],
+            "body_html": md.convert(node.body),
+            "deps": deps,
+            "dependents": dependents,
+        }
 
     # Index page
     index_nodes = []
@@ -75,6 +122,7 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
             "kind": node.kind,
             "status": node.status,
             "href": _node_href(node.id),
+            "view": blueprint_nodes[node.id],
         })
     tmpl = env.get_template("index.html")
     (output_dir / "index.html").write_text(
@@ -91,8 +139,19 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
 
     # Graph page
     tmpl = env.get_template("graph.html")
+    graph_html = tmpl.render(
+        title="Dependency graph",
+        root="",
+        topics=topic_names,
+        graph_dot=blueprint_dot,
+        graph_nodes=[node_payloads[view.id] for view in blueprint_graph.nodes],
+    )
+    (output_dir / "dep_graph_document.html").write_text(
+        graph_html,
+        encoding="utf-8",
+    )
     (output_dir / "graph.html").write_text(
-        tmpl.render(title="DAG View", root="", topics=topic_names),
+        graph_html,
         encoding="utf-8",
     )
 
@@ -110,6 +169,7 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
                 topics=topic_names,
                 topic=topic,
                 nodes=sorted(topic_nodes, key=lambda n: n.id),
+                node_views=blueprint_nodes,
             ),
             encoding="utf-8",
         )
@@ -117,28 +177,7 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
         # Node pages
         tmpl = env.get_template("node.html")
         for node in topic_nodes:
-            md.reset()
-            body_html = md.convert(node.body)
-
-            deps = []
-            for dep_id in node.uses:
-                dep_node = g.nodes.get(dep_id)
-                if dep_node:
-                    deps.append({
-                        "id": dep_id,
-                        "title": dep_node.title,
-                        "href": _node_href(dep_id, from_topic=topic),
-                    })
-
-            dependents = []
-            for rev_id in sorted(g.reverse_edges.get(node.id, [])):
-                rev_node = g.nodes.get(rev_id)
-                if rev_node:
-                    dependents.append({
-                        "id": rev_id,
-                        "title": rev_node.title,
-                        "href": _node_href(rev_id, from_topic=topic),
-                    })
+            payload = node_payloads[node.id]
 
             filename = node.id.replace(".", "_") + ".html"
             (topic_dir / filename).write_text(
@@ -147,9 +186,10 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
                     root="../",
                     topics=topic_names,
                     node=node,
-                    body_html=body_html,
-                    deps=deps,
-                    dependents=dependents,
+                    node_view=payload["view"],
+                    body_html=payload["body_html"],
+                    deps=payload["deps"],
+                    dependents=payload["dependents"],
                 ),
                 encoding="utf-8",
             )

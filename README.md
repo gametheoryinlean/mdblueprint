@@ -8,7 +8,9 @@ The durable source is a directory of small Markdown nodes:
 docs/knowledge/nodes/**/*.md
 ```
 
-Python tools parse those nodes, validate the dependency DAG, check mechanical Lean references, and generate a blueprint-like static website. LLM agents may extract candidate nodes, review statements and proofs, generate Lean proposals, and judge semantic MD-Lean alignment, but they do not generate the final DAG or website.
+Python tools parse those nodes, validate the dependency DAG, check mechanical Lean references, and generate a leanblueprint-style static website. The publisher keeps Markdown nodes as the durable source and emits theorem/definition wrappers, Uses and Lean declaration modals, and a Graphviz-style dependency graph. It does not use LaTeX, plasTeX, or leanblueprint as the source pipeline.
+
+LLM agents may extract candidate nodes, review statements and proofs, generate Lean proposals, and judge semantic MD-Lean alignment, but they do not generate the final DAG or website.
 
 ## Core Boundary
 
@@ -70,7 +72,8 @@ tools/knowledge/
   graph.py        # DAG builder with cycle detection and topological sort
   export.py       # Deterministic graph.json generator
   check.py        # CLI: structural checks with optional Lean prechecks
-  publish.py      # Static HTML site generator (Jinja2, MathJax, Cytoscape.js)
+  blueprint_view.py # Leanblueprint-style presentation model and DOT export
+  publish.py      # Static HTML site generator (Jinja2, MathJax, Graphviz)
   lean_index.py   # Lean 4 declaration extractor
   lean_check.py   # Mechanical Lean reference prechecks
   admit.py        # Staged-to-admitted workflow with review validation
@@ -92,11 +95,11 @@ docs/knowledge/
 
 ## Status
 
-All four implementation phases are complete:
+The first four implementation phases are complete, with the publisher now using leanblueprint-style output:
 
 1. **Deterministic core** — parser, validator, DAG, graph.json, static site
 2. **Lean integration** — declaration extractor, reference prechecks, sorry detection
 3. **Agent contracts** — prompt templates and report schemas for 6 agent roles
 4. **Admission workflow** — staged-to-admitted with generality gate and review validation
 
-91 tests, 89% coverage.
+The full test suite is the source of truth for current coverage and test counts.

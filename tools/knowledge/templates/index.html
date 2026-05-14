@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Knowledge Base</h1>
-<p>{{ node_count }} nodes across {{ topic_count }} topics.</p>
+<section class="blueprint-overview">
+  <h1>Knowledge Base</h1>
+  <p>{{ node_count }} nodes across {{ topic_count }} topics.</p>
+  <p><a href="dep_graph_document.html">Dependency graph</a></p>
+</section>
 
 <table class="node-table">
   <thead>

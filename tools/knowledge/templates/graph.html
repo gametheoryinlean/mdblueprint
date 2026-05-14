@@ -1,45 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Dependency Graph</h1>
-<div id="graph-container" style="width:100%;height:600px;border:1px solid var(--border);border-radius:4px;"></div>
-<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.29.2/dist/cytoscape.min.js"
-        integrity="sha384-vKDpbchiENJgrT4a9JrbKAaqX3EYX5V4ba/znU7XxBJgjdE/LyG/6McGtRdnDOnl"
+<header class="graph-header">
+  <a class="toc" href="{{ root }}index.html">Home</a>
+  <h1 id="doc_title">Dependencies</h1>
+</header>
+
+<section id="Legend" class="graph-legend" aria-label="Dependency graph legend">
+  <button id="legend-title" class="legend-title" type="button">
+    Legend <span class="legend-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+  </button>
+  <dl id="legend-list" class="legend-list" hidden>
+    <dt>Boxes</dt><dd>definitions</dd>
+    <dt>Ellipses</dt><dd>theorems and lemmas</dd>
+    <dt>Blue border</dt><dd>the statement is ready to be formalized; all prerequisites are done</dd>
+    <dt>Orange border</dt><dd>the statement is not ready to be formalized; the blueprint needs more work</dd>
+    <dt>Blue background</dt><dd>the proof is ready to be formalized; all prerequisites are done</dd>
+    <dt>Green border</dt><dd>the statement is formalized</dd>
+    <dt>Green background</dt><dd>the proof is formalized</dd>
+    <dt>Dark green background</dt><dd>the proof and all ancestors are formalized</dd>
+  </dl>
+</section>
+
+<div id="graph" class="dep-graph" aria-label="Dependency graph"></div>
+<script id="graph-dot" type="text/plain">{{ graph_dot | safe }}</script>
+
+<div id="statements" class="dep-statements">
+  {% for payload in graph_nodes %}
+  {% set graph_node = payload.view %}
+  <div
+    class="dep-modal-container"
+    id="{{ graph_node.html_id }}-modal"
+    data-graph-node="{{ graph_node.id }}"
+    hidden
+  >
+    <div class="dep-modal-content">
+      <button class="dep-closebtn" type="button" aria-label="Close">x</button>
+      <article class="thm {{ graph_node.kind }}_thmwrapper theorem-style-{{ graph_node.kind }}">
+        <header class="{{ graph_node.kind }}_thmheading thm-heading">
+          <span class="{{ graph_node.kind }}_thmcaption thm-caption">{{ graph_node.caption }}</span>
+          <span class="{{ graph_node.kind }}_thmlabel thm-label">{{ graph_node.label }}</span>
+          <span class="{{ graph_node.kind }}_thmtitle thm-title">{{ graph_node.title }}</span>
+          <span class="thm-status thm-status-{{ graph_node.status }}">{{ graph_node.status }}</span>
+        </header>
+        <div class="{{ graph_node.kind }}_thmcontent thm-content">
+          <div class="body graph-modal-body">
+            {{ payload.body_html | safe }}
+          </div>
+          <p><a href="{{ root }}{{ node_href_from_root(graph_node.id) }}">Open node page</a></p>
+          {% if payload.deps %}
+          <h2>Uses</h2>
+          <ul class="uses">
+            {% for dep in payload.deps %}
+            <li><a href="{{ root }}{{ node_href_from_root(dep.id) }}">{{ dep.id }}</a> — {{ dep.title }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% if graph_node.lean_declarations %}
+          <h2>Lean declarations</h2>
+          <ul class="uses">
+            {% for decl in graph_node.lean_declarations %}
+            <li><code>{{ decl }}</code></li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </article>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"
+        integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"
         crossorigin="anonymous"></script>
-<script>
-  fetch('{{ root }}graph.json')
-    .then(r => r.json())
-    .then(data => {
-      const elements = [];
-      data.nodes.forEach(n => {
-        elements.push({ data: { id: n.id, label: n.title, kind: n.kind, status: n.status } });
-      });
-      data.edges.forEach(e => {
-        elements.push({ data: { source: e.from, target: e.to } });
-      });
-      cytoscape({
-        container: document.getElementById('graph-container'),
-        elements: elements,
-        style: [
-          { selector: 'node', style: {
-            'label': 'data(label)', 'font-size': '11px',
-            'background-color': '#4a90d9', 'color': '#222',
-            'text-valign': 'bottom', 'text-margin-y': 4,
-            'width': 24, 'height': 24
-          }},
-          { selector: 'node[kind="theorem"]', style: { 'background-color': '#d94a4a' }},
-          { selector: 'node[kind="example"]', style: { 'background-color': '#4ad977' }},
-          { selector: 'edge', style: {
-            'width': 1.5, 'line-color': '#aaa',
-            'target-arrow-color': '#aaa', 'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier'
-          }}
-        ],
-        layout: { name: 'breadthfirst', directed: true, spacingFactor: 1.5 }
-      });
-    })
-    .catch(err => {
-      document.getElementById('graph-container').textContent =
-        'Failed to load graph: ' + err.message;
-    });
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@hpcc-js/wasm@2.20.0/dist/index.umd.js"
+        integrity="sha384-WLu5972Ng9UrZR3ZnbXFxTcAJO7KhiKgT3d7+1UFQWDchQ423ftbYX7Z4pA/30FV"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-graphviz@5.6.0/build/d3-graphviz.min.js"
+        integrity="sha384-HvHyah63+APdHqzEGlDbc6p4rPnnXDXa6R+dCL3tRFG2C+txlDKeI28o3RNEraki"
+        crossorigin="anonymous"></script>
 {% endblock %}
