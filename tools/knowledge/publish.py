@@ -14,9 +14,11 @@ import markdown
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
-from tools.knowledge.config import katex_auto_render_options, load_project_config
+from tools.knowledge.config import LeanConfig, katex_auto_render_options, load_project_config
 from tools.knowledge.export import write_graph_json
 from tools.knowledge.graph import build_graph
+from tools.knowledge.lean_index import LeanDeclaration, LeanIndex, index_lean_project
+from tools.knowledge.models import Node
 from tools.knowledge.parser import scan_directory
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -98,6 +100,122 @@ def _summary_payload(node, blueprint_nodes: dict, href: str) -> dict:
     }
 
 
+def _matching_declarations(decl: str, idx: LeanIndex) -> list[str]:
+    if decl in idx.declarations:
+        return [decl]
+    return [
+        qualified
+        for qualified in idx.declarations
+        if qualified.endswith(f".{decl}") or qualified == decl
+    ]
+
+
+def _module_for_declaration(decl: LeanDeclaration, idx: LeanIndex) -> str | None:
+    for module, path in idx.modules.items():
+        if path == decl.file:
+            return module
+    return None
+
+
+def _lean_ref_payload(
+    *,
+    name: str,
+    status: str,
+    qualified_name: str | None = None,
+    module: str | None = None,
+    repository_title: str | None = None,
+    revision: str | None = None,
+    source_url: str | None = None,
+    has_sorry: bool = False,
+    reason: str | None = None,
+) -> dict[str, object]:
+    return {
+        "name": name,
+        "display_name": qualified_name or name,
+        "qualified_name": qualified_name,
+        "module": module,
+        "repository_title": repository_title,
+        "revision": revision,
+        "short_revision": revision[:7] if revision else None,
+        "source_url": source_url,
+        "has_sorry": has_sorry,
+        "status": status,
+        "reason": reason,
+    }
+
+
+def _index_configured_lean_repositories(nodes: list[Node], lean_config: LeanConfig) -> dict[str, LeanIndex]:
+    if not lean_config.repositories or not any(node.lean for node in nodes):
+        return {}
+    return {
+        repo_id: index_lean_project(repo.local_path, repository=repo)
+        for repo_id, repo in lean_config.repositories.items()
+    }
+
+
+def _resolve_lean_refs(node: Node, lean_config: LeanConfig, indexes: dict[str, LeanIndex]) -> list[dict[str, object]]:
+    if node.lean is None:
+        return []
+
+    if not indexes:
+        return [
+            _lean_ref_payload(name=decl, status="raw")
+            for decl in node.lean.declarations
+        ]
+
+    repo_id = node.lean.repository or lean_config.default_repository
+    if repo_id is None:
+        return [
+            _lean_ref_payload(
+                name=decl,
+                status="unresolved",
+                reason="no Lean repository configured for this node",
+            )
+            for decl in node.lean.declarations
+        ]
+    if repo_id not in lean_config.repositories or repo_id not in indexes:
+        return [
+            _lean_ref_payload(
+                name=decl,
+                status="unresolved",
+                reason=f"Lean repository {repo_id!r} is not configured",
+            )
+            for decl in node.lean.declarations
+        ]
+
+    idx = indexes[repo_id]
+    repo = lean_config.repositories[repo_id]
+    refs: list[dict[str, object]] = []
+    for decl_name in node.lean.declarations:
+        matches = _matching_declarations(decl_name, idx)
+        if len(matches) == 1:
+            decl = idx.declarations[matches[0]]
+            refs.append(_lean_ref_payload(
+                name=decl_name,
+                status="resolved",
+                qualified_name=decl.qualified_name,
+                module=_module_for_declaration(decl, idx),
+                repository_title=decl.repository_title or repo.title,
+                revision=decl.revision or repo.revision,
+                source_url=decl.source_url,
+                has_sorry=decl.has_sorry,
+            ))
+            continue
+        if len(matches) > 1:
+            refs.append(_lean_ref_payload(
+                name=decl_name,
+                status="unresolved",
+                reason=f"ambiguous: {', '.join(sorted(matches))}",
+            ))
+            continue
+        refs.append(_lean_ref_payload(
+            name=decl_name,
+            status="unresolved",
+            reason="not found in configured Lean repository",
+        ))
+    return refs
+
+
 def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = None) -> None:
     nodes_dir = knowledge_root / "nodes"
     staged_dir = knowledge_root / "staged"
@@ -108,6 +226,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         all_nodes.extend(scan_directory(nodes_dir))
     if staged_dir.exists():
         all_nodes.extend(scan_directory(staged_dir))
+    lean_indexes = _index_configured_lean_repositories(all_nodes, config.lean)
 
     g, _ = build_graph(all_nodes)
     blueprint_graph = build_blueprint_graph(g)
@@ -186,6 +305,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
             "proof_html": rendered["proof_html"],
             "deps": deps,
             "dependents": dependents,
+            "lean_refs": _resolve_lean_refs(node, config.lean, lean_indexes),
         }
 
     # Index page
@@ -295,6 +415,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                     proof_html=payload["proof_html"],
                     deps=payload["deps"],
                     dependents=payload["dependents"],
+                    lean_refs=payload["lean_refs"],
                 ),
                 encoding="utf-8",
             )

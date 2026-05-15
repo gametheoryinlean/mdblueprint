@@ -62,11 +62,26 @@
             {% endfor %}
           </ul>
           {% endif %}
-          {% if graph_node.lean_declarations %}
+          {% if payload.lean_refs %}
           <h2>Lean declarations</h2>
           <ul class="uses">
-            {% for decl in graph_node.lean_declarations %}
-            <li><code>{{ decl }}</code></li>
+            {% for ref in payload.lean_refs %}
+            <li>
+              {% if ref.source_url %}
+              <a href="{{ ref.source_url }}"><code>{{ ref.display_name }}</code></a>
+              {% else %}
+              <code>{{ ref.display_name }}</code>
+              {% endif %}
+              {% if ref.status == "unresolved" %}
+              <span class="badge status-staged">Unresolved</span>
+              {% if ref.reason %}<span class="lean-source-meta">{{ ref.reason }}</span>{% endif %}
+              {% elif ref.repository_title %}
+              <span class="lean-source-meta">
+                {{ ref.repository_title }}{% if ref.short_revision %} @ {{ ref.short_revision }}{% endif %}{% if ref.module %}, {{ ref.module }}{% endif %}
+              </span>
+              {% endif %}
+              {% if ref.has_sorry %}<span class="badge status-needs_proof_review">sorry/admit</span>{% endif %}
+            </li>
             {% endfor %}
           </ul>
           {% endif %}

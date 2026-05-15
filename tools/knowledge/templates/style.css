@@ -114,6 +114,7 @@ a { color: var(--accent); }
 .deps a { color: var(--accent); text-decoration: none; }
 .lean-info code { font-family: var(--mono); background: var(--badge-bg); padding: 0.1rem 0.3rem; border-radius: 2px; }
 .lean-modules { font-size: 0.85rem; color: #666; margin-top: 0.3rem; }
+.lean-source-meta { color: #666; font-size: 0.82rem; margin-left: 0.35rem; }
 .body { line-height: 1.7; margin-top: 1.5rem; }
 .tags { margin-top: 2rem; }
 .tag {
