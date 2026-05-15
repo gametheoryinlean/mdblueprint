@@ -115,3 +115,27 @@ def test_valid_inline_display_and_environment_math_passes(tmp_path):
     errors = [d for d in check_knowledge_base(tmp_path) if d.level == "error"]
 
     assert errors == []
+
+
+def test_static_math_check_uses_project_macro_config(tmp_path):
+    node_path = tmp_path / "nodes" / "math" / "macro.md"
+    _write_node(node_path, node_id="math.macro", body=r"Configured macro $\R$ should pass.")
+
+    errors_without_config = [d for d in check_knowledge_base(tmp_path) if d.level == "error"]
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            r"""
+            site:
+              title: Macro Blueprint
+            math:
+              macros:
+                R: "\\mathbb{R}"
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    errors_with_config = [d for d in check_knowledge_base(tmp_path) if d.level == "error"]
+
+    assert any("unknown macro" in d.message and r"\R" in d.message for d in errors_without_config)
+    assert errors_with_config == []

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import sys
@@ -13,7 +14,7 @@ import markdown
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
-from tools.knowledge.config import load_project_config
+from tools.knowledge.config import katex_auto_render_options, load_project_config
 from tools.knowledge.export import write_graph_json
 from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
@@ -119,6 +120,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     )
     env.globals["node_href_from_root"] = _node_href_from_root
     env.globals["site"] = config.site
+    env.globals["math_options_json"] = json.dumps(katex_auto_render_options(config.math))
 
     # Group by topic
     topics: dict[str, list] = defaultdict(list)

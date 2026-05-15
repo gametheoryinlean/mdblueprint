@@ -121,6 +121,17 @@ The generated site is named by the blueprint project, not by the publishing tool
 site:
   title: Algebra Library Blueprint
   short_title: Algebra
+math:
+  macros:
+    R: "\\mathbb{R}"
+  delimiters:
+    inline:
+      - ["\\(", "\\)"]
+      - ["$", "$"]
+    display:
+      - ["\\[", "\\]"]
+      - ["$$", "$$"]
+  throw_on_error: false
 ```
 
 Publisher contract:
@@ -130,6 +141,10 @@ Publisher contract:
 - If `site.short_title` is omitted, the sidebar logo uses `site.title`.
 - If no config exists, publishing still works and derives a deterministic neutral title from the knowledge root.
 - The CLI accepts `--config path/to/mdblueprint.yml` to use a config outside the knowledge root.
+- `math.macros` declares project macros once; use the macro name without the leading slash.
+- `math.delimiters.inline` and `math.delimiters.display` control the KaTeX auto-render delimiters.
+- Prefer `\(...\)` for inline math and `\[...\]` for display math in new nodes; dollar delimiters remain enabled by default for compatibility.
+- `math.throw_on_error` is passed to KaTeX as `throwOnError`; keep it `false` for browsing and use `tools.knowledge.render_check` for strict release checks.
 
 ## Project Layout
 

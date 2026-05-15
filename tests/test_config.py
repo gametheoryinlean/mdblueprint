@@ -56,6 +56,7 @@ def test_project_config_controls_site_title_logo_and_index_h1(tmp_path):
     assert '<a class="logo" href="../index.html">Algebra</a>' in node_page
     assert "Knowledge Base" not in index
     assert "mdblueprint" not in index
+    assert "MDBLUEPRINT_MATH_OPTIONS" in node_page
 
 
 def test_publish_without_config_uses_root_name_fallback(tmp_path):
@@ -108,3 +109,69 @@ def test_cli_accepts_config_path(tmp_path):
     index = (output_dir / "index.html").read_text(encoding="utf-8")
     assert "<h1>CLI Blueprint</h1>" in index
     assert '<a class="logo" href="index.html">CLI</a>' in index
+
+
+def test_project_config_parses_math_macros_delimiters_and_strictness(tmp_path):
+    from tools.knowledge.config import load_project_config
+
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    config_path = knowledge_root / "mdblueprint.yml"
+    config_path.write_text(
+        textwrap.dedent(
+            r"""
+            site:
+              title: Configured Blueprint
+            math:
+              macros:
+                R: "\\mathbb{R}"
+                Prob: "\\mathbb{P}"
+              delimiters:
+                inline:
+                  - ["\\(", "\\)"]
+                display:
+                  - ["\\[", "\\]"]
+              throw_on_error: true
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    config = load_project_config(knowledge_root)
+
+    assert config.math.macros == {"R": r"\mathbb{R}", "Prob": r"\mathbb{P}"}
+    assert config.math.inline_delimiters == [(r"\(", r"\)")]
+    assert config.math.display_delimiters == [(r"\[", r"\]")]
+    assert config.math.throw_on_error is True
+
+
+def test_publish_injects_configured_math_options(tmp_path):
+    knowledge_root = tmp_path / "knowledge"
+    _write_minimal_knowledge_root(knowledge_root)
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            r"""
+            site:
+              title: Math Config Blueprint
+            math:
+              macros:
+                R: "\\mathbb{R}"
+              delimiters:
+                inline:
+                  - ["\\(", "\\)"]
+                display:
+                  - ["\\[", "\\]"]
+              throw_on_error: true
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    publish(knowledge_root, tmp_path / "site")
+
+    node_page = (tmp_path / "site" / "algebra" / "algebra_group.html").read_text(encoding="utf-8")
+    assert "MDBLUEPRINT_MATH_OPTIONS" in node_page
+    assert r'"\\R": "\\mathbb{R}"' in node_page
+    assert '"throwOnError": true' in node_page
+    assert r'"left": "\\("' in node_page
+    assert r'"left": "$"' not in node_page
