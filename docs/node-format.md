@@ -13,6 +13,7 @@ status: admitted
 uses:
   - topology.metric_space.cauchy_sequence
 lean:
+  repository: topology
   modules:
     - MyLibrary.Topology.MetricSpace
   declarations:
@@ -75,6 +76,39 @@ url            — a fragment identifier or section anchor
 ```
 
 If the format is unknown or the source is informal, omit `format` and explain in `note`.
+
+## Lean Reference Format
+
+The `lean` field records mechanical links from a Markdown node to Lean declarations.
+
+```yaml
+lean:
+  repository: core
+  modules:
+    - Example.Basic
+  declarations:
+    - Example.basic_identity
+```
+
+Field contract:
+
+- `repository` is the id of a configured Lean repository from
+  `docs/knowledge/mdblueprint.yml`. It may be omitted only when the project config
+  has `lean.default_repository`.
+- `modules` is a list of Lean module names expected to exist under the selected
+  repository root.
+- `declarations` is a list of Lean declaration names expected to exist in the
+  selected repository.
+- Fully qualified declaration names are preferred. Short names are accepted only
+  when they match exactly one indexed declaration by suffix.
+- An `external-theorem` node must include both `lean.modules` and
+  `lean.declarations`.
+- A Lean reference proves existence of a Lean object, not semantic alignment with
+  the Markdown statement. Use `verification.alignment` and alignment review reports
+  for that claim.
+
+See [lean-repositories.md](lean-repositories.md) for repository config, source URL
+templates, diagnostics, and publishing behavior.
 
 ## Verification Fields
 

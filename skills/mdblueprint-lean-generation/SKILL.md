@@ -14,7 +14,7 @@ When turning admitted knowledge nodes into Lean declarations or proof skeletons.
 ## Workflow
 
 1. Read the admitted node and its dependencies.
-2. Inspect the Lean declaration index and existing Lean modules.
+2. Inspect `docs/knowledge/mdblueprint.yml` for configured `lean.repositories`, then inspect the Lean declaration index and existing Lean modules.
 3. Generate a Lean file or patch proposal.
 4. If an auxiliary node is needed, write a request to `docs/knowledge/requests/` — never create an admitted node directly.
 5. Justify every proposed new node according to the request schema.
@@ -24,6 +24,7 @@ When turning admitted knowledge nodes into Lean declarations or proof skeletons.
 - Never add admitted Markdown nodes directly.
 - Never generate final DAG edges.
 - Must not weaken the mathematical statement without a review note explaining the discrepancy.
+- Must preserve or explicitly choose the node's `lean.repository` when proposing Lean references.
 - Proposed auxiliary nodes must explain why existing nodes are insufficient.
 
 ## New-node request format

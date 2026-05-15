@@ -146,7 +146,9 @@ Remote observed locally:
 git@github.com:gametheoryinlean/gametheorylib.git
 ```
 
-Use it as one reference repository and a concrete fixture for domain examples.
+Use it as one optional reference repository and a concrete fixture for domain examples.
+It must not be treated as the default Lean target or as a hard-coded assumption in
+generic mdblueprint docs, tools, or skills.
 
 Relevant local files and areas:
 

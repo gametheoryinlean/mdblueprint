@@ -32,7 +32,8 @@ The generated site should include:
 - proof sections collapsed by default when a Markdown body contains a proof marker;
 - dependency and reverse-dependency lists;
 - status badges from YAML;
-- Lean declaration links or names from YAML;
+- Lean declaration names from YAML, with clickable source links when project-level
+  Lean repositories are configured;
 - an interactive dependency graph backed by Python-generated DOT.
 
 The frontend can use JavaScript to render the graph, but the graph data and presentation semantics must come from Python.
@@ -53,6 +54,14 @@ The generated site intentionally follows leanblueprint's presentation style with
 ## Lean Compatibility
 
 The knowledge system should support Lean without making Lean the only source of knowledge.
+
+Project-level Lean repository config is documented in
+[lean-repositories.md](lean-repositories.md). The publisher reads the same config as
+the checker. When a node declaration resolves through a configured repository, the
+generated node page and graph modal link to the configured source URL and display
+repository title, short revision, and module metadata. If a configured declaration
+does not resolve, the page shows an `Unresolved` marker instead of generating a
+broken link.
 
 Borrow from the `unipotentrepn` tooling style:
 

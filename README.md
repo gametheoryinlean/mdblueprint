@@ -83,10 +83,11 @@ uv run --extra dev python -m pytest -q
 Call the tools as Python modules from the repository root.
 
 ```bash
-# Structural checks for nodes, staged candidates, dependencies, and cycles
+# Structural checks for nodes, staged candidates, dependencies, cycles,
+# math syntax, and configured Lean repository references
 uv run python -m tools.knowledge.check docs/knowledge
 
-# Add mechanical Lean reference prechecks
+# Or run one-off Lean prechecks before repository config exists
 uv run python -m tools.knowledge.check docs/knowledge --lean-root path/to/lean/project
 
 # Generate graph.json and the static HTML site
@@ -113,7 +114,7 @@ Browser render verification uses Playwright. Before the first run, install the b
 uv run --extra browser playwright install chromium
 ```
 
-## Project Site Config
+## Project Config
 
 The generated site is named by the blueprint project, not by the publishing tool. Put the project-level site config at `docs/knowledge/mdblueprint.yml`:
 
@@ -132,9 +133,18 @@ math:
       - ["\\[", "\\]"]
       - ["$$", "$$"]
   throw_on_error: false
+lean:
+  default_repository: core
+  repositories:
+    - id: core
+      title: Example Lean Library
+      local_path: ../example-lean
+      web_url: https://github.com/example/example-lean
+      source_url_template: "{web_url}/blob/{revision}/{path}#L{line}"
+      revision: auto
 ```
 
-Publisher contract:
+Project config contract:
 
 - `site.title` is the homepage H1 and the suffix in browser titles.
 - `site.short_title` is the sidebar logo when present.
@@ -145,6 +155,13 @@ Publisher contract:
 - `math.delimiters.inline` and `math.delimiters.display` control the KaTeX auto-render delimiters.
 - Prefer `\(...\)` for inline math and `\[...\]` for display math in new nodes; dollar delimiters remain enabled by default for compatibility.
 - `math.throw_on_error` is passed to KaTeX as `throwOnError`; keep it `false` for browsing and use `tools.knowledge.render_check` for strict release checks.
+- `lean.repositories` configures Lean Git repositories that nodes may reference.
+- `lean.default_repository` is optional; when present, nodes may omit `lean.repository`.
+- `lean.repositories[*].local_path` may be absolute or relative to the config file and must point at the Lean root used for module paths.
+- `lean.repositories[*].revision` may be a literal revision or `auto`; `auto` resolves to the Git `HEAD` commit in `local_path`.
+- `lean.repositories[*].source_url_template` uses `{web_url}`, `{revision}`, `{path}`, and `{line}` to build stable published declaration links.
+
+Read [docs/lean-repositories.md](docs/lean-repositories.md) for the full Lean repository linking workflow, diagnostics, and publishing contract.
 
 ## Project Layout
 
@@ -165,6 +182,7 @@ tools/knowledge/
 
 docs/
   architecture.md
+  lean-repositories.md
   node-format.md
   agent-contracts.md
   publisher-and-dag.md
@@ -301,23 +319,29 @@ Admission checks staged schema, generality review, review evidence, and DAG vali
 
 ### 3. Connect A Node To Lean
 
+First configure the Lean repository in `docs/knowledge/mdblueprint.yml`. With a default repository, nodes can omit `lean.repository`; otherwise each node must name the repository id.
+
 Add a `lean` block when a node corresponds to Lean declarations:
 
 ```yaml
 lean:
+  repository: core
   modules:
-    - MyLibrary.Algebra.Groups
+    - Example.Algebra.Groups
   declarations:
-    - Algebra.Group
+    - Example.Algebra.Group
 ```
 
 Then run:
 
 ```bash
-uv run python -m tools.knowledge.check docs/knowledge --lean-root path/to/lean/project
+uv run python -m tools.knowledge.check docs/knowledge
+uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
 ```
 
-The Lean precheck is mechanical. It checks that modules and declarations exist and reports obvious `sorry` or `admit` markers. It does not prove semantic alignment between Markdown and Lean.
+The Lean precheck is mechanical. It checks that modules and declarations exist, reports obvious `sorry` or `admit` markers, warns about dirty configured repositories, and reports ambiguous short declaration names. The publisher uses the same config to render source links in node pages and graph modals. It does not prove semantic alignment between Markdown and Lean.
+
+Use `--lean-root path/to/lean/project` only for a one-off mechanical check before repository config exists. The publisher does not accept `--lean-root`; stable source links require `lean.repositories` config.
 
 ### 4. Publish The Website
 
@@ -811,8 +835,11 @@ git diff --check
 For Lean-linked changes:
 
 ```bash
-uv run python -m tools.knowledge.check docs/knowledge --lean-root path/to/lean/project
+uv run python -m tools.knowledge.check docs/knowledge
+uv run python -m tools.knowledge.check docs/knowledge --strict-lean-git
 ```
+
+Use `--lean-root path/to/lean/project` only for one-off checks when the project does not yet have `lean.repositories` config.
 
 ## Troubleshooting
 
@@ -835,6 +862,18 @@ uv run python -m tools.knowledge.check docs/knowledge --lean-root path/to/lean/p
 `external-theorem must have lean.modules and lean.declarations filled`
 
 : External theorem nodes must point to existing Lean modules and declarations.
+
+`Lean repository not specified`
+
+: Add `lean.repository` to the node or configure `lean.default_repository` in `docs/knowledge/mdblueprint.yml`.
+
+`ambiguous Lean declaration`
+
+: Replace the short declaration name with a fully qualified Lean declaration name.
+
+`Lean repository has uncommitted or untracked files`
+
+: Commit or clean the configured Lean repository before release publishing, or rerun with `--strict-lean-git` to make this an error in CI.
 
 ## Current Status
 
