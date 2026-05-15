@@ -27,6 +27,7 @@ class Source:
 
 @dataclass(frozen=True)
 class LeanRef:
+    repository: str | None = None
     modules: list[str] = field(default_factory=list)
     declarations: list[str] = field(default_factory=list)
 

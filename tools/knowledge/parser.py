@@ -43,6 +43,7 @@ def _parse_lean(raw: dict | None) -> LeanRef | None:
     if raw is None:
         return None
     return LeanRef(
+        repository=raw.get("repository"),
         modules=raw.get("modules") or [],
         declarations=raw.get("declarations") or [],
     )

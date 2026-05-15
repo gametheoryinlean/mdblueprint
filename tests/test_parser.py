@@ -64,6 +64,27 @@ class TestParseNode:
         node = parse_file(GENERIC_NODES_DIR / "group_homomorphism.md")
         assert "algebra.group" in node.uses
 
+    def test_parse_lean_repository(self):
+        node = parse_node(
+            "---\n"
+            "id: algebra.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "uses: []\n"
+            "lean:\n"
+            "  repository: main\n"
+            "  modules:\n"
+            "    - MyLibrary.Algebra.Group\n"
+            "  declarations:\n"
+            "    - Algebra.Group\n"
+            "---\n\n"
+            "# Group\n"
+        )
+
+        assert node.lean is not None
+        assert node.lean.repository == "main"
+
     def test_parse_generality(self):
         node = parse_file(GENERIC_NODES_DIR / "group.md")
         assert node.generality is not None
