@@ -1,3 +1,8 @@
+---
+name: mdblueprint-alignment-review
+description: Use when checking whether Lean declarations semantically match mdblueprint Markdown nodes.
+---
+
 # mdblueprint-alignment-review
 
 Check whether a Lean declaration semantically matches a Markdown node.

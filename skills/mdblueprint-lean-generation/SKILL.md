@@ -1,3 +1,8 @@
+---
+name: mdblueprint-lean-generation
+description: Use when generating Lean 4 declarations, proof skeletons, or patch proposals from admitted mdblueprint Markdown nodes.
+---
+
 # mdblueprint-lean-generation
 
 Generate Lean 4 proposals from admitted Markdown nodes.

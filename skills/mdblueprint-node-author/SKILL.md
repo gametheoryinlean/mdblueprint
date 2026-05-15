@@ -1,3 +1,8 @@
+---
+name: mdblueprint-node-author
+description: Use when creating or editing Markdown knowledge nodes for an mdblueprint knowledge base.
+---
+
 # mdblueprint-node-author
 
 Create or edit Markdown knowledge nodes by hand.

@@ -1,166 +1,204 @@
-# Skill Design
+# Skills Guide
 
-Skills are reusable workflow guides for Codex. They are not the same thing as agents.
+Skills are reusable workflow guides for Codex, Claude Code, and other agentic coding assistants. They are not the same thing as agents.
 
-An agent is a role-specific Codex or LLM call with an input/output contract. A skill teaches Codex how to perform a recurring workflow correctly, including which tools to run, which files to inspect, and which agent contract to invoke.
+An agent is a role-specific LLM call with an input/output contract. A skill teaches an assistant how to run a recurring workflow correctly: which files to inspect, which contract to follow, what it may write, and what must remain deterministic.
 
-The first mdblueprint implementation should create skills only when the workflow is repeated enough to justify reuse.
+The maintained mdblueprint skills live in [`skills/`](../skills/). Each skill has a `SKILL.md` file with YAML frontmatter and optional `references/` files.
 
-## Skill Layout
+## Skill Map
 
-Recommended shape:
+| Task | Use this skill | Main outputs |
+| --- | --- | --- |
+| Extract theorems, definitions, examples, or proof ideas from a book, PDF, paper, TeX source, or notes | `mdblueprint-source-extraction` | staged nodes, extraction report |
+| Create or edit a Markdown knowledge node by hand | `mdblueprint-node-author` | node file |
+| Review staged content before admission | `mdblueprint-node-review` | statement/definition review, proof review, admission report |
+| Generate Lean code from admitted Markdown nodes | `mdblueprint-lean-generation` | Lean proposal, missing-node requests |
+| Check semantic alignment between Markdown and Lean | `mdblueprint-alignment-review` | alignment report |
+| Publish or inspect the static site and dependency graph | `mdblueprint-publish` | generated site, `graph.json`, QA notes |
+
+## How To Use A Skill
+
+If the assistant does not auto-discover repo-local skills, open the relevant `skills/<name>/SKILL.md` and follow it manually. Load `references/` files only when the skill points to them and the task needs that schema or template.
+
+Recommended order for building a knowledge base from a book:
+
+1. Use `mdblueprint-source-extraction` to extract candidate definitions, theorems, lemmas, examples, and proof ideas into `docs/knowledge/staged/`.
+2. Use `mdblueprint-node-review` to review staged candidates for correctness, proof validity, and generality.
+3. Use `tools.knowledge.admit` only after review gates pass.
+4. Use `mdblueprint-publish` to validate and publish the generated site.
+5. Use `mdblueprint-lean-generation` and `mdblueprint-alignment-review` when connecting admitted nodes to Lean.
+
+## Claude Code Compatibility
+
+Claude Code skills follow the Agent Skills `SKILL.md` convention. See the official [Claude Code skills documentation](https://code.claude.com/docs/en/skills) for current behavior. Claude Code discovers skills from:
 
 ```text
-skills/
-  mdblueprint-node-author/
-    SKILL.md
-    references/node-template.md
-  mdblueprint-source-extraction/
-    SKILL.md
-    references/extraction-report-schema.md
-  mdblueprint-node-review/
-    SKILL.md
-    references/review-report-schema.md
-  mdblueprint-lean-generation/
-    SKILL.md
-    references/new-node-request-schema.md
-  mdblueprint-alignment-review/
-    SKILL.md
-    references/alignment-report-schema.md
-  mdblueprint-publish/
-    SKILL.md
+.claude/skills/<skill-name>/SKILL.md
+~/.claude/skills/<skill-name>/SKILL.md
 ```
 
-Keep each `SKILL.md` short. Put schemas and templates in `references/`.
+The repo-local skill directories are compatible in shape: each has a `SKILL.md` with `name` and `description` frontmatter. To install them for Claude Code, copy or symlink the directories.
 
-## 1. mdblueprint-node-author
+Project-local install:
 
-Use when creating or editing a Markdown knowledge node by hand.
+```bash
+mkdir -p .claude/skills
+cp -R skills/mdblueprint-* .claude/skills/
+```
 
-Responsibilities:
+User-level install:
 
-- preserve math-only body rule;
-- keep YAML metadata structured;
-- choose stable ids;
-- place nodes under topic directories;
-- keep one concept, definition, theorem, example, or proof-plan per file;
-- mark incomplete statements with review status rather than hiding uncertainty.
+```bash
+mkdir -p ~/.claude/skills
+cp -R skills/mdblueprint-* ~/.claude/skills/
+```
 
-Must read:
+Keep the repo-local `skills/` directory as the source of truth. Treat `.claude/skills/` copies as installed deployments.
 
-- `docs/node-format.md`;
-- node template reference.
+## Codex Compatibility
 
-Must not:
+Codex skill roots vary by environment. In this workspace, personal Codex skills commonly live under:
 
-- add operational sections to the Markdown body;
-- invent dependencies without checking existing node ids;
-- mark a node admitted without the required review evidence.
+```text
+~/.agents/skills/
+```
 
-## 2. mdblueprint-source-extraction
+Install by copying or symlinking the repo-local skill directories into the configured Codex skill root:
 
-Use when extracting candidate nodes from a PDF, book, paper, TeX source, or lecture note.
+```bash
+mkdir -p ~/.agents/skills
+cp -R skills/mdblueprint-* ~/.agents/skills/
+```
 
-Responsibilities:
+Then restart or refresh the Codex session if skill discovery happens only at startup.
 
-- create staged candidates only;
-- record source artifacts and locators;
-- preserve source-local statements;
-- propose normalized or more general statements as questions;
-- write uncertainty into reports.
+## Skill Contracts
 
-Invokes or follows:
+### `mdblueprint-source-extraction`
 
-- Source-to-MD Agent.
+Use when converting source material into staged Markdown nodes.
+
+Reads:
+
+- source material;
+- existing admitted and staged node index;
+- [`docs/node-format.md`](node-format.md);
+- `skills/mdblueprint-source-extraction/references/extraction-report-schema.md` when writing the report.
+
+Writes:
+
+- `docs/knowledge/staged/**/*.md`;
+- extraction reports under `docs/knowledge/reviews/`.
 
 Must not:
 
 - write directly to `docs/knowledge/nodes/`;
-- silently merge several distinct statements into one node;
-- invent a broader theorem as admitted truth.
+- invent dependencies beyond source evidence or existing node ids;
+- silently merge distinct statements into one node;
+- admit a broader theorem than the source supports.
 
-## 3. mdblueprint-node-review
+Use this skill for “从书里面抓出定理”, theorem mining from PDFs, source-to-node extraction, and first-pass knowledge-base formation.
 
-Use when deciding whether a staged node is mathematically fit for admission.
+### `mdblueprint-node-author`
 
-Responsibilities:
+Use when creating or editing a node by hand.
 
-- run deterministic Python checks first when available;
-- invoke statement/definition verifier for definitions and statements;
-- invoke proof verifier when proof content exists;
-- enforce the generality gate;
-- produce review reports with explicit decisions.
+Reads:
 
-Invokes or follows:
+- [`docs/node-format.md`](node-format.md);
+- `skills/mdblueprint-node-author/references/node-template.md`.
 
-- Definition/Statement Verifier;
-- Proof Verifier;
-- Admission Referee when moving toward admission.
+Writes:
+
+- a staged node by default;
+- an admitted node only when the human explicitly asks and review evidence exists.
 
 Must not:
 
-- treat plausible prose as admitted truth;
-- skip the generality question;
-- resolve verifier disagreement silently.
+- put operational notes in the Markdown body;
+- set admitted/proved status without evidence;
+- invent dependencies.
 
-## 4. mdblueprint-lean-generation
+### `mdblueprint-node-review`
+
+Use when deciding whether staged content is fit for admission.
+
+Reads:
+
+- staged node;
+- dependency nodes;
+- review schemas;
+- deterministic check output.
+
+Writes:
+
+- statement/definition review reports;
+- proof review reports;
+- admission referee reports.
+
+Must not:
+
+- resolve verifier disagreement silently;
+- skip the generality gate;
+- treat plausible prose as admitted truth.
+
+### `mdblueprint-lean-generation`
 
 Use when turning admitted Markdown nodes into Lean proposals.
 
-Responsibilities:
+Reads:
 
-- read the admitted node and dependencies;
-- inspect existing Lean modules and declaration index;
-- generate Lean skeletons or patches;
-- propose auxiliary nodes only through `requests/`;
-- justify every proposed new node.
+- admitted node;
+- dependency nodes;
+- Lean declaration index or Lean project context.
 
-Invokes or follows:
+Writes:
 
-- MD-to-Lean Generator.
-
-Must not:
-
-- add admitted Markdown nodes directly;
-- generate final DAG edges;
-- weaken the mathematical statement without a review note.
-
-## 5. mdblueprint-alignment-review
-
-Use when checking whether a Lean declaration semantically matches a Markdown node.
-
-Responsibilities:
-
-- run Python mechanical prechecks when available;
-- package Markdown statement, Lean signature, dependencies, and relevant source snippets;
-- invoke semantic alignment verifier;
-- write an alignment report.
-
-Invokes or follows:
-
-- MD-Lean Alignment Verifier.
+- Lean patch proposals or generated Lean code when requested;
+- missing-node requests under `docs/knowledge/requests/`.
 
 Must not:
 
-- rely on Python to decide semantic equivalence;
-- update final status directly from an LLM answer without an admission rule;
-- ignore extra hypotheses or specialized Lean versions.
+- create admitted Markdown nodes directly;
+- weaken the Markdown statement without a review note;
+- generate final graph data.
 
-## 6. mdblueprint-publish
+### `mdblueprint-alignment-review`
 
-Use when generating or checking the blueprint-like website and DAG.
+Use when checking whether Lean declarations match Markdown nodes.
 
-Responsibilities:
+Reads:
 
-- run the Python parser and checker;
-- generate `graph.json`;
-- generate static HTML pages;
-- inspect output for missing nodes, broken links, or graph errors.
+- Markdown node and dependencies;
+- Lean declaration signature or source;
+- mechanical precheck output.
+
+Writes:
+
+- alignment reports under `docs/knowledge/reviews/`.
+
+Must not:
+
+- update final status directly;
+- rely on mechanical existence checks as semantic equivalence;
+- ignore extra hypotheses or special cases.
+
+### `mdblueprint-publish`
+
+Use when generating or checking the blueprint-style site and dependency graph.
+
+Runs:
+
+```bash
+uv run python -m tools.knowledge.check docs/knowledge
+uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
+```
 
 Must not:
 
 - call an LLM to generate final HTML or graph data;
-- edit node content to make publishing pass;
+- edit node content just to make publishing pass;
 - infer missing dependencies.
 
 ## Skill Versus Agent Boundary
@@ -172,10 +210,24 @@ User: Extract key definitions from this PDF.
 
 Skill:
   mdblueprint-source-extraction decides the workflow:
-    read source manifest, choose output directory, preserve spans, avoid admission.
+    preserve source spans, avoid admission, create staged candidates, write report.
 
-Agent:
-  Source-to-MD Agent performs the role-specific extraction and emits staged files plus a report.
+Agent contract:
+  Source-to-MD defines the role-specific input/output contract:
+    decision vocabulary, allowed writes, forbidden writes, uncertainty behavior.
 ```
 
-The skill controls process discipline. The agent performs one bounded reasoning task.
+The skill controls process discipline. The agent contract controls role-specific outputs and authority.
+
+## Maintenance Rules
+
+- Keep `SKILL.md` files concise.
+- Put schemas and templates in `references/`.
+- Keep frontmatter `description` focused on when to use the skill, not a workflow summary.
+- Update this guide whenever a skill is added, renamed, or moved.
+- After skill edits, run:
+
+```bash
+uv run --extra dev python -m pytest -q
+git diff --check
+```

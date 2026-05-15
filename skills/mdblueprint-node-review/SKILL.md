@@ -1,3 +1,8 @@
+---
+name: mdblueprint-node-review
+description: Use when reviewing staged mdblueprint nodes for mathematical fitness, generality, proof validity, or admission.
+---
+
 # mdblueprint-node-review
 
 Review staged nodes for mathematical fitness before admission.
