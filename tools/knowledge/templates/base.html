@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ title }} — mdblueprint</title>
+  <title>{{ title }} — {{ site.title }}</title>
   <link rel="stylesheet" href="{{ root }}style.css">
   <script defer>
     window.MathJax = {
@@ -16,7 +16,7 @@
 </head>
 <body>
   <nav class="sidebar">
-    <a class="logo" href="{{ root }}index.html">mdblueprint</a>
+    <a class="logo" href="{{ root }}index.html">{{ site.short_title or site.title }}</a>
     <section class="nav-section" aria-labelledby="nav-topics">
       <h2 id="nav-topics">Topics</h2>
       <ul class="topic-list nav-list">

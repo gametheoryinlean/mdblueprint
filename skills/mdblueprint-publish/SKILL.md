@@ -15,7 +15,8 @@ When building the static site or verifying the knowledge graph output.
 
 1. Run `uv run python -m tools.knowledge.check docs/knowledge` — fix any errors.
 2. Run `uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site` — generates site.
-3. Inspect the output under the chosen site directory for missing nodes, broken links, or graph errors.
+3. Confirm the generated index and node pages use the project title and short title from `docs/knowledge/mdblueprint.yml`, or the configured `--config` path.
+4. Inspect the output under the chosen site directory for missing nodes, broken links, or graph errors.
 
 ## Rules
 
