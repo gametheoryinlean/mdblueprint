@@ -154,6 +154,7 @@ Project config contract:
 - `math.macros` declares project macros once; use the macro name without the leading slash.
 - `math.delimiters.inline` and `math.delimiters.display` control the KaTeX auto-render delimiters.
 - Prefer `\(...\)` for inline math and `\[...\]` for display math in new nodes; dollar delimiters remain enabled by default for compatibility.
+- Markdown preservation and static math diagnostics are designed around the default delimiter family; use custom delimiter syntax only with browser render verification.
 - `math.throw_on_error` is passed to KaTeX as `throwOnError`; keep it `false` for browsing and use `tools.knowledge.render_check` for strict release checks.
 - `lean.repositories` configures Lean Git repositories that nodes may reference.
 - `lean.default_repository` is optional; when present, nodes may omit `lean.repository`.
@@ -161,7 +162,7 @@ Project config contract:
 - `lean.repositories[*].revision` may be a literal revision or `auto`; `auto` resolves to the Git `HEAD` commit in `local_path`.
 - `lean.repositories[*].source_url_template` uses `{web_url}`, `{revision}`, `{path}`, and `{line}` to build stable published declaration links.
 
-Read [docs/lean-repositories.md](docs/lean-repositories.md) for the full Lean repository linking workflow, diagnostics, and publishing contract.
+Read [docs/math-authoring.md](docs/math-authoring.md) for supported node math syntax, macro authoring, static diagnostics, and browser render QA. Read [docs/lean-repositories.md](docs/lean-repositories.md) for the full Lean repository linking workflow, diagnostics, and publishing contract.
 
 ## Project Layout
 
@@ -183,6 +184,7 @@ tools/knowledge/
 docs/
   architecture.md
   lean-repositories.md
+  math-authoring.md
   node-format.md
   agent-contracts.md
   publisher-and-dag.md
@@ -292,7 +294,7 @@ Use this only when you are directly maintaining trusted source files.
 1. Pick a stable id such as `algebra.groups.group_homomorphism`.
 2. Put the file under `docs/knowledge/nodes/<topic>/`.
 3. Write YAML frontmatter according to [docs/node-format.md](docs/node-format.md).
-4. Keep the body mathematical. Do not add operational headings like "Status", "Implementation notes", or "Agent discussion".
+4. Keep the body mathematical. Write TeX according to [docs/math-authoring.md](docs/math-authoring.md), and do not add operational headings like "Status", "Implementation notes", or "Agent discussion".
 5. Run:
 
 ```bash
@@ -828,6 +830,7 @@ For node or publisher changes:
 ```bash
 uv run python -m tools.knowledge.check docs/knowledge
 uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
+uv run --extra browser python -m tools.knowledge.render_check /tmp/mdblueprint-site
 uv run --extra dev python -m pytest -q
 git diff --check
 ```
@@ -858,6 +861,14 @@ Use `--lean-root path/to/lean/project` only for one-off checks when the project 
 `forbidden operational heading in body`
 
 : Move process notes into YAML, `reviews/`, or `requests/`. Node bodies are for mathematics only.
+
+`unknown macro \Foo; declare it in math.macros`
+
+: Fix the macro spelling or declare `Foo` under `math.macros` in `docs/knowledge/mdblueprint.yml`.
+
+`raw TeX delimiter remains after browser rendering`
+
+: A formula was not rendered by KaTeX. Check delimiter balance, project delimiter config, and browser render-check output.
 
 `external-theorem must have lean.modules and lean.declarations filled`
 

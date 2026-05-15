@@ -38,6 +38,26 @@ The generated site should include:
 
 The frontend can use JavaScript to render the graph, but the graph data and presentation semantics must come from Python.
 
+## Math Rendering QA
+
+Node math syntax and render checks are documented in
+[math-authoring.md](math-authoring.md). The release workflow should distinguish two
+checks:
+
+```bash
+# Static preflight: delimiter, environment, macro, and table-cell diagnostics.
+uv run python -m tools.knowledge.check docs/knowledge
+
+# Browser QA after publishing: KaTeX assets, console errors, .katex output,
+# visible raw TeX, and graph-modal rendering.
+uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
+uv run --extra browser python -m tools.knowledge.render_check /tmp/mdblueprint-site
+```
+
+The static checker catches common authoring mistakes before publishing. Browser
+render verification is the final QA step because KaTeX rendering happens in the
+generated site.
+
 ## Leanblueprint-Style Output
 
 The generated site intentionally follows leanblueprint's presentation style without adopting its TeX/plasTeX source model. Markdown nodes remain the durable source, and Python owns the graph and formalization semantics.

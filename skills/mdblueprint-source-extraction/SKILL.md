@@ -18,14 +18,16 @@ When converting source material into staged Markdown knowledge nodes.
 3. For each item, search the existing node index (admitted + staged) for duplicates.
 4. If no duplicate, create a staged node under `docs/knowledge/staged/` following the node format.
 5. Record source spans with artifact binding and locator format.
-6. If the source statement appears narrower than the reusable mathematical form, note a generality question — do not assert the broader form as truth.
-7. Write an extraction report under `docs/knowledge/reviews/`.
+6. Convert formulas to the supported node math syntax in `docs/math-authoring.md`; declare reusable macros in project config instead of writing TeX preamble commands.
+7. If the source statement appears narrower than the reusable mathematical form, note a generality question — do not assert the broader form as truth.
+8. Write an extraction report under `docs/knowledge/reviews/`.
 
 ## Book and PDF extraction checklist
 
 - Record the book or PDF path as a source artifact before extracting nodes.
 - Capture precise locators: chapter, section, theorem number, definition number, page, or URL fragment.
 - Preserve the statement as written unless the task explicitly asks for normalization.
+- Preserve mathematical notation, but use supported mdblueprint delimiters and configured macros.
 - Put any proposed generalization in the report, not in admitted truth.
 - Extract dependencies only when the source or existing node index justifies them.
 - Prefer several small staged nodes over one merged node containing multiple concepts.

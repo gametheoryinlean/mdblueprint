@@ -138,6 +138,31 @@ The body must not contain operational sections such as:
 
 Those belong in YAML, `reviews/`, or `requests/`.
 
+## Math Body Format
+
+Node bodies may use Markdown prose plus TeX math. Preferred math delimiters are
+`\(...\)` for inline math and `\[...\]` for display math. Dollar delimiters are
+enabled for compatibility, but new nodes should prefer the backslash-delimited forms.
+
+Reusable macros must be declared in project config under `math.macros`; do not put
+`\newcommand` or TeX preamble commands in the node body. Display environments such
+as `aligned` or `cases` must be wrapped in display delimiters.
+
+Run static math diagnostics before publishing:
+
+```bash
+uv run python -m tools.knowledge.check docs/knowledge
+```
+
+After publishing, run browser-level KaTeX verification:
+
+```bash
+uv run --extra browser python -m tools.knowledge.render_check /tmp/mdblueprint-site
+```
+
+See [math-authoring.md](math-authoring.md) for the full delimiter, macro, Markdown
+interaction, and render-check contract.
+
 ## Node Kinds
 
 The first version supports:

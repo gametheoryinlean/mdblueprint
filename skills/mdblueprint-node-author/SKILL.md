@@ -15,6 +15,7 @@ When authoring mathematical content for the knowledge base.
 
 - [ ] Math-only body — no operational sections (status, implementation notes, etc.)
 - [ ] Structured YAML metadata following node-format.md
+- [ ] TeX uses supported delimiters and project macros from math-authoring.md
 - [ ] Stable topic-scoped id
 - [ ] One concept, definition, theorem, example, or proof-plan per file
 - [ ] Correct verification fields for the node kind (statement for theorems, definition for definitions)
@@ -30,4 +31,5 @@ When authoring mathematical content for the knowledge base.
 ## Must read
 
 - `docs/node-format.md`
+- `docs/math-authoring.md`
 - `references/node-template.md`
