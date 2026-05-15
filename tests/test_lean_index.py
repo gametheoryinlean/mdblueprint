@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from tools.knowledge.config import LeanRepositoryConfig
 from tools.knowledge.lean_index import index_lean_project
 
 LEAN_FIXTURES = Path(__file__).parent / "fixtures" / "lean"
@@ -55,3 +56,45 @@ class TestLeanIndex:
         decl = idx.declarations["StrategicGame"]
         assert decl.line > 0
         assert decl.file.name == "Basic.lean"
+
+    def test_configured_repository_adds_source_metadata(self):
+        repo = LeanRepositoryConfig(
+            id="main",
+            title="Example Lean Library",
+            local_path=LEAN_FIXTURES,
+            web_url="https://example.test/org/repo",
+            source_url_template="{web_url}/blob/{revision}/{path}#L{line}",
+            revision="abc123",
+        )
+
+        idx = index_lean_project(LEAN_FIXTURES, repository=repo)
+        decl = idx.declarations["StrategicGame"]
+
+        assert decl.repository_id == "main"
+        assert decl.repository_title == "Example Lean Library"
+        assert decl.revision == "abc123"
+        assert decl.relative_path == "GameTheoryLib/StrategicGame/Basic.lean"
+        assert decl.source_url == (
+            "https://example.test/org/repo/blob/abc123/"
+            "GameTheoryLib/StrategicGame/Basic.lean#L3"
+        )
+
+    def test_duplicate_warning_includes_repository_source_metadata(self, tmp_path):
+        (tmp_path / "A.lean").write_text("theorem Dup : True := True.intro\n", encoding="utf-8")
+        (tmp_path / "B.lean").write_text("theorem Dup : True := True.intro\n", encoding="utf-8")
+        repo = LeanRepositoryConfig(
+            id="main",
+            title="Example Lean Library",
+            local_path=tmp_path,
+            web_url="https://example.test/org/repo",
+            source_url_template="{web_url}/blob/{revision}/{path}#L{line}",
+            revision="abc123",
+        )
+
+        idx = index_lean_project(tmp_path, repository=repo)
+
+        assert len(idx.warnings) == 1
+        warning = idx.warnings[0]
+        assert "main@abc123" in warning
+        assert "A.lean:1" in warning
+        assert "B.lean:1" in warning

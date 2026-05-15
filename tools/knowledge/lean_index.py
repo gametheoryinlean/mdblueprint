@@ -6,6 +6,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from tools.knowledge.config import LeanRepositoryConfig
+
 
 DECL_KEYWORDS = re.compile(
     r"^(def|theorem|lemma|abbrev|instance|structure|class|inductive|"
@@ -40,6 +42,11 @@ class LeanDeclaration:
     file: Path
     line: int
     has_sorry: bool = False
+    repository_id: str | None = None
+    repository_title: str | None = None
+    revision: str | None = None
+    relative_path: str | None = None
+    source_url: str | None = None
 
 
 @dataclass
@@ -72,7 +79,44 @@ def _module_name(file: Path, lean_root: Path) -> str:
     return ".".join(parts)
 
 
-def index_lean_project(lean_root: Path) -> LeanIndex:
+def _source_metadata(
+    lean_file: Path,
+    line: int,
+    lean_root: Path,
+    repository: LeanRepositoryConfig | None,
+) -> dict[str, str | None]:
+    if repository is None:
+        return {
+            "repository_id": None,
+            "repository_title": None,
+            "revision": None,
+            "relative_path": None,
+            "source_url": None,
+        }
+
+    relative_path = lean_file.relative_to(lean_root).as_posix()
+    source_url = repository.source_url_template.format(
+        web_url=repository.web_url.rstrip("/"),
+        revision=repository.revision,
+        path=relative_path,
+        line=line,
+    )
+    return {
+        "repository_id": repository.id,
+        "repository_title": repository.title,
+        "revision": repository.revision,
+        "relative_path": relative_path,
+        "source_url": source_url,
+    }
+
+
+def _decl_location(decl: LeanDeclaration) -> str:
+    if decl.repository_id and decl.revision and decl.relative_path:
+        return f"{decl.repository_id}@{decl.revision}:{decl.relative_path}:{decl.line}"
+    return f"{decl.file}:{decl.line}"
+
+
+def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | None = None) -> LeanIndex:
     idx = LeanIndex()
 
     for lean_file in sorted(lean_root.rglob("*.lean")):
@@ -128,12 +172,13 @@ def index_lean_project(lean_root: Path) -> LeanIndex:
                 file=lean_file,
                 line=lineno,
                 has_sorry=has_sorry,
+                **_source_metadata(lean_file, lineno, lean_root, repository),
             )
             if qualified in idx.declarations:
                 prev = idx.declarations[qualified]
                 idx.warnings.append(
                     f"duplicate declaration {qualified!r}: "
-                    f"{prev.file}:{prev.line} and {lean_file}:{lineno}"
+                    f"{_decl_location(prev)} and {_decl_location(decl)}"
                 )
             idx.declarations[qualified] = decl
             if has_sorry:
