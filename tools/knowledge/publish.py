@@ -1,6 +1,7 @@
 """Generate static HTML site from knowledge nodes."""
 from __future__ import annotations
 
+import argparse
 import re
 import shutil
 import sys
@@ -12,6 +13,7 @@ import markdown
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
+from tools.knowledge.config import load_project_config
 from tools.knowledge.export import write_graph_json
 from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
@@ -95,9 +97,10 @@ def _summary_payload(node, blueprint_nodes: dict, href: str) -> dict:
     }
 
 
-def publish(knowledge_root: Path, output_dir: Path) -> None:
+def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = None) -> None:
     nodes_dir = knowledge_root / "nodes"
     staged_dir = knowledge_root / "staged"
+    config = load_project_config(knowledge_root, config_path)
 
     all_nodes = []
     if nodes_dir.exists():
@@ -115,6 +118,7 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
         autoescape=select_autoescape(["html"]),
     )
     env.globals["node_href_from_root"] = _node_href_from_root
+    env.globals["site"] = config.site
 
     # Group by topic
     topics: dict[str, list] = defaultdict(list)
@@ -197,7 +201,7 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
     tmpl = env.get_template("index.html")
     (output_dir / "index.html").write_text(
         tmpl.render(
-            title="Knowledge Base",
+            title="Home",
             root="",
             topics=topic_names,
             keywords=keyword_names,
@@ -294,10 +298,16 @@ def publish(knowledge_root: Path, output_dir: Path) -> None:
             )
 
 
-def main() -> None:
-    knowledge_root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("docs/knowledge")
-    output_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else knowledge_root / "site"
-    publish(knowledge_root, output_dir)
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Publish mdblueprint static site.")
+    parser.add_argument("knowledge_root", nargs="?", type=Path, default=Path("docs/knowledge"))
+    parser.add_argument("output_dir", nargs="?", type=Path)
+    parser.add_argument("--config", type=Path, help="Project config path; defaults to <knowledge_root>/mdblueprint.yml if present.")
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+
+    knowledge_root = args.knowledge_root
+    output_dir = args.output_dir if args.output_dir is not None else knowledge_root / "site"
+    publish(knowledge_root, output_dir, config_path=args.config)
     print(f"Published to {output_dir}")
 
 

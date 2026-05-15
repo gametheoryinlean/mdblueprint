@@ -92,6 +92,9 @@ uv run python -m tools.knowledge.check docs/knowledge --lean-root path/to/lean/p
 # Generate graph.json and the static HTML site
 uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
 
+# Generate with an explicit project config
+uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site --config path/to/mdblueprint.yml
+
 # Index Lean declarations from a Lean project
 uv run python -m tools.knowledge.lean_index path/to/lean/project
 
@@ -100,6 +103,24 @@ uv run python -m tools.knowledge.admit docs/knowledge/staged/example.md docs/kno
 ```
 
 The publisher refuses to delete the knowledge source tree. For local previews, prefer publishing to `/tmp/...` or another build directory outside `docs/knowledge`.
+
+## Project Site Config
+
+The generated site is named by the blueprint project, not by the publishing tool. Put the project-level site config at `docs/knowledge/mdblueprint.yml`:
+
+```yaml
+site:
+  title: Algebra Library Blueprint
+  short_title: Algebra
+```
+
+Publisher contract:
+
+- `site.title` is the homepage H1 and the suffix in browser titles.
+- `site.short_title` is the sidebar logo when present.
+- If `site.short_title` is omitted, the sidebar logo uses `site.title`.
+- If no config exists, publishing still works and derives a deterministic neutral title from the knowledge root.
+- The CLI accepts `--config path/to/mdblueprint.yml` to use a config outside the knowledge root.
 
 ## Project Layout
 
@@ -127,6 +148,7 @@ docs/
   skills.md
 
 docs/knowledge/
+  mdblueprint.yml    project site title and short title
   nodes/             admitted Markdown nodes
   staged/            candidate Markdown nodes
   reviews/           verifier/referee reports
