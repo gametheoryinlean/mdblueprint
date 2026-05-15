@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from tools.knowledge.graph import build_graph
+from tools.knowledge.latex_check import check_node_math
 from tools.knowledge.lean_check import check_lean_references
 from tools.knowledge.lean_index import index_lean_project
 from tools.knowledge.parser import scan_directory
@@ -23,11 +24,13 @@ def check_knowledge_base(
     if nodes_dir.exists():
         for node in scan_directory(nodes_dir):
             diags.extend(validate_node(node, is_staged_dir=False))
+            diags.extend(check_node_math(node))
             all_nodes.append(node)
 
     if staged_dir.exists():
         for node in scan_directory(staged_dir):
             diags.extend(validate_node(node, is_staged_dir=True))
+            diags.extend(check_node_math(node))
             all_nodes.append(node)
 
     _, graph_diags = build_graph(all_nodes)

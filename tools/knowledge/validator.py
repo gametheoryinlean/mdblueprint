@@ -31,7 +31,7 @@ class Diagnostic:
     file_path: Path | None = None
 
     def __str__(self) -> str:
-        loc = str(self.file_path) if self.file_path else self.node_id
+        loc = f"{self.file_path} ({self.node_id})" if self.file_path else self.node_id
         return f"[{self.level.upper()}] {loc}: {self.message}"
 
 

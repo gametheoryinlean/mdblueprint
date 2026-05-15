@@ -168,7 +168,7 @@ class TestDiagnosticStr:
     def test_with_file_path(self):
         from tools.knowledge.validator import Diagnostic
         d = Diagnostic("error", "test.node", "test msg", Path("foo.md"))
-        assert "[ERROR] foo.md: test msg" == str(d)
+        assert "[ERROR] foo.md (test.node): test msg" == str(d)
 
     def test_without_file_path(self):
         from tools.knowledge.validator import Diagnostic
