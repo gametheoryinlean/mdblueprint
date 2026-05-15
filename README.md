@@ -95,6 +95,9 @@ uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
 # Generate with an explicit project config
 uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site --config path/to/mdblueprint.yml
 
+# Strict browser render verification for published math
+uv run --extra browser python -m tools.knowledge.render_check /tmp/mdblueprint-site
+
 # Index Lean declarations from a Lean project
 uv run python -m tools.knowledge.lean_index path/to/lean/project
 
@@ -103,6 +106,12 @@ uv run python -m tools.knowledge.admit docs/knowledge/staged/example.md docs/kno
 ```
 
 The publisher refuses to delete the knowledge source tree. For local previews, prefer publishing to `/tmp/...` or another build directory outside `docs/knowledge`.
+
+Browser render verification uses Playwright. Before the first run, install the browser runtime:
+
+```bash
+uv run --extra browser playwright install chromium
+```
 
 ## Project Site Config
 
