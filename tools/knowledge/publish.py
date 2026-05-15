@@ -5,6 +5,7 @@ import re
 import shutil
 import sys
 from collections import defaultdict
+from html import escape
 from pathlib import Path
 
 import markdown
@@ -17,6 +18,12 @@ from tools.knowledge.parser import scan_directory
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 PROOF_MARKER_RE = re.compile(r"(?im)(^|\n)(?P<marker>\s*(?:\*{1,2}Proof\.\*{1,2}|Proof\.|##\s+Proof)\s*)")
+TEX_MATH_RE = re.compile(
+    r"\$\$(?:.|\n)*?\$\$"
+    r"|\\\[(?:.|\n)*?\\\]"
+    r"|\\\((?:.|\n)*?\\\)"
+    r"|(?<!\\)\$(?!\$)(?:\\.|[^\n$\\])+(?<!\\)\$"
+)
 
 
 def _node_href(node_id: str, from_topic: str | None = None) -> str:
@@ -48,14 +55,29 @@ def _split_proof_markdown(body: str) -> tuple[str, str | None]:
     return statement, proof or None
 
 
+def _convert_markdown_preserving_tex(md: markdown.Markdown, source: str) -> str:
+    replacements: list[tuple[str, str]] = []
+
+    def protect(match: re.Match[str]) -> str:
+        token = f"MDBLUEPRINTMATHPLACEHOLDER{len(replacements)}END"
+        replacements.append((token, match.group(0)))
+        return token
+
+    protected = TEX_MATH_RE.sub(protect, source)
+    rendered = md.convert(protected)
+    for token, math_source in replacements:
+        rendered = rendered.replace(token, escape(math_source, quote=False))
+    return rendered
+
+
 def _render_body(md: markdown.Markdown, body: str) -> dict[str, str | None]:
     statement_md, proof_md = _split_proof_markdown(body)
     md.reset()
-    statement_html = md.convert(statement_md)
+    statement_html = _convert_markdown_preserving_tex(md, statement_md)
     proof_html = None
     if proof_md is not None:
         md.reset()
-        proof_html = md.convert(proof_md)
+        proof_html = _convert_markdown_preserving_tex(md, proof_md)
     return {
         "body_html": statement_html,
         "proof_html": proof_html,

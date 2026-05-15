@@ -4,15 +4,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ title }} — mdblueprint</title>
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/katex@0.16.46/dist/katex.min.css"
+        integrity="sha384-hW6ZmmePRD2f/9cuxGE6C9faGprtIBOme5OLUiEjtRKMTN67tY23ur9eAi21H8De"
+        crossorigin="anonymous">
   <link rel="stylesheet" href="{{ root }}style.css">
-  <script defer>
-    window.MathJax = {
-      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
-    };
-  </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"
-          integrity="sha384-Wuix6BuhrWbjDBs24bXrjf4ZQ5aFeFWBuKkFekO2t8xFU0iNaLQfp2K6/1Nxveei"
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.46/dist/katex.min.js"
+          integrity="sha384-FVvsvR4UzyIP8Y5hVvHjOfjVh+LWV78ll63SYx1t+nuuMPGMAihB8dJ2YsYyg1Wb"
           crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.46/dist/contrib/auto-render.min.js"
+          integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz"
+          crossorigin="anonymous"></script>
+  <script defer>
+    document.addEventListener("DOMContentLoaded", () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "\\[", right: "\\]", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
 </head>
 <body>
   <nav class="sidebar">

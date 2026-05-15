@@ -1,4 +1,5 @@
 import json
+import textwrap
 from pathlib import Path
 
 from tools.knowledge.publish import publish
@@ -65,7 +66,11 @@ class TestExampleCorpusPublish:
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
         sg_page = (tmp_path / "site" / "strategic_games" / "strategic_games_strategic_game.html")
         content = sg_page.read_text()
-        assert "MathJax" in content
+        assert "katex.min.css" in content
+        assert "katex.min.js" in content
+        assert "auto-render.min.js" in content
+        assert "renderMathInElement" in content
+        assert "MathJax" not in content
 
     def test_staged_included(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
@@ -269,3 +274,41 @@ class TestGenericPublish:
         assert '<details class="proof-details">' in theorem_page
         assert "<summary>Proof</summary>" in theorem_page
         assert 'label="Group Identity Is Unique"' in graph_page
+
+    def test_tex_math_is_preserved_before_katex_on_node_and_graph_pages(self, tmp_path):
+        knowledge = tmp_path / "knowledge"
+        node_dir = knowledge / "nodes" / "games"
+        node_dir.mkdir(parents=True)
+        (node_dir / "strategic_game.md").write_text(
+            textwrap.dedent(
+                r"""
+                ---
+                id: games.strategic_game
+                title: Strategic Game
+                kind: definition
+                status: admitted
+                uses: []
+                tags:
+                  - games
+                ---
+
+                # Strategic Game
+
+                A strategic game is a tuple
+                $(I, (S_i)_{i \in I}, (u_i)_{i \in I})$.
+                It can also be written as
+                \((I, (S_i)_{i \in I}, (u_i)_{i \in I})\).
+                """
+            ).strip()
+        )
+
+        publish(knowledge, tmp_path / "site")
+        node_page = (tmp_path / "site" / "games" / "games_strategic_game.html").read_text()
+        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+
+        assert r"$(I, (S_i)_{i \in I}, (u_i)_{i \in I})$" in node_page
+        assert r"\((I, (S_i)_{i \in I}, (u_i)_{i \in I})\)" in node_page
+        assert r"$(I, (S_i)_{i \in I}, (u_i)_{i \in I})$" in graph_page
+        assert r"\((I, (S_i)_{i \in I}, (u_i)_{i \in I})\)" in graph_page
+        assert "<em>" not in node_page
+        assert "<em>" not in graph_page
