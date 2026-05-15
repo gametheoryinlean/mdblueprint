@@ -154,26 +154,25 @@ Each mathematical object is one Markdown file with YAML frontmatter and a math-o
 
 ```markdown
 ---
-id: strategic_games.nash_equilibrium
-title: Nash Equilibrium
+id: algebra.groups.group
+title: Group
 kind: definition
 status: admitted
 uses:
-  - strategic_games.strategic_game
-  - strategic_games.strategy_profile
+  - algebra.sets.binary_operation
 tags:
-  - equilibrium
-  - solution-concept
+  - algebra
+  - group-theory
 verification:
   definition: accepted
   proof: not_applicable
   alignment: pending
 ---
 
-# Nash Equilibrium
+# Group
 
-A strategy profile $\sigma$ is a Nash equilibrium if no player can improve
-their payoff by a unilateral deviation.
+A group is a set $G$ with a binary operation $\cdot$, an identity element
+$e$, and inverses, such that the operation is associative.
 ```
 
 Important rules:
@@ -226,7 +225,7 @@ Files under `docs/knowledge/nodes/` should normally use `admitted`, `formalized`
 
 Use this only when you are directly maintaining trusted source files.
 
-1. Pick a stable id such as `strategic_games.best_response`.
+1. Pick a stable id such as `algebra.groups.group_homomorphism`.
 2. Put the file under `docs/knowledge/nodes/<topic>/`.
 3. Write YAML frontmatter according to [docs/node-format.md](docs/node-format.md).
 4. Keep the body mathematical. Do not add operational headings like "Status", "Implementation notes", or "Agent discussion".
@@ -261,9 +260,9 @@ Add a `lean` block when a node corresponds to Lean declarations:
 ```yaml
 lean:
   modules:
-    - GameTheoryLib.StrategicGame.NashEquilibrium
+    - MyLibrary.Algebra.Groups
   declarations:
-    - StrategicGame.IsNashEquilibrium
+    - Algebra.Group
 ```
 
 Then run:
@@ -694,7 +693,7 @@ Request files are proposals. They are not admitted mathematical truth.
 1. Search existing nodes before creating a new one:
 
 ```bash
-rg -n "Nash|equilibrium|dominance" docs/knowledge
+rg -n "<keyword>|<alternate term>" docs/knowledge
 ```
 
 2. Choose one node per reusable mathematical object.
@@ -745,6 +744,14 @@ For documentation-only changes:
 uv run --extra dev python -m pytest -q
 git diff --check
 ```
+
+For generic documentation, skills, or tooling changes, also run the domain-neutrality audit:
+
+```bash
+uv run --extra dev python -m pytest tests/test_domain_neutrality.py -q
+```
+
+This audit allows domain fixtures only under `docs/knowledge/**` and `tests/fixtures/**`.
 
 For node or publisher changes:
 

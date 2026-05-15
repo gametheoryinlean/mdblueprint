@@ -6,44 +6,43 @@ Each node is one Markdown file. The YAML frontmatter stores system information. 
 
 ```markdown
 ---
-id: extensive_games.subgame_perfect_equilibrium
-title: Subgame Perfect Equilibrium
+id: topology.metric_space.complete
+title: Complete Metric Space
 kind: definition
 status: admitted
 uses:
-  - extensive_games.subgame
+  - topology.metric_space.cauchy_sequence
 lean:
   modules:
-    - GameTheory.ExtensiveForm.SubgamePerfect
+    - MyLibrary.Topology.MetricSpace
   declarations:
-    - ExtensiveGame.SubgamePerfectEquilibrium
+    - MetricSpace.Complete
 source:
   artifacts:
-    - id: game-theory-book
-      path: references/game-theory-book.pdf
+    - id: topology-text
+      path: references/topology-text.pdf
   spans:
-    - artifact: game-theory-book
-      locator: "Chapter 4, page 123"
+    - artifact: topology-text
+      locator: "Chapter 2, page 45"
       format: book-page
-      note: "Definition of subgame perfect equilibrium"
+      note: "Definition of complete metric space"
 verification:
   definition: accepted
   proof: not_applicable
   alignment: pending
 generality:
   reviewed: true
-  prompt: "Is this definition stated for arbitrary finite extensive games?"
-  verdict: "Yes, with the finiteness assumption explicit."
+  prompt: "Is this definition stated for arbitrary metric spaces?"
+  verdict: "Yes, no finiteness or separability assumption is imposed."
 tags:
-  - extensive-game
-  - equilibrium
+  - topology
+  - metric-space
 ---
 
-# Subgame Perfect Equilibrium
+# Complete Metric Space
 
-Let $G$ be a finite extensive-form game. A strategy profile $\sigma$ is a
-subgame perfect equilibrium if, for every subgame $H$ of $G$, the restriction
-of $\sigma$ to $H$ is a Nash equilibrium of $H$.
+A metric space $(X, d)$ is complete if every Cauchy sequence in $X$ converges
+to a point of $X$.
 ```
 
 ## Source Format

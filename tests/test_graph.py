@@ -4,8 +4,9 @@ from tools.knowledge.graph import build_graph, topological_sort
 from tools.knowledge.parser import parse_file, scan_directory
 
 _TESTS_DIR = Path(__file__).parent
-NODES_DIR = _TESTS_DIR.parent / "docs" / "knowledge" / "nodes" / "strategic_games"
-STAGED_DIR = _TESTS_DIR.parent / "docs" / "knowledge" / "staged"
+GENERIC_ROOT = _TESTS_DIR / "fixtures" / "generic_knowledge"
+NODES_DIR = GENERIC_ROOT / "nodes" / "algebra"
+STAGED_DIR = GENERIC_ROOT / "staged" / "algebra"
 INVALID_DIR = _TESTS_DIR / "fixtures" / "invalid"
 
 
@@ -15,23 +16,23 @@ class TestBuildGraph:
         g, diags = build_graph(nodes)
         errors = [d for d in diags if d.level == "error"]
         assert errors == []
-        assert len(g.nodes) == 10
+        assert len(g.nodes) == 4
 
     def test_edges(self):
         nodes = scan_directory(NODES_DIR)
         g, _ = build_graph(nodes)
-        assert "strategic_games.strategy_profile" in g.edges["strategic_games.unilateral_deviation"]
+        assert "algebra.group" in g.edges["algebra.group_homomorphism"]
 
     def test_reverse_edges(self):
         nodes = scan_directory(NODES_DIR)
         g, _ = build_graph(nodes)
-        assert "strategic_games.unilateral_deviation" in g.reverse_edges["strategic_games.strategy_profile"]
+        assert "algebra.group_homomorphism" in g.reverse_edges["algebra.group"]
 
     def test_with_staged(self):
         admitted = scan_directory(NODES_DIR)
         staged = scan_directory(STAGED_DIR)
         g, diags = build_graph(admitted + staged)
-        assert "strategic_games.mixed_strategy" in g.nodes
+        assert "algebra.quotient_group" in g.nodes
         errors = [d for d in diags if d.level == "error"]
         assert errors == []
 
@@ -47,7 +48,7 @@ class TestCycleDetection:
 
 class TestDuplicateIds:
     def test_duplicate(self):
-        node = parse_file(NODES_DIR / "strategic_game.md")
+        node = parse_file(NODES_DIR / "group.md")
         _, diags = build_graph([node, node])
         errors = [d for d in diags if d.level == "error"]
         assert any("duplicate" in d.message for d in errors)
@@ -69,9 +70,5 @@ class TestTopologicalSort:
         g, _ = build_graph(nodes)
         order = topological_sort(g)
         idx = {nid: i for i, nid in enumerate(order)}
-        # strategic_game must come before strategy_profile
-        assert idx["strategic_games.strategic_game"] < idx["strategic_games.strategy_profile"]
-        # strategy_profile before unilateral_deviation
-        assert idx["strategic_games.strategy_profile"] < idx["strategic_games.unilateral_deviation"]
-        # best_response before nash_equilibrium
-        assert idx["strategic_games.best_response"] < idx["strategic_games.nash_equilibrium"]
+        assert idx["algebra.group"] < idx["algebra.group_homomorphism"]
+        assert idx["algebra.group_homomorphism"] < idx["algebra.group_isomorphism"]

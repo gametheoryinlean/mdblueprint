@@ -5,9 +5,10 @@ from tools.knowledge.publish import publish
 
 ROOT = Path(__file__).parent.parent
 KNOWLEDGE_ROOT = Path(__file__).parent.parent / "docs" / "knowledge"
+GENERIC_KNOWLEDGE_ROOT = Path(__file__).parent / "fixtures" / "generic_knowledge"
 
 
-class TestPublish:
+class TestExampleCorpusPublish:
     def test_generates_output(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
         site = tmp_path / "site"
@@ -238,3 +239,33 @@ class TestPublish:
         assert "Strategic Games" in page
         assert "Dominant Strategy Profile is a Nash Equilibrium" in page
         assert "strategic_games.dominant_implies_nash" not in page
+
+
+class TestGenericPublish:
+    def test_generic_fixture_generates_site_without_example_corpus_terms(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        site = tmp_path / "site"
+
+        assert (site / "index.html").exists()
+        assert (site / "algebra" / "index.html").exists()
+        assert (site / "algebra" / "algebra_group.html").exists()
+        assert (site / "keywords" / "algebra.html").exists()
+        assert (site / "dep_graph_document.html").exists()
+
+        index = (site / "index.html").read_text()
+        assert "Group" in index
+        assert "Group Homomorphism" in index
+        assert "Group Identity Is Unique" in index
+        example_topic = "strategic" + "_games"
+        example_label = "Na" + "sh"
+        assert example_topic not in index
+        assert example_label not in index
+
+    def test_generic_fixture_keeps_theorem_proofs_collapsed(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        theorem_page = (tmp_path / "site" / "algebra" / "algebra_group_identity_unique.html").read_text()
+        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+
+        assert '<details class="proof-details">' in theorem_page
+        assert "<summary>Proof</summary>" in theorem_page
+        assert 'label="Group Identity Is Unique"' in graph_page

@@ -146,7 +146,7 @@ Remote observed locally:
 git@github.com:gametheoryinlean/gametheorylib.git
 ```
 
-Use it as the first target library and source of domain examples.
+Use it as one reference repository and a concrete fixture for domain examples.
 
 Relevant local files and areas:
 
@@ -158,7 +158,7 @@ docs/dev/research/*_tasks/
 GameTheoryLib/
 ```
 
-Use it to test whether mdblueprint can represent EconCS and game theory nodes cleanly without relying on a TeX blueprint as source truth.
+Use it to test whether mdblueprint can represent a nontrivial Lean-adjacent mathematical library without relying on a TeX blueprint as source truth.
 
 ## Codex Skill Repositories
 

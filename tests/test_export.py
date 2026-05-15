@@ -6,7 +6,7 @@ from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
 from tools.knowledge.export import export_graph_json, write_graph_json
 
-NODES_DIR = Path(__file__).parent.parent / "docs" / "knowledge" / "nodes" / "strategic_games"
+NODES_DIR = Path(__file__).parent / "fixtures" / "generic_knowledge" / "nodes" / "algebra"
 
 
 class TestExportGraphJson:
@@ -16,23 +16,23 @@ class TestExportGraphJson:
         data = export_graph_json(g)
         assert "nodes" in data
         assert "edges" in data
-        assert len(data["nodes"]) == 10
+        assert len(data["nodes"]) == 4
 
     def test_node_fields(self):
         nodes = scan_directory(NODES_DIR)
         g, _ = build_graph(nodes)
         data = export_graph_json(g)
-        sg = next(n for n in data["nodes"] if n["id"] == "strategic_games.strategic_game")
-        assert sg["title"] == "Strategic Game"
-        assert sg["kind"] == "definition"
-        assert sg["status"] == "admitted"
+        group = next(n for n in data["nodes"] if n["id"] == "algebra.group")
+        assert group["title"] == "Group"
+        assert group["kind"] == "definition"
+        assert group["status"] == "admitted"
 
     def test_edges(self):
         nodes = scan_directory(NODES_DIR)
         g, _ = build_graph(nodes)
         data = export_graph_json(g)
         edge_pairs = {(e["from"], e["to"]) for e in data["edges"]}
-        assert ("strategic_games.strategy_profile", "strategic_games.strategic_game") in edge_pairs
+        assert ("algebra.group_homomorphism", "algebra.group") in edge_pairs
 
     def test_deterministic(self):
         nodes = scan_directory(NODES_DIR)
@@ -49,21 +49,21 @@ class TestExportGraphJson:
         write_graph_json(g, out)
         assert out.exists()
         data = json.loads(out.read_text())
-        assert len(data["nodes"]) == 10
+        assert len(data["nodes"]) == 4
 
     def test_lean_declarations(self):
         nodes = scan_directory(NODES_DIR)
         g, _ = build_graph(nodes)
         data = export_graph_json(g)
-        sg = next(n for n in data["nodes"] if n["id"] == "strategic_games.strategic_game")
-        assert "StrategicGame" in sg["lean_declarations"]
+        group = next(n for n in data["nodes"] if n["id"] == "algebra.group")
+        assert "Algebra.Group" in group["lean_declarations"]
 
     def test_reverse_deps(self):
         nodes = scan_directory(NODES_DIR)
         g, _ = build_graph(nodes)
         data = export_graph_json(g)
-        sg = next(n for n in data["nodes"] if n["id"] == "strategic_games.strategic_game")
-        assert "strategic_games.strategy_profile" in sg.get("used_by", [])
+        group = next(n for n in data["nodes"] if n["id"] == "algebra.group")
+        assert "algebra.group_homomorphism" in group.get("used_by", [])
 
     def test_blueprint_dot_uses_dependency_to_dependent_direction(self):
         nodes = scan_directory(NODES_DIR)
@@ -71,7 +71,7 @@ class TestExportGraphJson:
         view = build_blueprint_graph(g)
         dot = graph_to_dot(view)
 
-        assert '"strategic_games.strategic_game" -> "strategic_games.strategy_profile"' in dot
+        assert '"algebra.group" -> "algebra.group_homomorphism"' in dot
 
     def test_blueprint_dot_uses_leanblueprint_shapes(self):
         nodes = scan_directory(NODES_DIR)
@@ -88,4 +88,4 @@ class TestExportGraphJson:
         data = export_graph_json(g)
 
         assert set(data) == {"nodes", "edges"}
-        assert {"from": "strategic_games.strategy_profile", "to": "strategic_games.strategic_game"} in data["edges"]
+        assert {"from": "algebra.group_homomorphism", "to": "algebra.group"} in data["edges"]
