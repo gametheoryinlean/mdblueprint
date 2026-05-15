@@ -175,3 +175,115 @@ def test_publish_injects_configured_math_options(tmp_path):
     assert '"throwOnError": true' in node_page
     assert r'"left": "\\("' in node_page
     assert r'"left": "$"' not in node_page
+
+
+def _init_git_repo(path: Path) -> str:
+    path.mkdir(parents=True)
+    (path / "Example.lean").write_text("theorem Example : True := True.intro\n", encoding="utf-8")
+    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.test"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=path, check=True)
+    subprocess.run(["git", "add", "Example.lean"], cwd=path, check=True)
+    subprocess.run(["git", "commit", "-m", "initial"], cwd=path, check=True, capture_output=True)
+    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=path, text=True).strip()
+
+
+def test_project_config_parses_lean_repository_and_auto_revision(tmp_path):
+    from tools.knowledge.config import load_project_config
+
+    lean_root = tmp_path / "lean_project"
+    revision = _init_git_repo(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            f"""
+            site:
+              title: Lean Linked Blueprint
+            lean:
+              default_repository: main
+              repositories:
+                - id: main
+                  title: Example Lean Library
+                  local_path: {lean_root}
+                  web_url: https://example.test/org/repo
+                  source_url_template: "{{web_url}}/blob/{{revision}}/{{path}}#L{{line}}"
+                  revision: auto
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    config = load_project_config(knowledge_root)
+    repo = config.lean.repositories["main"]
+
+    assert config.lean.default_repository == "main"
+    assert repo.title == "Example Lean Library"
+    assert repo.local_path == lean_root
+    assert repo.web_url == "https://example.test/org/repo"
+    assert repo.revision == revision
+    assert len(repo.revision) == 40
+
+
+def test_lean_repository_local_path_must_exist(tmp_path):
+    from tools.knowledge.config import load_project_config
+
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    missing = tmp_path / "missing_lean"
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            f"""
+            site:
+              title: Missing Lean Blueprint
+            lean:
+              repositories:
+                - id: main
+                  title: Missing Lean
+                  local_path: {missing}
+                  web_url: https://example.test/org/repo
+                  source_url_template: "{{web_url}}/blob/{{revision}}/{{path}}#L{{line}}"
+                  revision: fixed
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    try:
+        load_project_config(knowledge_root)
+    except ValueError as exc:
+        assert "lean.repositories[0].local_path" in str(exc)
+        assert str(missing) in str(exc)
+    else:
+        raise AssertionError("expected missing local_path to fail")
+
+
+def test_lean_repository_reports_missing_required_fields(tmp_path):
+    from tools.knowledge.config import load_project_config
+
+    lean_root = tmp_path / "lean_project"
+    _init_git_repo(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            f"""
+            site:
+              title: Incomplete Lean Blueprint
+            lean:
+              repositories:
+                - id: main
+                  title: Incomplete Lean
+                  local_path: {lean_root}
+                  revision: auto
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    try:
+        load_project_config(knowledge_root)
+    except ValueError as exc:
+        assert "lean.repositories[0].web_url" in str(exc)
+    else:
+        raise AssertionError("expected missing web_url to fail")

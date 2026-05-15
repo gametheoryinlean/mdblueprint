@@ -1,6 +1,7 @@
 """Project-level configuration for mdblueprint knowledge roots."""
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -28,9 +29,26 @@ class MathConfig:
 
 
 @dataclass(frozen=True)
+class LeanRepositoryConfig:
+    id: str
+    title: str
+    local_path: Path
+    web_url: str
+    source_url_template: str
+    revision: str
+
+
+@dataclass(frozen=True)
+class LeanConfig:
+    default_repository: str | None
+    repositories: dict[str, LeanRepositoryConfig]
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     site: SiteConfig
     math: MathConfig
+    lean: LeanConfig
 
 
 def _titleize_path_name(name: str) -> str:
@@ -44,6 +62,7 @@ def _fallback_config(knowledge_root: Path) -> ProjectConfig:
     return ProjectConfig(
         site=SiteConfig(title=_titleize_path_name(knowledge_root.name)),
         math=_default_math_config(),
+        lean=_default_lean_config(),
     )
 
 
@@ -54,6 +73,10 @@ def _default_math_config() -> MathConfig:
         display_delimiters=list(DEFAULT_DISPLAY_DELIMITERS),
         throw_on_error=False,
     )
+
+
+def _default_lean_config() -> LeanConfig:
+    return LeanConfig(default_repository=None, repositories={})
 
 
 def _parse_delimiters(raw: Any, *, path: Path, field: str, default: tuple[tuple[str, str], ...]) -> list[tuple[str, str]]:
@@ -137,6 +160,83 @@ def katex_auto_render_options(math: MathConfig) -> dict[str, Any]:
     }
 
 
+def _required_str(raw: dict[str, Any], key: str, *, path: Path, prefix: str) -> str:
+    value = raw.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Project config requires {prefix}.{key}: {path}")
+    return value.strip()
+
+
+def _resolve_local_path(value: str, *, config_path: Path) -> Path:
+    local_path = Path(value).expanduser()
+    if not local_path.is_absolute():
+        local_path = config_path.parent / local_path
+    return local_path.resolve()
+
+
+def _resolve_revision(local_path: Path, revision: str, *, path: Path, prefix: str) -> str:
+    if revision != "auto":
+        return revision
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(local_path), "rev-parse", "HEAD"],
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(f"Project config {prefix}.revision=auto requires a Git repository: {path}") from exc
+
+
+def _parse_lean_config(raw: Any, *, path: Path) -> LeanConfig:
+    if raw is None:
+        return _default_lean_config()
+    if not isinstance(raw, dict):
+        raise ValueError(f"Project config lean must be a mapping: {path}")
+
+    default_repository = raw.get("default_repository")
+    if default_repository is not None and (not isinstance(default_repository, str) or not default_repository.strip()):
+        raise ValueError(f"Project config lean.default_repository must be a non-empty string: {path}")
+    if isinstance(default_repository, str):
+        default_repository = default_repository.strip()
+
+    repositories_raw = raw.get("repositories", [])
+    if not isinstance(repositories_raw, list):
+        raise ValueError(f"Project config lean.repositories must be a list: {path}")
+
+    repositories: dict[str, LeanRepositoryConfig] = {}
+    for index, repo_raw in enumerate(repositories_raw):
+        prefix = f"lean.repositories[{index}]"
+        if not isinstance(repo_raw, dict):
+            raise ValueError(f"Project config {prefix} must be a mapping: {path}")
+
+        repo_id = _required_str(repo_raw, "id", path=path, prefix=prefix)
+        title = _required_str(repo_raw, "title", path=path, prefix=prefix)
+        local_path_raw = _required_str(repo_raw, "local_path", path=path, prefix=prefix)
+        web_url = _required_str(repo_raw, "web_url", path=path, prefix=prefix)
+        source_url_template = _required_str(repo_raw, "source_url_template", path=path, prefix=prefix)
+        revision_raw = _required_str(repo_raw, "revision", path=path, prefix=prefix)
+        local_path = _resolve_local_path(local_path_raw, config_path=path)
+
+        if not local_path.is_dir():
+            raise ValueError(f"Project config {prefix}.local_path does not exist: {local_path}")
+        if repo_id in repositories:
+            raise ValueError(f"Project config duplicate Lean repository id {repo_id!r}: {path}")
+
+        repositories[repo_id] = LeanRepositoryConfig(
+            id=repo_id,
+            title=title,
+            local_path=local_path,
+            web_url=web_url,
+            source_url_template=source_url_template,
+            revision=_resolve_revision(local_path, revision_raw, path=path, prefix=prefix),
+        )
+
+    if default_repository is not None and default_repository not in repositories:
+        raise ValueError(f"Project config lean.default_repository is not listed in lean.repositories: {default_repository!r}")
+
+    return LeanConfig(default_repository=default_repository, repositories=repositories)
+
+
 def load_project_config(knowledge_root: Path, config_path: Path | None = None) -> ProjectConfig:
     path = config_path if config_path is not None else knowledge_root / DEFAULT_CONFIG_NAME
     if not path.exists():
@@ -165,4 +265,5 @@ def load_project_config(knowledge_root: Path, config_path: Path | None = None) -
     return ProjectConfig(
         site=SiteConfig(title=title.strip(), short_title=short_title),
         math=_parse_math_config(raw.get("math"), path=path),
+        lean=_parse_lean_config(raw.get("lean"), path=path),
     )
