@@ -12,8 +12,9 @@ MATH_DELIMITER_RE = re.compile(r"(?<!\\)\$\$|(?<!\\)\$|\\\(|\\\)|\\\[|\\\]")
 ENVIRONMENT_RE = re.compile(r"\\(begin|end)\{([^{}]+)\}")
 MACRO_RE = re.compile(r"\\([A-Za-z]+)")
 KNOWN_MACROS = frozenset({
-    "Delta", "Gamma", "Lambda", "Omega", "Phi", "Pi", "Psi", "Sigma", "Theta",
-    "Upsilon", "Xi", "alpha", "bar", "beta", "bigcap", "bigcup", "cdot", "chi",
+    "Delta", "Gamma", "Lambda", "Longleftrightarrow", "Omega", "Phi", "Pi",
+    "Psi", "Rightarrow", "Sigma", "Theta", "Upsilon", "Xi", "alpha", "bar",
+    "beta", "bigcap", "bigcup", "cdot", "chi",
     "colon", "delta", "dot", "downarrow", "ell", "emptyset", "epsilon", "eta",
     "exists", "forall", "frac", "gamma", "ge", "in", "inf", "infty", "int",
     "iota", "kappa", "lambda", "langle", "ldots", "le", "left", "lim",

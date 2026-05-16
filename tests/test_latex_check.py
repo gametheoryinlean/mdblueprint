@@ -128,7 +128,8 @@ def test_static_math_check_accepts_katex_builtin_macros(tmp_path):
         $\bigcap_i C_i \ne \emptyset$.
 
         We also use $\widetilde G$, $\langle x,y\rangle$,
-        $A\setminus B$, and $\limsup_n a_n$.
+        $A\setminus B$, $\limsup_n a_n$, $P \Rightarrow Q$,
+        and $P \Longleftrightarrow Q$.
         """,
     )
 
