@@ -117,6 +117,26 @@ def test_valid_inline_display_and_environment_math_passes(tmp_path):
     assert errors == []
 
 
+def test_static_math_check_accepts_katex_builtin_macros(tmp_path):
+    node_path = tmp_path / "nodes" / "math" / "katex_builtins.md"
+    _write_node(
+        node_path,
+        node_id="math.katex_builtins",
+        body=r"""
+        Built-in KaTeX macros should not require project macro overrides:
+        $x \notin C$, $C_1,\ldots,C_n$, and
+        $\bigcap_i C_i \ne \emptyset$.
+
+        We also use $\widetilde G$, $\langle x,y\rangle$,
+        $A\setminus B$, and $\limsup_n a_n$.
+        """,
+    )
+
+    errors = [d for d in check_knowledge_base(tmp_path) if d.level == "error"]
+
+    assert errors == []
+
+
 def test_static_math_check_uses_project_macro_config(tmp_path):
     node_path = tmp_path / "nodes" / "math" / "macro.md"
     _write_node(node_path, node_id="math.macro", body=r"Configured macro $\R$ should pass.")

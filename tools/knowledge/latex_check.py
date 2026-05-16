@@ -13,13 +13,18 @@ ENVIRONMENT_RE = re.compile(r"\\(begin|end)\{([^{}]+)\}")
 MACRO_RE = re.compile(r"\\([A-Za-z]+)")
 KNOWN_MACROS = frozenset({
     "Delta", "Gamma", "Lambda", "Omega", "Phi", "Pi", "Psi", "Sigma", "Theta",
-    "Upsilon", "Xi", "alpha", "beta", "cdot", "chi", "colon", "delta", "epsilon",
-    "eta", "exists", "forall", "frac", "gamma", "ge", "in", "infty", "iota",
-    "kappa", "lambda", "le", "left", "lim", "mapsto", "mathbb", "mathbf",
-    "mathcal", "mathrm", "max", "min", "mu", "nu", "omega", "operatorname",
-    "phi", "pi", "prod", "psi", "qquad", "quad", "rho", "right", "sigma",
-    "sqrt", "square", "sum", "tau", "text", "theta", "times", "to", "upsilon",
-    "varepsilon", "varphi", "vartheta", "xi", "zeta", "begin", "end",
+    "Upsilon", "Xi", "alpha", "bar", "beta", "bigcap", "bigcup", "cdot", "chi",
+    "colon", "delta", "dot", "downarrow", "ell", "emptyset", "epsilon", "eta",
+    "exists", "forall", "frac", "gamma", "ge", "in", "inf", "infty", "int",
+    "iota", "kappa", "lambda", "langle", "ldots", "le", "left", "lim",
+    "liminf", "limsup", "longrightarrow", "mapsto", "mathbb", "mathbf",
+    "mathcal", "mathrm", "max", "min", "mu", "nabla", "ne", "notin", "nu",
+    "omega", "operatorname", "otimes", "overline", "partial", "phi", "pi",
+    "prod", "psi", "qquad", "quad", "rangle", "rho", "right",
+    "rightrightarrows", "setminus", "sigma", "sqrt", "square", "subseteq",
+    "sum", "sup", "tau", "text", "theta", "times", "to", "underline",
+    "upsilon", "varepsilon", "varphi", "vartheta", "vee", "wedge", "widetilde",
+    "xi", "zeta", "begin", "end",
 })
 
 
