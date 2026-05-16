@@ -102,6 +102,9 @@ uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site --
 # Strict browser render verification for published math
 uv run --extra browser python -m tools.knowledge.render_check /tmp/mdblueprint-site
 
+# Real-library integration gate for check, publish, topic graph artifacts, and bounded render QA
+uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode smoke
+
 # Index Lean declarations from a Lean project
 uv run python -m tools.knowledge.lean_index path/to/lean/project
 
@@ -116,6 +119,24 @@ Browser render verification uses Playwright. Before the first run, install the b
 ```bash
 uv run --extra browser playwright install chromium
 ```
+
+The real-library gate uses the current mdblueprint checkout, clones EconCSLib
+`main` by default, runs `check`, publishes the site, verifies `graph_topics.json`
+and per-topic `subgraphs/topics/*.json` payloads, then render-checks a bounded
+smoke set of pages. It logs the source checkout, source ref, exact source
+commit, generated site directory, checked pages, and graph artifact locations.
+
+Use a local EconCSLib checkout when testing pending knowledge-base changes:
+
+```bash
+uv run --extra browser python -m tools.knowledge.econcslib_gate \
+  --repo-path /path/to/EconCSLib \
+  --site-dir /tmp/mdblueprint-econcslib-gate \
+  --render-mode smoke
+```
+
+Use `--render-mode all` before release when a change could affect broad browser
+rendering behavior.
 
 ## Project Config
 
@@ -864,6 +885,16 @@ uv run --extra browser python -m tools.knowledge.render_check /tmp/mdblueprint-s
 uv run --extra dev python -m pytest -q
 git diff --check
 ```
+
+For publisher, graph, math rendering, or Lean-link changes that could affect a
+real knowledge base, also run the real-library gate:
+
+```bash
+uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode smoke
+```
+
+Do not mark publisher or graph issues complete unless this real-library gate
+passes, or unless the remaining failure is recorded as an explicit blocking external-data issue.
 
 For Lean-linked changes:
 

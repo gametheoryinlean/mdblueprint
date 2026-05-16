@@ -24,6 +24,20 @@ def test_publisher_docs_define_topic_edges_and_subgraphs():
     assert "lazy node detail payload" in docs
 
 
+def test_docs_define_real_library_gate_contract():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    docs = (ROOT / "docs" / "publisher-and-dag.md").read_text(encoding="utf-8")
+    combined = readme + "\n" + docs
+
+    assert "tools.knowledge.econcslib_gate" in combined
+    assert "--render-mode smoke" in combined
+    assert "current mdblueprint checkout" in combined
+    assert "exact source commit" in combined
+    assert "graph_topics.json" in combined
+    assert "subgraphs/topics/*.json" in combined
+    assert "blocking external-data issue" in combined
+
+
 def test_reference_docs_include_domain_specific_topic_example():
     docs = (ROOT / "docs" / "reference-repos.md").read_text(encoding="utf-8")
 

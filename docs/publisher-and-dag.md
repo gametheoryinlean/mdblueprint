@@ -38,6 +38,40 @@ The generated site should include:
 
 The frontend can use JavaScript to render the graph, but the graph data and presentation semantics must come from Python.
 
+## Real-Library Gate
+
+Publisher and graph changes must be validated against a real knowledge base, not
+only small fixtures. The single-command gate is:
+
+```bash
+uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode smoke
+```
+
+The gate uses the current mdblueprint checkout under test. It clones EconCSLib
+`main` unless `--repo-path` or `--ref` is provided, then runs structural
+checking, publishing, topic-first graph artifact verification, and browser
+render QA. The command fails on any check error before publishing is treated as
+successful.
+
+The log must identify:
+
+- source repository path;
+- requested or checked-out source ref;
+- exact source commit;
+- generated site directory;
+- render-check pages;
+- generated graph artifact locations or counts.
+
+The artifact check requires the full machine `graph.json`, topic overview
+`graph_topics.json`, at least one per-topic `subgraphs/topics/*.json` payload,
+node detail payloads, and both graph entry pages. The default render strategy is
+bounded for large sites: `--render-mode smoke` checks known high-risk pages plus
+the graph pages. Use `--render-mode all` when a change can affect global HTML,
+KaTeX, JavaScript, or graph rendering behavior.
+
+Do not mark publisher or graph issues complete unless this real-library gate
+passes, or unless the remaining failure is recorded as an explicit blocking external-data issue.
+
 ## Math Rendering QA
 
 Node math syntax and render checks are documented in

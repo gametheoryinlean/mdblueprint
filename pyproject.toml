@@ -22,6 +22,7 @@ browser = [
 mdblueprint-check = "tools.knowledge.check:main"
 mdblueprint-publish = "tools.knowledge.publish:main"
 mdblueprint-render-check = "tools.knowledge.render_check:main"
+mdblueprint-econcslib-gate = "tools.knowledge.econcslib_gate:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
