@@ -13,7 +13,7 @@ from pathlib import Path
 import markdown
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
+from tools.knowledge.blueprint_view import build_blueprint_graph
 from tools.knowledge.config import LeanConfig, katex_auto_render_options, load_project_config
 from tools.knowledge.export import (
     topic_id_for_node,
@@ -236,7 +236,6 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
 
     g, _ = build_graph(all_nodes)
     blueprint_graph = build_blueprint_graph(g)
-    blueprint_dot = graph_to_dot(blueprint_graph)
     blueprint_nodes = {view.id: view for view in blueprint_graph.nodes}
     md = markdown.Markdown(extensions=["tables"])
     env = Environment(
@@ -347,7 +346,10 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         root="",
         topics=topic_names,
         keywords=keyword_names,
-        graph_dot=blueprint_dot,
+        graph_config_json=json.dumps({
+            "topicOverviewUrl": "graph_topics.json",
+            "mode": "topic-overview",
+        }),
         graph_nodes=[node_payloads[view.id] for view in blueprint_graph.nodes],
     )
     (output_dir / "dep_graph_document.html").write_text(

@@ -112,8 +112,8 @@ class TestExampleCorpusPublish:
         graph_page = (site / "dep_graph_document.html").read_text()
         assert "Dependency graph" in graph_page
         assert "Legend" in graph_page
-        assert "strict digraph" in graph_page
-        assert "strategic_games.strategic_game" in graph_page
+        assert "graph_topics.json" in graph_page
+        assert "strict digraph" not in graph_page
 
     def test_graph_page_contains_node_modals(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
@@ -125,6 +125,17 @@ class TestExampleCorpusPublish:
         assert "node-strategic_games-2e-strategic_game-modal" in graph_page
         assert "Lean declarations" in graph_page
         assert "showGraphModalElement(mapped)" in graph_js
+
+    def test_graph_page_uses_topic_overview_as_default_graph(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        graph_js = (tmp_path / "site" / "graph.js").read_text()
+
+        assert 'id="graph-config"' in graph_page
+        assert "graph_topics.json" in graph_page
+        assert 'id="graph-dot"' not in graph_page
+        assert "topicOverviewUrl" in graph_js
+        assert "renderTopicOverview" in graph_js
 
     def test_graph_modal_contains_node_body(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
@@ -138,7 +149,7 @@ class TestExampleCorpusPublish:
         graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
 
         assert "d3-graphviz" in graph_page
-        assert 'id="graph-dot"' in graph_page
+        assert 'id="graph-config"' in graph_page
         assert 'id="graph"' in graph_page
         assert 'id="Legend"' in graph_page
 
@@ -238,11 +249,11 @@ class TestExampleCorpusPublish:
         assert "<summary>Proof</summary>" in page
 
     def test_graph_dot_uses_titles_as_visible_labels(self, tmp_path):
-        publish(KNOWLEDGE_ROOT, tmp_path / "site")
-        page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        overview = json.loads((tmp_path / "site" / "graph_topics.json").read_text())
 
-        assert 'label="Strategic Game"' in page
-        assert 'label="Dominant Strategy Profile is a Nash Equilibrium"' in page
+        assert overview["topics"][0]["title"] == "Algebra"
+        assert overview["topics"][0]["node_count"] == 5
 
     def test_graph_js_hides_internal_ids_after_render(self):
         script = (ROOT / "tools" / "knowledge" / "templates" / "graph.js").read_text()
@@ -293,11 +304,11 @@ class TestGenericPublish:
     def test_generic_fixture_keeps_theorem_proofs_collapsed(self, tmp_path):
         publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
         theorem_page = (tmp_path / "site" / "algebra" / "algebra_group_identity_unique.html").read_text()
-        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        graph_topics = json.loads((tmp_path / "site" / "graph_topics.json").read_text())
 
         assert '<details class="proof-details">' in theorem_page
         assert "<summary>Proof</summary>" in theorem_page
-        assert 'label="Group Identity Is Unique"' in graph_page
+        assert graph_topics["topics"][0]["title"] == "Algebra"
 
     def test_tex_math_is_preserved_before_katex_on_node_and_graph_pages(self, tmp_path):
         knowledge = tmp_path / "knowledge"

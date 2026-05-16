@@ -24,7 +24,7 @@
 </section>
 
 <div id="graph" class="dep-graph" aria-label="Dependency graph"></div>
-<script id="graph-dot" type="text/plain">{{ graph_dot | safe }}</script>
+<script id="graph-config" type="application/json">{{ graph_config_json | safe }}</script>
 
 <div id="statements" class="dep-statements">
   {% for payload in graph_nodes %}

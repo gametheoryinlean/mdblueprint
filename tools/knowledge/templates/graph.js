@@ -27,6 +27,42 @@
     return labels.join(" ").trim();
   }
 
+  function dotQuote(value) {
+    return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
+  }
+
+  function topicGraphId(topicId) {
+    return `topic:${topicId}`;
+  }
+
+  function renderCountLabel(count) {
+    return count === 1 ? "1 edge" : `${count} edges`;
+  }
+
+  function topicOverviewToDot(data) {
+    const lines = [
+      'strict digraph "" {',
+      "\tgraph [bgcolor=transparent];",
+      '\tnode [label="\\N", penwidth=1.8, shape=box];',
+      "\tedge [arrowhead=vee];",
+    ];
+    (data.topics || []).forEach((topic) => {
+      const label = `${topic.title}\\n${topic.node_count} ${topic.node_count === 1 ? "node" : "nodes"}`;
+      const attrs = [
+        ["label", label],
+        ["shape", "box"],
+        ["URL", `#${topicGraphId(topic.id)}`],
+      ];
+      lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${attrs.map(([key, value]) => `${key}=${dotQuote(value)}`).join(", ")}];`);
+    });
+    (data.edges || []).forEach((edge) => {
+      const attrs = edge.count > 1 ? ` [label=${dotQuote(renderCountLabel(edge.count))}, style=dashed]` : " [style=dashed]";
+      lines.push(`\t${dotQuote(topicGraphId(edge.from))} -> ${dotQuote(topicGraphId(edge.to))}${attrs};`);
+    });
+    lines.push("}");
+    return lines.join("\n");
+  }
+
   function bindGraphInteractions() {
     document.querySelectorAll("#graph .node").forEach((node) => {
       const graphNodeId = node.querySelector("title")?.textContent?.trim();
@@ -59,6 +95,44 @@
     button.closest(".modal-container")?.setAttribute("hidden", "");
   }
 
+  function graphvizRenderer(graphElement) {
+    const width = graphElement.clientWidth || 960;
+    const height = graphElement.clientHeight || 720;
+    return window.d3.select("#graph")
+      .graphviz({ useWorker: true })
+      .width(width)
+      .height(height)
+      .fit(true);
+  }
+
+  function renderDot(dot) {
+    const graphElement = document.getElementById("graph");
+    if (!graphElement || !window.d3) return;
+    graphvizRenderer(graphElement)
+      .renderDot(dot)
+      .on("end", bindGraphInteractions);
+  }
+
+  function readGraphConfig() {
+    const configElement = document.getElementById("graph-config");
+    if (!configElement) return null;
+    try {
+      return JSON.parse(configElement.textContent || "{}");
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function renderTopicOverview(config) {
+    const graphElement = document.getElementById("graph");
+    if (!graphElement || !config?.topicOverviewUrl) return;
+    const response = await fetch(config.topicOverviewUrl);
+    if (!response.ok) throw new Error(`Unable to load ${config.topicOverviewUrl}`);
+    const data = await response.json();
+    graphElement.dataset.graphMode = "topic-overview";
+    renderDot(topicOverviewToDot(data));
+  }
+
   window.addEventListener("DOMContentLoaded", () => {
     document.querySelector("#legend-title")?.addEventListener("click", () => {
       document.querySelector("#legend-list")?.toggleAttribute("hidden");
@@ -82,18 +156,10 @@
     });
 
     const graphElement = document.getElementById("graph");
-    const dotElement = document.getElementById("graph-dot");
-    if (!graphElement || !dotElement || !window.d3) return;
-
-    const dot = dotElement.textContent;
-    const width = graphElement.clientWidth || 960;
-    const height = graphElement.clientHeight || 720;
-    window.d3.select("#graph")
-      .graphviz({ useWorker: true })
-      .width(width)
-      .height(height)
-      .fit(true)
-      .renderDot(dot)
-      .on("end", bindGraphInteractions);
+    const config = readGraphConfig();
+    if (!graphElement || !config || !window.d3) return;
+    renderTopicOverview(config).catch((error) => {
+      graphElement.textContent = error.message;
+    });
   });
 })();
