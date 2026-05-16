@@ -122,6 +122,7 @@ def _subgraph_node_entry(node: Node) -> dict:
         "kind": node.kind,
         "status": node.status,
         "href": f"{topic_id_for_node(node)}/{node.id.replace('.', '_')}.html",
+        "payload": f"node_payloads/{node.id.replace('.', '_')}.json",
     }
     if node.target:
         entry["target"] = node.target

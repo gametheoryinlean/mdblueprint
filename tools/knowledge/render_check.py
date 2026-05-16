@@ -96,6 +96,19 @@ async def _capture_page_state(browser, base_url: str, site_dir: Path, path: Path
     try:
         await page.goto(f"{base_url}/{rel}", wait_until="networkidle", timeout=timeout_ms)
         if rel in {"dep_graph_document.html", "graph.html"}:
+            try:
+                await page.wait_for_selector("#graph .node[data-graph-node-id^='topic:']", timeout=timeout_ms)
+                await page.locator("#graph .node[data-graph-node-id^='topic:']").first.click(timeout=timeout_ms)
+                await page.wait_for_selector(
+                    "#graph .node[data-graph-node-id]:not([data-graph-node-id^='topic:'])",
+                    timeout=timeout_ms,
+                )
+                await page.locator(
+                    "#graph .node[data-graph-node-id]:not([data-graph-node-id^='topic:'])"
+                ).first.click(timeout=timeout_ms)
+                await page.wait_for_selector("#node-detail-content .graph-modal-body", timeout=timeout_ms)
+            except Exception as exc:  # Browser QA should surface lazy graph failures as render issues.
+                console_errors.append(f"graph modal lazy payload did not open: {exc}")
             await page.evaluate(
                 """() => {
                   document.querySelectorAll('.dep-modal-container').forEach((modal) => {

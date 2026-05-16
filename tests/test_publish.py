@@ -122,9 +122,25 @@ class TestExampleCorpusPublish:
         graph_js = (site / "graph.js").read_text()
 
         assert "dep-modal-container" in graph_page
-        assert "node-strategic_games-2e-strategic_game-modal" in graph_page
-        assert "Lean declarations" in graph_page
-        assert "showGraphModalElement(mapped)" in graph_js
+        assert 'id="node-detail-modal"' in graph_page
+        assert "If every player" not in graph_page
+        assert "fetchNodePayload" in graph_js
+        assert "nodePayloadCache" in graph_js
+        assert "graph-error" in graph_js
+
+    def test_publishes_lazy_node_detail_payloads(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        payload_path = tmp_path / "site" / "node_payloads" / "strategic_games_dominant_implies_nash.json"
+
+        assert payload_path.exists()
+        payload = json.loads(payload_path.read_text())
+        assert payload["id"] == "strategic_games.dominant_implies_nash"
+        assert payload["title"] == "Dominant Strategy Profile is a Nash Equilibrium"
+        assert payload["href"] == "strategic_games/strategic_games_dominant_implies_nash.html"
+        assert "If every player" in payload["body_html"]
+        assert "A weakly dominant strategy weakly dominates every alternative" in payload["proof_html"]
+        assert payload["deps"]
+        assert payload["lean_refs"]
 
     def test_graph_page_uses_topic_overview_as_default_graph(self, tmp_path):
         publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
@@ -153,10 +169,12 @@ class TestExampleCorpusPublish:
 
     def test_graph_modal_contains_node_body(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
-        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        payload = json.loads(
+            (tmp_path / "site" / "node_payloads" / "strategic_games_dominant_implies_nash.json").read_text()
+        )
 
-        assert "If every player" in graph_page
-        assert "weakly dominant strategy" in graph_page
+        assert "If every player" in payload["body_html"]
+        assert "weakly dominant strategy" in payload["proof_html"]
 
     def test_graph_page_uses_graphviz_assets(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
@@ -257,10 +275,11 @@ class TestExampleCorpusPublish:
 
     def test_graph_modal_proofs_are_collapsed(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
-        page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        page = json.loads(
+            (tmp_path / "site" / "node_payloads" / "strategic_games_dominant_implies_nash.json").read_text()
+        )
 
-        assert '<details class="proof-details">' in page
-        assert "<summary>Proof</summary>" in page
+        assert page["proof_html"]
 
     def test_graph_dot_uses_titles_as_visible_labels(self, tmp_path):
         publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
@@ -353,11 +372,13 @@ class TestGenericPublish:
 
         publish(knowledge, tmp_path / "site")
         node_page = (tmp_path / "site" / "games" / "games_strategic_game.html").read_text()
-        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        graph_payload = json.loads(
+            (tmp_path / "site" / "node_payloads" / "games_strategic_game.json").read_text()
+        )
 
         assert r"$(I, (S_i)_{i \in I}, (u_i)_{i \in I})$" in node_page
         assert r"\((I, (S_i)_{i \in I}, (u_i)_{i \in I})\)" in node_page
-        assert r"$(I, (S_i)_{i \in I}, (u_i)_{i \in I})$" in graph_page
-        assert r"\((I, (S_i)_{i \in I}, (u_i)_{i \in I})\)" in graph_page
+        assert r"$(I, (S_i)_{i \in I}, (u_i)_{i \in I})$" in graph_payload["body_html"]
+        assert r"\((I, (S_i)_{i \in I}, (u_i)_{i \in I})\)" in graph_payload["body_html"]
         assert "<em>" not in node_page
-        assert "<em>" not in graph_page
+        assert "<em>" not in graph_payload["body_html"]

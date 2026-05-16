@@ -39,6 +39,8 @@
     config: null,
     topicOverview: null,
     topicCache: new Map(),
+    nodePayloadUrls: new Map(),
+    nodePayloadCache: new Map(),
     expandedTopic: null,
   };
   let graphRenderer = null;
@@ -166,6 +168,10 @@
           handleTopicActivation(nodeId.slice("topic:".length));
           return;
         }
+        if (nodeId) {
+          showNodeDetail(nodeId);
+          return;
+        }
         const mapped = nodeId ? document.querySelector(`[data-graph-node="${cssEscape(nodeId)}"]`) : null;
         if (mapped) showGraphModalElement(mapped);
       });
@@ -184,6 +190,97 @@
 
   function closeNodeModal(button) {
     button.closest(".modal-container")?.setAttribute("hidden", "");
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function renderLinkList(title, items) {
+    if (!items || !items.length) return "";
+    return `<h2>${escapeHtml(title)}</h2><ul class="uses">${items.map((item) => (
+      `<li><a href="${escapeHtml(item.href)}">${escapeHtml(item.title)}</a></li>`
+    )).join("")}</ul>`;
+  }
+
+  function renderLeanRefs(refs) {
+    if (!refs || !refs.length) return "";
+    const items = refs.map((ref) => {
+      const declaration = ref.source_url
+        ? `<a href="${escapeHtml(ref.source_url)}"><code>${escapeHtml(ref.display_name)}</code></a>`
+        : `<code>${escapeHtml(ref.display_name)}</code>`;
+      const unresolved = ref.status === "unresolved"
+        ? ` <span class="badge status-staged">Unresolved</span>${ref.reason ? ` <span class="lean-source-meta">${escapeHtml(ref.reason)}</span>` : ""}`
+        : "";
+      const metadata = ref.status !== "unresolved" && ref.repository_title
+        ? ` <span class="lean-source-meta">${escapeHtml(ref.repository_title)}${ref.short_revision ? ` @ ${escapeHtml(ref.short_revision)}` : ""}${ref.module ? `, ${escapeHtml(ref.module)}` : ""}</span>`
+        : "";
+      const sorry = ref.has_sorry ? ' <span class="badge status-needs_proof_review">sorry/admit</span>' : "";
+      return `<li>${declaration}${unresolved}${metadata}${sorry}</li>`;
+    }).join("");
+    return `<h2>Lean declarations</h2><ul class="uses">${items}</ul>`;
+  }
+
+  function renderNodePayload(payload) {
+    const proof = payload.proof_html
+      ? `<details class="proof-details"><summary>Proof</summary><div class="proof-body">${payload.proof_html}</div></details>`
+      : "";
+    return `
+      <article class="thm ${escapeHtml(payload.kind)}_thmwrapper theorem-style-${escapeHtml(payload.kind)}">
+        <header class="${escapeHtml(payload.kind)}_thmheading thm-heading">
+          <span class="${escapeHtml(payload.kind)}_thmcaption thm-caption">${escapeHtml(payload.kind.replace(/-/g, " "))}</span>
+          <span class="${escapeHtml(payload.kind)}_thmtitle thm-title">${escapeHtml(payload.title)}</span>
+          <span class="thm-status thm-status-${escapeHtml(payload.status)}">${escapeHtml(payload.status)}</span>
+        </header>
+        <div class="${escapeHtml(payload.kind)}_thmcontent thm-content">
+          <div class="body graph-modal-body">${payload.body_html}${proof}</div>
+          <p><a href="${escapeHtml(payload.href)}">Open node page</a></p>
+          ${renderLinkList("Uses", payload.deps)}
+          ${renderLinkList("Used by", payload.dependents)}
+          ${renderLeanRefs(payload.lean_refs)}
+        </div>
+      </article>
+    `;
+  }
+
+  function rerenderMath(element) {
+    if (typeof window.renderMathInElement === "function") {
+      window.renderMathInElement(element, window.MDBLUEPRINT_MATH_OPTIONS || {});
+    }
+  }
+
+  function nodePayloadUrl(nodeId) {
+    return graphState.nodePayloadUrls.get(nodeId) || `node_payloads/${nodeId.replace(/\./g, "_")}.json`;
+  }
+
+  async function fetchNodePayload(nodeId) {
+    if (graphState.nodePayloadCache.has(nodeId)) {
+      return graphState.nodePayloadCache.get(nodeId);
+    }
+    const response = await fetch(nodePayloadUrl(nodeId));
+    if (!response.ok) throw new Error(`Unable to load node details for ${nodeId}`);
+    const payload = await response.json();
+    graphState.nodePayloadCache.set(nodeId, payload);
+    return payload;
+  }
+
+  async function showNodeDetail(nodeId) {
+    const modal = document.getElementById("node-detail-modal");
+    const content = document.getElementById("node-detail-content");
+    if (!modal || !content) return;
+    content.textContent = "Loading...";
+    showGraphModalElement(modal);
+    try {
+      const payload = await fetchNodePayload(nodeId);
+      content.innerHTML = renderNodePayload(payload);
+      rerenderMath(content);
+    } catch (error) {
+      content.innerHTML = `<p class="graph-error">${escapeHtml(error.message)}</p>`;
+    }
   }
 
   function graphvizRenderer(graphElement) {
@@ -240,6 +337,9 @@
     const response = await fetch(`${baseUrl}/${encodeURIComponent(topicId)}.json`);
     if (!response.ok) throw new Error(`Unable to load topic ${topicId}`);
     const data = await response.json();
+    (data.nodes || []).forEach((node) => {
+      if (node.payload) graphState.nodePayloadUrls.set(node.id, node.payload);
+    });
     graphState.topicCache.set(topicId, data);
     return data;
   }

@@ -106,6 +106,51 @@ def _summary_payload(node, blueprint_nodes: dict, href: str) -> dict:
     }
 
 
+def _root_dependency_payload(dep_id: str, g) -> dict | None:
+    node = g.nodes.get(dep_id)
+    if node is None:
+        return None
+    return {
+        "id": dep_id,
+        "title": node.title,
+        "href": _node_href_from_root(dep_id),
+    }
+
+
+def _write_node_detail_payloads(output_dir: Path, node_payloads: dict[str, dict], g) -> None:
+    payload_dir = output_dir / "node_payloads"
+    payload_dir.mkdir(parents=True, exist_ok=True)
+    for node_id in sorted(node_payloads):
+        payload = node_payloads[node_id]
+        node = payload["node"]
+        deps = [
+            dep_payload
+            for dep_id in node.uses
+            if (dep_payload := _root_dependency_payload(dep_id, g)) is not None
+        ]
+        dependents = [
+            dep_payload
+            for dep_id in sorted(g.reverse_edges.get(node.id, []))
+            if (dep_payload := _root_dependency_payload(dep_id, g)) is not None
+        ]
+        detail = {
+            "id": node.id,
+            "title": node.title,
+            "kind": node.kind,
+            "status": node.status,
+            "href": _node_href_from_root(node.id),
+            "body_html": payload["body_html"],
+            "proof_html": payload["proof_html"],
+            "deps": deps,
+            "dependents": dependents,
+            "lean_refs": payload["lean_refs"],
+        }
+        (payload_dir / f"{node.id.replace('.', '_')}.json").write_text(
+            json.dumps(detail, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+
 def _matching_declarations(decl: str, idx: LeanIndex) -> list[str]:
     if decl in idx.declarations:
         return [decl]
@@ -313,6 +358,8 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
             "lean_refs": _resolve_lean_refs(node, config.lean, lean_indexes),
         }
 
+    _write_node_detail_payloads(output_dir, node_payloads, g)
+
     # Index page
     topic_groups = []
     for topic in topic_names:
@@ -351,7 +398,6 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
             "topicSubgraphBaseUrl": "subgraphs/topics",
             "mode": "topic-overview",
         }),
-        graph_nodes=[node_payloads[view.id] for view in blueprint_graph.nodes],
     )
     (output_dir / "dep_graph_document.html").write_text(
         graph_html,

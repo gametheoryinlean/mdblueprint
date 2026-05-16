@@ -1,3 +1,4 @@
+import json
 import textwrap
 from pathlib import Path
 
@@ -133,10 +134,11 @@ def test_published_render_fixture_contains_math_on_node_and_graph_pages(tmp_path
     publish(knowledge_root, site_dir)
 
     node_page = (site_dir / "analysis" / "analysis_limit_unique.html").read_text(encoding="utf-8")
+    graph_payload = json.loads((site_dir / "node_payloads" / "analysis_limit_unique.json").read_text(encoding="utf-8"))
     graph_page = (site_dir / "dep_graph_document.html").read_text(encoding="utf-8")
 
     assert r"$\lim x_n = x$" in node_page
     assert r"\[" in node_page
     assert "proof-details" in node_page
-    assert r"$d(x,y) \le d(x,x_n) + d(x_n,y)$" in graph_page
+    assert r"$d(x,y) \le d(x,x_n) + d(x_n,y)$" in graph_payload["proof_html"]
     assert "dep-modal-container" in graph_page

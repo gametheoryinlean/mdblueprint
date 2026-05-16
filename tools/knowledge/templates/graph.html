@@ -27,71 +27,16 @@
 <script id="graph-config" type="application/json">{{ graph_config_json | safe }}</script>
 
 <div id="statements" class="dep-statements">
-  {% for payload in graph_nodes %}
-  {% set graph_node = payload.view %}
   <div
     class="dep-modal-container"
-    id="{{ graph_node.html_id }}-modal"
-    data-graph-node="{{ graph_node.id }}"
+    id="node-detail-modal"
     hidden
   >
     <div class="dep-modal-content">
       <button class="dep-closebtn" type="button" aria-label="Close">x</button>
-      <article class="thm {{ graph_node.kind }}_thmwrapper theorem-style-{{ graph_node.kind }}">
-        <header class="{{ graph_node.kind }}_thmheading thm-heading">
-          <span class="{{ graph_node.kind }}_thmcaption thm-caption">{{ graph_node.caption }}</span>
-          <span class="{{ graph_node.kind }}_thmtitle thm-title">{{ graph_node.title }}</span>
-          <span class="thm-status thm-status-{{ graph_node.status }}">{{ graph_node.status }}</span>
-        </header>
-        <div class="{{ graph_node.kind }}_thmcontent thm-content">
-          <div class="body graph-modal-body">
-            {{ payload.body_html | safe }}
-            {% if payload.proof_html %}
-            <details class="proof-details">
-              <summary>Proof</summary>
-              <div class="proof-body">
-                {{ payload.proof_html | safe }}
-              </div>
-            </details>
-            {% endif %}
-          </div>
-          <p><a href="{{ root }}{{ node_href_from_root(graph_node.id) }}">Open node page</a></p>
-          {% if payload.deps %}
-          <h2>Uses</h2>
-          <ul class="uses">
-            {% for dep in payload.deps %}
-            <li><a href="{{ root }}{{ node_href_from_root(dep.id) }}">{{ dep.title }}</a></li>
-            {% endfor %}
-          </ul>
-          {% endif %}
-          {% if payload.lean_refs %}
-          <h2>Lean declarations</h2>
-          <ul class="uses">
-            {% for ref in payload.lean_refs %}
-            <li>
-              {% if ref.source_url %}
-              <a href="{{ ref.source_url }}"><code>{{ ref.display_name }}</code></a>
-              {% else %}
-              <code>{{ ref.display_name }}</code>
-              {% endif %}
-              {% if ref.status == "unresolved" %}
-              <span class="badge status-staged">Unresolved</span>
-              {% if ref.reason %}<span class="lean-source-meta">{{ ref.reason }}</span>{% endif %}
-              {% elif ref.repository_title %}
-              <span class="lean-source-meta">
-                {{ ref.repository_title }}{% if ref.short_revision %} @ {{ ref.short_revision }}{% endif %}{% if ref.module %}, {{ ref.module }}{% endif %}
-              </span>
-              {% endif %}
-              {% if ref.has_sorry %}<span class="badge status-needs_proof_review">sorry/admit</span>{% endif %}
-            </li>
-            {% endfor %}
-          </ul>
-          {% endif %}
-        </div>
-      </article>
+      <div id="node-detail-content" class="node-detail-content" aria-live="polite"></div>
     </div>
   </div>
-  {% endfor %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"
