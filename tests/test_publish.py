@@ -165,14 +165,36 @@ class TestExampleCorpusPublish:
         graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
         graph_js = (tmp_path / "site" / "graph.js").read_text()
 
+        assert 'id="graph-overview-button"' in graph_page
+        assert 'id="graph-reset-view-button"' in graph_page
         assert "topicSubgraphBaseUrl" in graph_page
         assert "graphState" in graph_js
         assert "expandedTopic" in graph_js
         assert "fetchTopicSubgraph" in graph_js
         assert "topicSubgraphToDot" in graph_js
         assert "handleTopicActivation" in graph_js
+        assert "goToTopicOverview" in graph_js
+        assert "updateGraphNavigationControls" in graph_js
         assert "topicCache" in graph_js
         assert "expanded" in graph_js
+
+    def test_graph_js_keeps_topic_labels_uncluttered(self):
+        graph_js = (ROOT / "tools" / "knowledge" / "templates" / "graph.js").read_text()
+
+        assert "topic.node_count" not in graph_js
+        assert "renderCountLabel" not in graph_js
+        assert 'label: edge.count' not in graph_js
+
+    def test_graph_page_includes_pan_zoom_reset_controls(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        graph_js = (tmp_path / "site" / "graph.js").read_text()
+
+        assert 'id="graph-reset-view-button"' in graph_page
+        assert "installGraphPanZoom" in graph_js
+        assert "resetGraphView" in graph_js
+        assert ".zoom()" in graph_js
+        assert "graph-pan-zoom-layer" in graph_js
 
     def test_graph_page_configures_expansion_limits_and_fallback(self, tmp_path):
         config_path = tmp_path / "mdblueprint.yml"
@@ -212,9 +234,16 @@ class TestExampleCorpusPublish:
         assert 'value="hidden"' in graph_page
         assert 'value="selected-only"' in graph_page
         assert 'value="all"' in graph_page
+        assert "Hide proof plans" in graph_page
+        assert "Show selected plans" in graph_page
+        assert "Show all plans" in graph_page
+        assert ">Hidden<" not in graph_page
+        assert ">Selected<" not in graph_page
+        assert ">All<" not in graph_page
         assert "setProofPlanMode" in graph_js
         assert 'node.plan_status === "selected"' in graph_js
         assert "proof_plan_attachments || []).filter" in graph_js
+        assert "proof_plan_uses" in graph_js
 
     def test_graph_modal_contains_node_body(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")

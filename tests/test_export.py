@@ -179,6 +179,37 @@ class TestExportTopicOverviewJson:
         assert [topic["id"] for topic in data["topics"]] == ["algebra"]
         assert data["edges"] == []
 
+    def test_proof_plan_route_edges_do_not_create_topic_overview_edges(self):
+        from tools.knowledge.models import Node
+
+        approachability = Node(
+            id="approachability.blackwell",
+            title="Blackwell Approachability",
+            kind="theorem",
+            status="admitted",
+        )
+        minimax = Node(
+            id="zerosum.minimax",
+            title="Minimax",
+            kind="theorem",
+            status="admitted",
+        )
+        plan = Node(
+            id="zerosum.minimax_from_approachability",
+            title="Proof From Approachability",
+            kind="proof-plan",
+            status="staged",
+            target="zerosum.minimax",
+            plan_status="candidate",
+            uses=["approachability.blackwell"],
+        )
+        graph, diags = build_graph([approachability, minimax, plan])
+        assert diags == []
+
+        data = export_topic_overview_json(graph)
+
+        assert data["edges"] == []
+
 
 class TestExportTopicSubgraphJson:
     def test_topic_subgraph_contains_internal_nodes_and_edges(self):
@@ -300,10 +331,47 @@ class TestExportTopicSubgraphJson:
             "plan_status": "selected",
         } in data["proof_plan_attachments"]
         assert {
-            "from": "algebra.group_identity_unique",
+            "from": "algebra.group",
+            "to": "algebra.group_identity_unique.plan.direct",
+            "kind": "proof_plan_uses",
+        } in data["edges"]
+        assert {
+            "from": "algebra.group",
             "to": "algebra.group_identity_unique.plan.direct",
             "kind": "uses",
         } not in data["edges"]
+
+    def test_topic_subgraph_marks_external_proof_plan_route_edges(self):
+        from tools.knowledge.models import Node
+
+        logic = Node(id="logic.exists_unique", title="Exists Unique", kind="theorem", status="admitted")
+        theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="admitted",
+        )
+        plan = Node(
+            id="algebra.group_identity_unique.plan.logic",
+            title="Logic Plan",
+            kind="proof-plan",
+            status="staged",
+            target="algebra.group_identity_unique",
+            plan_status="candidate",
+            uses=["logic.exists_unique"],
+        )
+        graph, diags = build_graph([logic, theorem, plan])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+
+        assert {
+            "from": "topic:logic",
+            "to": "algebra.group_identity_unique.plan.logic",
+            "kind": "boundary_proof_plan_dependency",
+            "topic": "logic",
+            "count": 1,
+        } in data["boundary_edges"]
 
     def test_topic_subgraph_counts_support_large_topic_fallback(self):
         from tools.knowledge.models import Node

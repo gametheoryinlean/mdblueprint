@@ -246,6 +246,28 @@ a { color: var(--accent); }
   display: inline-flex;
 }
 
+.graph-controls button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.25rem 0.55rem;
+}
+
+.graph-controls button:hover,
+.graph-controls button:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid transparent;
+}
+
+.graph-controls button:disabled {
+  color: #777;
+  cursor: default;
+}
+
 .graph-controls input {
   position: absolute;
   opacity: 0;

@@ -125,6 +125,12 @@ If any node in topic `B` uses a node in topic `A`, the topic overview displays
 `A -> B`. Same-topic edges are omitted from the overview because they belong to
 the per-topic subgraph.
 
+Proof-plan route dependencies are omitted from the topic overview. A candidate
+or selected proof route can depend on material from another topic, but that edge
+is evidence about a possible proof route, not an admitted theorem-level topic
+dependency. Expanded topic views show proof-plan route edges separately when
+proof routes are visible.
+
 A per-topic subgraph contains:
 
 - internal nodes whose ids belong to the expanded topic;
@@ -132,6 +138,8 @@ A per-topic subgraph contains:
 - a boundary topic node for each external topic that supplies a prerequisite or uses an internal node;
 - dashed boundary edges connecting external topic nodes to internal nodes;
 - proof-plan attachments as dotted `has plan` edges, separate from `uses` edges;
+- proof-plan route dependencies as visually distinct proof-route edges when
+  proof routes are visible;
 - keyword links and counts for fallback navigation;
 - lazy node payload URLs, not full rendered node bodies.
 

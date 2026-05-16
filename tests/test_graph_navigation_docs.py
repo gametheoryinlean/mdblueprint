@@ -20,6 +20,7 @@ def test_publisher_docs_define_topic_edges_and_subgraphs():
     assert "A topic overview edge is displayed from a dependency topic to a dependent topic" in docs
     assert "boundary topic node" in docs
     assert "`dependency -> dependent`" in docs
+    assert "Proof-plan route dependencies are omitted from the topic overview" in docs
     assert "`graph.json` remains the full machine graph" in docs
     assert "lazy node detail payload" in docs
 

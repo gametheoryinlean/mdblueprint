@@ -406,11 +406,16 @@ Graph navigation contract:
 - The default graph is topic-first so large knowledge bases open at a readable scale.
 - `graph.json` remains the full machine graph. Browser UI artifacts are derived browsing projections, not replacements for the machine export.
 - Topic overview edges display `dependency topic -> dependent topic`.
+- Topic overview edges summarize ordinary mathematical dependencies. Proof-plan
+  route edges stay out of the overview so candidate proof routes do not look
+  like admitted topic dependencies.
 - Expanding a topic shows its internal node-level subgraph, plus dashed boundary topic nodes for external prerequisites and external users.
 - Node-level graph display uses `dependency -> dependent`, even though internal graph edges store `dependent -> dependency`.
 - Oversized topics use the configured graph limits and show links to the topic page and keyword pages instead of rendering an unreadable subgraph.
 - Graph node modals load `node_payloads/<node>.json` on demand.
-- Proof-plan nodes are controlled by the graph page visibility selector: `hidden`, `selected-only`, or `all`.
+- Proof-plan nodes are proof routes attached by dotted `has plan` edges. The graph
+  page visibility selector controls whether proof routes are hidden, selected
+  only, or all shown.
 
 Proof text is collapsed by default when the body contains a recognized proof marker:
 

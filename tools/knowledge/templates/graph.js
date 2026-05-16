@@ -53,10 +53,8 @@
     proofPlanMode: null,
   };
   let graphRenderer = null;
-
-  function renderCountLabel(count) {
-    return count === 1 ? "1 edge" : `${count} edges`;
-  }
+  let graphZoomBehavior = null;
+  let graphZoomSelection = null;
 
   function topicOverviewToDot(data) {
     const lines = [
@@ -66,17 +64,15 @@
       "\tedge [arrowhead=vee];",
     ];
     (data.topics || []).forEach((topic) => {
-      const label = `${topic.title}\\n${topic.node_count} ${topic.node_count === 1 ? "node" : "nodes"}`;
       const attrs = [
-        ["label", label],
+        ["label", topic.title],
         ["shape", "box"],
         ["URL", `#${topicGraphId(topic.id)}`],
       ];
       lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${attrs.map(([key, value]) => `${key}=${dotQuote(value)}`).join(", ")}];`);
     });
     (data.edges || []).forEach((edge) => {
-      const attrs = edge.count > 1 ? ` [label=${dotQuote(renderCountLabel(edge.count))}, style=dashed]` : " [style=dashed]";
-      lines.push(`\t${dotQuote(topicGraphId(edge.from))} -> ${dotQuote(topicGraphId(edge.to))}${attrs};`);
+      lines.push(`\t${dotQuote(topicGraphId(edge.from))} -> ${dotQuote(topicGraphId(edge.to))} [style=dashed];`);
     });
     lines.push("}");
     return lines.join("\n");
@@ -123,6 +119,27 @@
     return (data.nodes || []).filter((node) => isVisibleProofPlan(node, mode));
   }
 
+  function edgeDisplayAttributes(edge) {
+    if (edge.kind === "proof_plan_uses") {
+      return {
+        color: "#7a4aa0",
+        label: "proof route",
+        style: "dotted",
+      };
+    }
+    return { style: "dashed" };
+  }
+
+  function boundaryEdgeDisplayAttributes(edge) {
+    const isProofPlanRoute = edge.kind === "boundary_proof_plan_dependency"
+      || edge.kind === "boundary_proof_plan_dependent";
+    return {
+      color: isProofPlanRoute ? "#7a4aa0" : "#777777",
+      label: isProofPlanRoute ? "proof route" : "",
+      style: isProofPlanRoute ? "dotted" : "dashed",
+    };
+  }
+
   function topicSubgraphToDot(data) {
     const visibleNodes = visibleSubgraphNodes(data);
     const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
@@ -162,15 +179,10 @@
       })}];`);
     });
     (data.edges || []).filter((edge) => endpointVisible(edge.from) && endpointVisible(edge.to)).forEach((edge) => {
-      lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [style=${dotQuote("dashed")}];`);
+      lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes(edgeDisplayAttributes(edge))}];`);
     });
     (data.boundary_edges || []).filter((edge) => endpointVisible(edge.from) && endpointVisible(edge.to)).forEach((edge) => {
-      const label = edge.count > 1 ? renderCountLabel(edge.count) : "";
-      lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes({
-        color: "#777777",
-        label,
-        style: "dashed",
-      })}];`);
+      lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes(boundaryEdgeDisplayAttributes(edge))}];`);
     });
     (data.proof_plan_attachments || []).filter((edge) => endpointVisible(edge.from) && endpointVisible(edge.to)).forEach((edge) => {
       lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes({
@@ -280,6 +292,15 @@
     if (graphElement) graphElement.hidden = false;
   }
 
+  function updateGraphNavigationControls(mode) {
+    const overviewButton = document.getElementById("graph-overview-button");
+    const resetButton = document.getElementById("graph-reset-view-button");
+    const isOverview = mode === "topic-overview";
+    const isFallback = mode === "topic-fallback";
+    if (overviewButton) overviewButton.hidden = isOverview;
+    if (resetButton) resetButton.hidden = isFallback;
+  }
+
   function showOversizedTopicFallback(data) {
     const graphElement = document.getElementById("graph");
     const fallback = document.getElementById("graph-fallback");
@@ -304,14 +325,8 @@
       <p>This topic has ${escapeHtml(nodeCount)} nodes. Direct graph expansion is capped at ${escapeHtml(graphLimit("maxExpandNodes"))} topic nodes and ${escapeHtml(graphLimit("maxVisibleNodes"))} visible nodes.</p>
       <p><a href="${escapeHtml(topic.href || "#")}">Open topic page</a></p>
       ${keywordSection}
-      <button class="graph-fallback-back" type="button" data-action="topic-overview">Topic overview</button>
     `;
     fallback.hidden = false;
-    fallback.querySelector("[data-action='topic-overview']")?.addEventListener("click", () => {
-      renderTopicOverview(graphState.config).catch((error) => {
-        fallback.innerHTML = `<p class="graph-error">${escapeHtml(error.message)}</p>`;
-      });
-    });
   }
 
   function updateProofPlanControls(visible) {
@@ -331,11 +346,13 @@
     graphElement.dataset.expandedTopic = subgraph.topic.id;
     if (exceedsTopicExpansionLimits(subgraph)) {
       graphElement.dataset.graphMode = "topic-fallback";
+      updateGraphNavigationControls("topic-fallback");
       updateProofPlanControls(false);
       showOversizedTopicFallback(subgraph);
       return;
     }
     graphElement.dataset.graphMode = "topic-expanded";
+    updateGraphNavigationControls("topic-expanded");
     updateProofPlanControls(true);
     renderDot(topicSubgraphToDot(subgraph));
   }
@@ -417,6 +434,32 @@
     return graphRenderer;
   }
 
+  function installGraphPanZoom() {
+    const svg = document.querySelector("#graph svg");
+    if (!svg || !window.d3) return;
+    if (!svg.querySelector(".graph-pan-zoom-layer")) {
+      const layer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      layer.setAttribute("class", "graph-pan-zoom-layer");
+      while (svg.firstChild) layer.appendChild(svg.firstChild);
+      svg.appendChild(layer);
+    }
+    const layer = svg.querySelector(".graph-pan-zoom-layer");
+    graphZoomBehavior = window.d3.zoom()
+      .scaleExtent([0.25, 5])
+      .on("zoom", (event) => {
+        window.d3.select(layer).attr("transform", event.transform);
+      });
+    graphZoomSelection = window.d3.select(svg);
+    graphZoomSelection.call(graphZoomBehavior);
+  }
+
+  function resetGraphView() {
+    if (!graphZoomSelection || !graphZoomBehavior) return;
+    graphZoomSelection.transition()
+      .duration(180)
+      .call(graphZoomBehavior.transform, window.d3.zoomIdentity);
+  }
+
   function renderDot(dot) {
     const graphElement = document.getElementById("graph");
     if (!graphElement || !window.d3) return;
@@ -424,7 +467,11 @@
     graphElement.replaceChildren();
     graphRenderer = null;
     graphvizRenderer(graphElement)
-      .on("end", bindGraphInteractions)
+      .on("end", () => {
+        installGraphPanZoom();
+        bindGraphInteractions();
+        updateGraphNavigationControls(graphElement.dataset.graphMode);
+      })
       .renderDot(dot);
   }
 
@@ -469,6 +516,7 @@
     graphState.currentTopicSubgraph = null;
     graphElement.dataset.graphMode = "topic-overview";
     delete graphElement.dataset.expandedTopic;
+    updateGraphNavigationControls("topic-overview");
     updateProofPlanControls(false);
     renderDot(topicOverviewToDot(data));
   }
@@ -493,12 +541,9 @@
     if (!graphElement) return;
     try {
       if (graphState.expandedTopic === topicId) {
-        graphState.expandedTopic = null;
-        graphState.currentTopicSubgraph = null;
-        graphElement.dataset.graphMode = "topic-overview";
-        delete graphElement.dataset.expandedTopic;
-        updateProofPlanControls(false);
-        renderDot(topicOverviewToDot(graphState.topicOverview));
+        goToTopicOverview().catch((error) => {
+          graphElement.textContent = error.message;
+        });
         return;
       }
       const subgraph = await fetchTopicSubgraph(topicId);
@@ -507,6 +552,18 @@
       hideGraphFallback();
       graphElement.textContent = error.message;
     }
+  }
+
+  async function goToTopicOverview() {
+    const graphElement = document.getElementById("graph");
+    if (!graphElement || !graphState.topicOverview) return;
+    graphState.expandedTopic = null;
+    graphState.currentTopicSubgraph = null;
+    graphElement.dataset.graphMode = "topic-overview";
+    delete graphElement.dataset.expandedTopic;
+    updateGraphNavigationControls("topic-overview");
+    updateProofPlanControls(false);
+    renderDot(topicOverviewToDot(graphState.topicOverview));
   }
 
   window.addEventListener("DOMContentLoaded", () => {
@@ -528,6 +585,13 @@
         setProofPlanMode(target.value);
       }
     });
+    document.getElementById("graph-overview-button")?.addEventListener("click", () => {
+      goToTopicOverview().catch((error) => {
+        const graphElement = document.getElementById("graph");
+        if (graphElement) graphElement.textContent = error.message;
+      });
+    });
+    document.getElementById("graph-reset-view-button")?.addEventListener("click", resetGraphView);
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         closeGraphModals();

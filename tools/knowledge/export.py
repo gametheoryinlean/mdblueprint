@@ -82,9 +82,13 @@ def export_topic_overview_json(g: KnowledgeGraph) -> dict:
 
     edge_counts: Counter[tuple[str, str]] = Counter()
     for dependent_id in sorted(g.edges):
+        if g.nodes[dependent_id].kind == "proof-plan":
+            continue
         dependent_topic = topic_id_for_node(g.nodes[dependent_id])
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes:
+                continue
+            if g.nodes[dependency_id].kind == "proof-plan":
                 continue
             dependency_topic = topic_id_for_node(g.nodes[dependency_id])
             if dependency_topic == dependent_topic:
@@ -176,22 +180,32 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
                 continue
             dependent_internal = dependent_id in internal_set
             dependency_internal = dependency_id in internal_set
+            edge_kind = (
+                "proof_plan_uses"
+                if g.nodes[dependent_id].kind == "proof-plan" or g.nodes[dependency_id].kind == "proof-plan"
+                else "uses"
+            )
 
             if dependent_internal and dependency_internal:
                 edges.append({
                     "from": dependency_id,
                     "to": dependent_id,
-                    "kind": "uses",
+                    "kind": edge_kind,
                 })
                 continue
 
             if dependent_internal and not dependency_internal:
                 boundary_topic = topic_id_for_node(g.nodes[dependency_id])
                 boundary_roles[boundary_topic].add("dependency")
+                boundary_kind = (
+                    "boundary_proof_plan_dependency"
+                    if edge_kind == "proof_plan_uses"
+                    else "boundary_dependency"
+                )
                 boundary_edge_counts[(
                     f"topic:{boundary_topic}",
                     dependent_id,
-                    "boundary_dependency",
+                    boundary_kind,
                     boundary_topic,
                 )] += 1
                 continue
@@ -199,10 +213,15 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
             if dependency_internal and not dependent_internal:
                 boundary_topic = topic_id_for_node(g.nodes[dependent_id])
                 boundary_roles[boundary_topic].add("dependent")
+                boundary_kind = (
+                    "boundary_proof_plan_dependent"
+                    if edge_kind == "proof_plan_uses"
+                    else "boundary_dependent"
+                )
                 boundary_edge_counts[(
                     dependency_id,
                     f"topic:{boundary_topic}",
-                    "boundary_dependent",
+                    boundary_kind,
                     boundary_topic,
                 )] += 1
 
@@ -216,7 +235,12 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
             topic_counts.get(boundary_topic, 0),
         ))
 
-    edge_sort_order = {"boundary_dependency": 0, "boundary_dependent": 1}
+    edge_sort_order = {
+        "boundary_dependency": 0,
+        "boundary_proof_plan_dependency": 1,
+        "boundary_dependent": 2,
+        "boundary_proof_plan_dependent": 3,
+    }
     boundary_edges = []
     for (source, target, kind, boundary_topic), count in sorted(
         boundary_edge_counts.items(),
