@@ -162,6 +162,30 @@ GameTheoryLib/
 
 Use it to test whether mdblueprint can represent a nontrivial Lean-adjacent mathematical library without relying on a TeX blueprint as source truth.
 
+### Topic-First Graph Example
+
+The game-theory example is illustrative only. It is a concrete reference case
+for the graph navigation model, not a default domain for mdblueprint.
+
+Example topic:
+
+```text
+strategic_games
+```
+
+If a `strategic_games.nash_equilibrium` node uses
+`strategic_games.best_response`, the expanded `strategic_games` subgraph shows
+the node-level edge:
+
+```text
+Best Response -> Nash equilibrium
+```
+
+If a later topic uses `strategic_games.nash_equilibrium`, the topic overview
+shows an edge from `strategic_games` to that dependent topic. The default graph
+still opens at the topic level; readers expand `strategic_games` only when they
+need the local node-level structure.
+
 ## Codex Skill Repositories
 
 Local paths:

@@ -17,6 +17,9 @@ Durable source:
 
 Deterministic Python output:
   graph.json
+  graph_topics.json
+  subgraphs/topics/*.json
+  node_payloads/*.json
   topic pages
   keyword pages
   node pages
@@ -369,9 +372,23 @@ The generated site includes:
 - `<topic>/index.html`: topic pages
 - `keywords/<tag>.html`: tag-based keyword pages
 - `<topic>/<node_id>.html`: node pages with theorem/definition wrappers
-- `dep_graph_document.html`: Graphviz dependency graph with modals
+- `dep_graph_document.html`: topic-first Graphviz dependency graph with expandable topics and lazy node-detail modals
 - `graph.html`: compatibility alias for the dependency graph
-- `graph.json`: deterministic machine graph export
+- `graph.json`: deterministic full machine graph export
+- `graph_topics.json`: topic overview graph used by the default graph page
+- `subgraphs/topics/<topic>.json`: per-topic expandable browsing subgraphs
+- `node_payloads/<node>.json`: lazy node-detail payloads used by graph modals
+
+Graph navigation contract:
+
+- The default graph is topic-first so large knowledge bases open at a readable scale.
+- `graph.json` remains the full machine graph. Browser UI artifacts are derived browsing projections, not replacements for the machine export.
+- Topic overview edges display `dependency topic -> dependent topic`.
+- Expanding a topic shows its internal node-level subgraph, plus dashed boundary topic nodes for external prerequisites and external users.
+- Node-level graph display uses `dependency -> dependent`, even though internal graph edges store `dependent -> dependency`.
+- Oversized topics use the configured graph limits and show links to the topic page and keyword pages instead of rendering an unreadable subgraph.
+- Graph node modals load `node_payloads/<node>.json` on demand.
+- Proof-plan nodes are controlled by the graph page visibility selector: `hidden`, `selected-only`, or `all`.
 
 Proof text is collapsed by default when the body contains a recognized proof marker:
 

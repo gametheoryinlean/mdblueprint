@@ -10,7 +10,7 @@ docs/knowledge/nodes/**/*.md
   -> Python schema validator
   -> Python DAG builder from uses
   -> Python static-site generator
-  -> graph.json, DOT, index.html, graph page, node pages
+  -> graph.json, graph_topics.json, topic subgraphs, node payloads, HTML pages
 ```
 
 LLMs must not generate:
@@ -76,6 +76,50 @@ The generated site intentionally follows leanblueprint's presentation style with
 - `dep_graph_document.html` is the leanblueprint-style graph page; `graph.html` is preserved as a compatibility alias.
 - The default graph view is topic-first. `graph.max_visible_nodes` defaults to `120`, `graph.max_expand_nodes` defaults to `80`, and oversized topic expansion shows a bounded navigation fallback instead of rendering an unreadable graph.
 - Topic fallback navigation links to the topic page and to keyword pages derived from the topic's node tags.
+
+## Topic-First DAG Navigation
+
+The graph page uses browsing artifacts derived from the full graph:
+
+- `graph.json` remains the full machine graph. It preserves every parsed node and every `uses` edge in the deterministic export contract.
+- `graph_topics.json` is the default topic overview graph. It contains topic nodes, topic counts, and cross-topic edges.
+- `subgraphs/topics/<topic>.json` is a per-topic expandable browsing subgraph.
+- `node_payloads/<node>.json` is a lazy node detail payload used by graph modals after a rendered graph node is clicked.
+
+A topic overview edge is displayed from a dependency topic to a dependent topic.
+If any node in topic `B` uses a node in topic `A`, the topic overview displays
+`A -> B`. Same-topic edges are omitted from the overview because they belong to
+the per-topic subgraph.
+
+A per-topic subgraph contains:
+
+- internal nodes whose ids belong to the expanded topic;
+- internal `uses` edges displayed as `dependency -> dependent`;
+- a boundary topic node for each external topic that supplies a prerequisite or uses an internal node;
+- dashed boundary edges connecting external topic nodes to internal nodes;
+- proof-plan attachments as dotted `has plan` edges, separate from `uses` edges;
+- keyword links and counts for fallback navigation;
+- lazy node payload URLs, not full rendered node bodies.
+
+The display direction is always `dependency -> dependent`. The in-memory graph
+stores edges as `dependent -> dependency` because that is convenient for
+validation and topological sorting, but every human-facing graph projection
+reverses the direction.
+
+The graph page keeps only one expanded topic visible at a time. Clicking a
+topic in the overview loads its `subgraphs/topics/<topic>.json` payload. Clicking
+a boundary topic switches expansion to that topic. Clicking an internal node
+loads its lazy node detail payload and opens the shared modal.
+
+Large-topic behavior is bounded by project config. If expansion would exceed
+`graph.max_expand_nodes` or `graph.max_visible_nodes`, the page shows a fallback
+with links to the topic page and relevant keyword pages. It does not render a
+large unreadable Graphviz state.
+
+Proof plans are graph metadata, not ordinary theorem dependencies. Expanded
+topic views provide `hidden`, `selected-only`, and `all` visibility modes.
+Dotted `has plan` edges are shown only when the corresponding proof-plan node is
+visible.
 
 ## Lean Compatibility
 

@@ -1,3 +1,4 @@
+import json
 import textwrap
 from pathlib import Path
 
@@ -74,17 +75,20 @@ def test_node_and_graph_lean_modals_link_to_configured_source_url(tmp_path):
     publish(knowledge_root, tmp_path / "site")
 
     node_page = (tmp_path / "site" / "example" / "example_ok.html").read_text(encoding="utf-8")
-    graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text(encoding="utf-8")
+    graph_payload = json.loads(
+        (tmp_path / "site" / "node_payloads" / "example_ok.json").read_text(encoding="utf-8")
+    )
+    graph_payload_json = json.dumps(graph_payload)
     source_url = "https://example.test/org/repo/blob/abc123def456/Example/Basic.lean#L1"
 
     assert source_url in node_page
-    assert source_url in graph_page
+    assert source_url in graph_payload_json
     assert "Example Lean Library" in node_page
-    assert "Example Lean Library" in graph_page
+    assert "Example Lean Library" in graph_payload_json
     assert "abc123d" in node_page
-    assert "abc123d" in graph_page
+    assert "abc123d" in graph_payload_json
     assert "Example.ok" in node_page
-    assert "Example.ok" in graph_page
+    assert "Example.ok" in graph_payload_json
 
 
 def test_unresolved_lean_reference_is_shown_without_broken_source_link(tmp_path):
@@ -97,11 +101,14 @@ def test_unresolved_lean_reference_is_shown_without_broken_source_link(tmp_path)
     publish(knowledge_root, tmp_path / "site")
 
     node_page = (tmp_path / "site" / "example" / "example_ok.html").read_text(encoding="utf-8")
-    graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text(encoding="utf-8")
+    graph_payload = json.loads(
+        (tmp_path / "site" / "node_payloads" / "example_ok.json").read_text(encoding="utf-8")
+    )
+    graph_payload_json = json.dumps(graph_payload)
 
     assert "Example.missing" in node_page
-    assert "Example.missing" in graph_page
+    assert "Example.missing" in graph_payload_json
     assert "Unresolved" in node_page
-    assert "Unresolved" in graph_page
+    assert '"status": "unresolved"' in graph_payload_json
     assert "Example.missing#L" not in node_page
-    assert "Example.missing#L" not in graph_page
+    assert "Example.missing#L" not in graph_payload_json

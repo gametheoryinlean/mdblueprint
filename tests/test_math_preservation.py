@@ -1,3 +1,4 @@
+import json
 import textwrap
 from pathlib import Path
 
@@ -118,11 +119,14 @@ def test_publish_preserves_math_in_statement_proof_and_graph_modal(tmp_path):
     publish(knowledge_root, tmp_path / "site")
 
     node_page = (tmp_path / "site" / "analysis" / "analysis_estimate.html").read_text(encoding="utf-8")
-    graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text(encoding="utf-8")
+    graph_payload = json.loads(
+        (tmp_path / "site" / "node_payloads" / "analysis_estimate.json").read_text(encoding="utf-8")
+    )
 
     assert "$x_i^2 \\le y_i^2$" in node_page
     assert "\\[\nx_i^2 \\le y_i^2\n\\]" in node_page
     assert r"\(x_i \le y_i\)" in node_page
     assert "$x_i^2$" in node_page
     assert '<details class="proof-details">' in node_page
-    assert "$x_i^2 \\le y_i^2$" in graph_page
+    assert "$x_i^2 \\le y_i^2$" in graph_payload["body_html"]
+    assert r"\(x_i \le y_i\)" in graph_payload["proof_html"]
