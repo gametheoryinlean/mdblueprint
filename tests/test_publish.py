@@ -9,6 +9,13 @@ KNOWLEDGE_ROOT = Path(__file__).parent.parent / "docs" / "knowledge"
 GENERIC_KNOWLEDGE_ROOT = Path(__file__).parent / "fixtures" / "generic_knowledge"
 
 
+def _graph_config_from_page(page: str) -> dict:
+    start_marker = '<script id="graph-config" type="application/json">'
+    start = page.index(start_marker) + len(start_marker)
+    end = page.index("</script>", start)
+    return json.loads(page[start:end])
+
+
 class TestExampleCorpusPublish:
     def test_generates_output(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
@@ -166,6 +173,35 @@ class TestExampleCorpusPublish:
         assert "handleTopicActivation" in graph_js
         assert "topicCache" in graph_js
         assert "expanded" in graph_js
+
+    def test_graph_page_configures_expansion_limits_and_fallback(self, tmp_path):
+        config_path = tmp_path / "mdblueprint.yml"
+        config_path.write_text(
+            textwrap.dedent(
+                """
+                site:
+                  title: Limited Graph Blueprint
+                  short_title: Limited
+                graph:
+                  max_visible_nodes: 3
+                  max_expand_nodes: 1
+                  proof_plans: hidden
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site", config_path=config_path)
+        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        graph_js = (tmp_path / "site" / "graph.js").read_text()
+        graph_config = _graph_config_from_page(graph_page)
+
+        assert graph_config["maxVisibleNodes"] == 3
+        assert graph_config["maxExpandNodes"] == 1
+        assert graph_config["proofPlans"] == "hidden"
+        assert 'id="graph-fallback"' in graph_page
+        assert "showOversizedTopicFallback" in graph_js
+        assert "Keyword pages" in graph_js
 
     def test_graph_modal_contains_node_body(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")

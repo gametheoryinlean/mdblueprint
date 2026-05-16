@@ -304,3 +304,48 @@ class TestExportTopicSubgraphJson:
             "to": "algebra.group_identity_unique.plan.direct",
             "kind": "uses",
         } not in data["edges"]
+
+    def test_topic_subgraph_counts_support_large_topic_fallback(self):
+        from tools.knowledge.models import Node
+
+        base = Node(
+            id="algebra.group",
+            title="Group",
+            kind="definition",
+            status="admitted",
+            tags=["algebra", "foundational"],
+        )
+        theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="admitted",
+            uses=["algebra.group"],
+            tags=["algebra", "theorem"],
+        )
+        plan = Node(
+            id="algebra.group_identity_unique.plan.direct",
+            title="Direct Plan",
+            kind="proof-plan",
+            status="staged",
+            target="algebra.group_identity_unique",
+            plan_status="selected",
+            uses=["algebra.group"],
+            tags=["plan"],
+        )
+        graph, diags = build_graph([base, theorem, plan])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+
+        assert data["counts"]["internal_nodes"] == 3
+        assert data["counts"]["non_proof_plan_nodes"] == 2
+        assert data["counts"]["proof_plan_nodes"] == 1
+        assert data["counts"]["selected_proof_plan_nodes"] == 1
+        assert data["counts"]["visible_nodes_without_proof_plans"] == 3
+        assert data["keywords"] == [
+            {"id": "algebra", "title": "algebra", "href": "keywords/algebra.html", "count": 2},
+            {"id": "foundational", "title": "foundational", "href": "keywords/foundational.html", "count": 1},
+            {"id": "plan", "title": "plan", "href": "keywords/plan.html", "count": 1},
+            {"id": "theorem", "title": "theorem", "href": "keywords/theorem.html", "count": 1},
+        ]

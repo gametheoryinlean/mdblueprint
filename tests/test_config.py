@@ -145,6 +145,54 @@ def test_project_config_parses_math_macros_delimiters_and_strictness(tmp_path):
     assert config.math.throw_on_error is True
 
 
+def test_project_config_uses_graph_display_defaults(tmp_path):
+    from tools.knowledge.config import load_project_config
+
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            """
+            site:
+              title: Graph Defaults Blueprint
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    config = load_project_config(knowledge_root)
+
+    assert config.graph.max_visible_nodes == 120
+    assert config.graph.max_expand_nodes == 80
+    assert config.graph.proof_plans == "selected-only"
+
+
+def test_project_config_parses_graph_display_limits(tmp_path):
+    from tools.knowledge.config import load_project_config
+
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            """
+            site:
+              title: Graph Limits Blueprint
+            graph:
+              max_visible_nodes: 40
+              max_expand_nodes: 25
+              proof_plans: hidden
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    config = load_project_config(knowledge_root)
+
+    assert config.graph.max_visible_nodes == 40
+    assert config.graph.max_expand_nodes == 25
+    assert config.graph.proof_plans == "hidden"
+
+
 def test_publish_injects_configured_math_options(tmp_path):
     knowledge_root = tmp_path / "knowledge"
     _write_minimal_knowledge_root(knowledge_root)

@@ -226,6 +226,39 @@ a { color: var(--accent); }
   width: 100%;
 }
 
+.graph-fallback {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.graph-fallback h2,
+.graph-fallback h3 {
+  margin-top: 0;
+}
+
+.graph-fallback-links {
+  columns: 2;
+  padding-left: 1.2rem;
+}
+
+.graph-fallback-count {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.graph-fallback-back {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.35rem 0.7rem;
+}
+
 .graph-legend {
   margin: 0.5rem 0 1rem;
   position: relative;

@@ -35,6 +35,13 @@
     return `topic:${topicId}`;
   }
 
+  const GRAPH_DEFAULT_CONFIG = {
+    maxVisibleNodes: 120,
+    maxExpandNodes: 80,
+    proofPlans: "selected-only",
+  };
+  const GRAPH_PROOF_PLAN_POLICIES = new Set(["hidden", "selected-only", "all"]);
+
   const graphState = {
     config: null,
     topicOverview: null,
@@ -96,7 +103,28 @@
       .join(", ");
   }
 
+  function currentProofPlanMode() {
+    return GRAPH_PROOF_PLAN_POLICIES.has(graphState.config?.proofPlans)
+      ? graphState.config.proofPlans
+      : GRAPH_DEFAULT_CONFIG.proofPlans;
+  }
+
+  function isVisibleProofPlan(node, mode) {
+    if (node.kind !== "proof-plan") return true;
+    if (mode === "all") return true;
+    if (mode === "selected-only") return node.plan_status === "selected";
+    return false;
+  }
+
+  function visibleSubgraphNodes(data) {
+    const mode = currentProofPlanMode();
+    return (data.nodes || []).filter((node) => isVisibleProofPlan(node, mode));
+  }
+
   function topicSubgraphToDot(data) {
+    const visibleNodes = visibleSubgraphNodes(data);
+    const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+    const endpointVisible = (nodeId) => nodeId.startsWith("topic:") || visibleNodeIds.has(nodeId);
     const lines = [
       'strict digraph "" {',
       "\tgraph [bgcolor=transparent];",
@@ -122,7 +150,7 @@
         URL: `#${topicGraphId(topic.id)}`,
       })}];`);
     });
-    (data.nodes || []).forEach((node) => {
+    visibleNodes.forEach((node) => {
       lines.push(`\t${dotQuote(node.id)} [${dotAttributes({
         color: statusColor(node.status),
         label: node.title,
@@ -131,10 +159,10 @@
         URL: `#${node.id}`,
       })}];`);
     });
-    (data.edges || []).forEach((edge) => {
+    (data.edges || []).filter((edge) => endpointVisible(edge.from) && endpointVisible(edge.to)).forEach((edge) => {
       lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [style=${dotQuote("dashed")}];`);
     });
-    (data.boundary_edges || []).forEach((edge) => {
+    (data.boundary_edges || []).filter((edge) => endpointVisible(edge.from) && endpointVisible(edge.to)).forEach((edge) => {
       const label = edge.count > 1 ? renderCountLabel(edge.count) : "";
       lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes({
         color: "#777777",
@@ -142,7 +170,7 @@
         style: "dashed",
       })}];`);
     });
-    (data.proof_plan_attachments || []).forEach((edge) => {
+    (data.proof_plan_attachments || []).filter((edge) => endpointVisible(edge.from) && endpointVisible(edge.to)).forEach((edge) => {
       lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes({
         label: "has plan",
         style: "dotted",
@@ -225,6 +253,65 @@
     return `<h2>Lean declarations</h2><ul class="uses">${items}</ul>`;
   }
 
+  function graphLimit(name) {
+    const value = graphState.config?.[name];
+    return Number.isInteger(value) && value > 0 ? value : GRAPH_DEFAULT_CONFIG[name];
+  }
+
+  function visibleSubgraphNodeCount(data) {
+    return 1 + (data.boundary_topics || []).length + visibleSubgraphNodes(data).length;
+  }
+
+  function exceedsTopicExpansionLimits(data) {
+    const internalNodes = data.counts?.internal_nodes ?? (data.nodes || []).length;
+    return internalNodes > graphLimit("maxExpandNodes")
+      || visibleSubgraphNodeCount(data) > graphLimit("maxVisibleNodes");
+  }
+
+  function hideGraphFallback() {
+    const fallback = document.getElementById("graph-fallback");
+    const graphElement = document.getElementById("graph");
+    if (fallback) {
+      fallback.hidden = true;
+      fallback.replaceChildren();
+    }
+    if (graphElement) graphElement.hidden = false;
+  }
+
+  function showOversizedTopicFallback(data) {
+    const graphElement = document.getElementById("graph");
+    const fallback = document.getElementById("graph-fallback");
+    if (!graphElement || !fallback) return;
+
+    graphElement.hidden = true;
+    graphElement.replaceChildren();
+    graphRenderer = null;
+
+    const topic = data.topic || {};
+    const title = topic.title || topic.id || "Topic";
+    const nodeCount = data.counts?.internal_nodes ?? (data.nodes || []).length;
+    const keywordPages = (data.keywords || []).map((keyword) => (
+      `<li><a href="${escapeHtml(keyword.href)}">${escapeHtml(keyword.title)}</a> <span class="graph-fallback-count">${escapeHtml(keyword.count)}</span></li>`
+    )).join("");
+    const keywordSection = keywordPages
+      ? `<h3>Keyword pages</h3><ul class="graph-fallback-links">${keywordPages}</ul>`
+      : "";
+
+    fallback.innerHTML = `
+      <h2>${escapeHtml(title)}</h2>
+      <p>This topic has ${escapeHtml(nodeCount)} nodes. Direct graph expansion is capped at ${escapeHtml(graphLimit("maxExpandNodes"))} topic nodes and ${escapeHtml(graphLimit("maxVisibleNodes"))} visible nodes.</p>
+      <p><a href="${escapeHtml(topic.href || "#")}">Open topic page</a></p>
+      ${keywordSection}
+      <button class="graph-fallback-back" type="button" data-action="topic-overview">Topic overview</button>
+    `;
+    fallback.hidden = false;
+    fallback.querySelector("[data-action='topic-overview']")?.addEventListener("click", () => {
+      renderTopicOverview(graphState.config).catch((error) => {
+        fallback.innerHTML = `<p class="graph-error">${escapeHtml(error.message)}</p>`;
+      });
+    });
+  }
+
   function renderNodePayload(payload) {
     const proof = payload.proof_html
       ? `<details class="proof-details"><summary>Proof</summary><div class="proof-body">${payload.proof_html}</div></details>`
@@ -298,6 +385,7 @@
   function renderDot(dot) {
     const graphElement = document.getElementById("graph");
     if (!graphElement || !window.d3) return;
+    hideGraphFallback();
     graphElement.replaceChildren();
     graphRenderer = null;
     graphvizRenderer(graphElement)
@@ -305,11 +393,27 @@
       .renderDot(dot);
   }
 
+  function normalizeGraphConfig(config) {
+    const raw = config || {};
+    const proofPlans = GRAPH_PROOF_PLAN_POLICIES.has(raw.proofPlans)
+      ? raw.proofPlans
+      : GRAPH_DEFAULT_CONFIG.proofPlans;
+    const positiveInteger = (value, fallback) => (
+      Number.isInteger(value) && value > 0 ? value : fallback
+    );
+    return {
+      ...raw,
+      maxVisibleNodes: positiveInteger(raw.maxVisibleNodes, GRAPH_DEFAULT_CONFIG.maxVisibleNodes),
+      maxExpandNodes: positiveInteger(raw.maxExpandNodes, GRAPH_DEFAULT_CONFIG.maxExpandNodes),
+      proofPlans,
+    };
+  }
+
   function readGraphConfig() {
     const configElement = document.getElementById("graph-config");
     if (!configElement) return null;
     try {
-      return JSON.parse(configElement.textContent || "{}");
+      return normalizeGraphConfig(JSON.parse(configElement.textContent || "{}"));
     } catch (error) {
       return null;
     }
@@ -357,8 +461,13 @@
       }
       const subgraph = await fetchTopicSubgraph(topicId);
       graphState.expandedTopic = topicId;
-      graphElement.dataset.graphMode = "topic-expanded";
       graphElement.dataset.expandedTopic = topicId;
+      if (exceedsTopicExpansionLimits(subgraph)) {
+        graphElement.dataset.graphMode = "topic-fallback";
+        showOversizedTopicFallback(subgraph);
+        return;
+      }
+      graphElement.dataset.graphMode = "topic-expanded";
       renderDot(topicSubgraphToDot(subgraph));
     } catch (error) {
       graphElement.textContent = error.message;

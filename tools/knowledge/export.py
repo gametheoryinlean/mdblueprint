@@ -141,6 +141,21 @@ def _boundary_topic_entry(topic_id: str, role: str, node_count: int) -> dict:
     }
 
 
+def _keyword_entries(nodes: list[Node]) -> list[dict]:
+    counts: Counter[str] = Counter()
+    for node in nodes:
+        counts.update(node.tags)
+    return [
+        {
+            "id": keyword,
+            "title": keyword,
+            "href": f"keywords/{keyword}.html",
+            "count": count,
+        }
+        for keyword, count in sorted(counts.items())
+    ]
+
+
 def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
     internal_ids = sorted(
         node.id
@@ -148,6 +163,7 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
         if topic_id_for_node(node) == topic_id
     )
     internal_set = set(internal_ids)
+    internal_nodes = [g.nodes[node_id] for node_id in internal_ids]
     topic_counts = _topic_node_counts(g)
 
     edges = []
@@ -230,6 +246,10 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
             attachment["plan_status"] = plan.plan_status
         proof_plan_attachments.append(attachment)
 
+    proof_plan_nodes = [node for node in internal_nodes if node.kind == "proof-plan"]
+    non_proof_plan_count = len(internal_nodes) - len(proof_plan_nodes)
+    selected_proof_plan_count = sum(1 for node in proof_plan_nodes if node.plan_status == "selected")
+
     return {
         "topic": {
             "id": topic_id,
@@ -239,13 +259,19 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
         },
         "counts": {
             "internal_nodes": len(internal_ids),
+            "non_proof_plan_nodes": non_proof_plan_count,
+            "proof_plan_nodes": len(proof_plan_nodes),
+            "selected_proof_plan_nodes": selected_proof_plan_count,
             "boundary_topics": len(boundary_topics),
             "proof_plan_attachments": len(proof_plan_attachments),
+            "visible_nodes_without_proof_plans": 1 + len(boundary_topics) + non_proof_plan_count,
+            "visible_nodes_with_selected_proof_plans": 1 + len(boundary_topics) + non_proof_plan_count + selected_proof_plan_count,
         },
-        "nodes": [_subgraph_node_entry(g.nodes[node_id]) for node_id in internal_ids],
+        "nodes": [_subgraph_node_entry(node) for node in internal_nodes],
         "edges": edges,
         "boundary_topics": boundary_topics,
         "boundary_edges": boundary_edges,
+        "keywords": _keyword_entries(internal_nodes),
         "proof_plan_attachments": proof_plan_attachments,
     }
 

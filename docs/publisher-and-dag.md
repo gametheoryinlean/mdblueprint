@@ -74,6 +74,8 @@ The generated site intentionally follows leanblueprint's presentation style with
 - Status and formalization fields determine border and fill colors: not-ready nodes are orange, ready admitted nodes are blue, formalized statements are green-bordered, formalized definitions are light green, and fully proved theorem-like nodes are dark green.
 - Node pages and graph modals keep proof text in a collapsed `<details>` section by default.
 - `dep_graph_document.html` is the leanblueprint-style graph page; `graph.html` is preserved as a compatibility alias.
+- The default graph view is topic-first. `graph.max_visible_nodes` defaults to `120`, `graph.max_expand_nodes` defaults to `80`, and oversized topic expansion shows a bounded navigation fallback instead of rendering an unreadable graph.
+- Topic fallback navigation links to the topic page and to keyword pages derived from the topic's node tags.
 
 ## Lean Compatibility
 

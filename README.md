@@ -133,6 +133,10 @@ math:
       - ["\\[", "\\]"]
       - ["$$", "$$"]
   throw_on_error: false
+graph:
+  max_visible_nodes: 120
+  max_expand_nodes: 80
+  proof_plans: selected-only
 lean:
   default_repository: core
   repositories:
@@ -156,6 +160,9 @@ Project config contract:
 - Prefer `\(...\)` for inline math and `\[...\]` for display math in new nodes; dollar delimiters remain enabled by default for compatibility.
 - Markdown preservation and static math diagnostics are designed around the default delimiter family; use custom delimiter syntax only with browser render verification.
 - `math.throw_on_error` is passed to KaTeX as `throwOnError`; keep it `false` for browsing and use `tools.knowledge.render_check` for strict release checks.
+- `graph.max_visible_nodes` caps a rendered graph state; the default is `120`.
+- `graph.max_expand_nodes` caps direct topic expansion; the default is `80`.
+- `graph.proof_plans` controls proof-plan visibility in expanded topic views and must be `hidden`, `selected-only`, or `all`; the default is `selected-only`.
 - `lean.repositories` configures Lean Git repositories that nodes may reference.
 - `lean.default_repository` is optional; when present, nodes may omit `lean.repository`.
 - `lean.repositories[*].local_path` may be absolute or relative to the config file and must point at the Lean root used for module paths.

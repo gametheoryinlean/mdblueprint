@@ -12,6 +12,10 @@ import yaml
 DEFAULT_CONFIG_NAME = "mdblueprint.yml"
 DEFAULT_DISPLAY_DELIMITERS = ((r"$$", r"$$"), (r"\[", r"\]"))
 DEFAULT_INLINE_DELIMITERS = ((r"$", r"$"), (r"\(", r"\)"))
+DEFAULT_GRAPH_MAX_VISIBLE_NODES = 120
+DEFAULT_GRAPH_MAX_EXPAND_NODES = 80
+DEFAULT_GRAPH_PROOF_PLANS = "selected-only"
+GRAPH_PROOF_PLAN_POLICIES = {"hidden", "selected-only", "all"}
 
 
 @dataclass(frozen=True)
@@ -45,10 +49,18 @@ class LeanConfig:
 
 
 @dataclass(frozen=True)
+class GraphDisplayConfig:
+    max_visible_nodes: int
+    max_expand_nodes: int
+    proof_plans: str
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     site: SiteConfig
     math: MathConfig
     lean: LeanConfig
+    graph: GraphDisplayConfig
 
 
 def _titleize_path_name(name: str) -> str:
@@ -63,6 +75,7 @@ def _fallback_config(knowledge_root: Path) -> ProjectConfig:
         site=SiteConfig(title=_titleize_path_name(knowledge_root.name)),
         math=_default_math_config(),
         lean=_default_lean_config(),
+        graph=_default_graph_config(),
     )
 
 
@@ -77,6 +90,50 @@ def _default_math_config() -> MathConfig:
 
 def _default_lean_config() -> LeanConfig:
     return LeanConfig(default_repository=None, repositories={})
+
+
+def _default_graph_config() -> GraphDisplayConfig:
+    return GraphDisplayConfig(
+        max_visible_nodes=DEFAULT_GRAPH_MAX_VISIBLE_NODES,
+        max_expand_nodes=DEFAULT_GRAPH_MAX_EXPAND_NODES,
+        proof_plans=DEFAULT_GRAPH_PROOF_PLANS,
+    )
+
+
+def _parse_positive_int(raw: Any, *, path: Path, field: str, default: int) -> int:
+    if raw is None:
+        return default
+    if not isinstance(raw, int) or isinstance(raw, bool) or raw <= 0:
+        raise ValueError(f"Project config graph.{field} must be a positive integer: {path}")
+    return raw
+
+
+def _parse_graph_config(raw: Any, *, path: Path) -> GraphDisplayConfig:
+    if raw is None:
+        return _default_graph_config()
+    if not isinstance(raw, dict):
+        raise ValueError(f"Project config graph must be a mapping: {path}")
+
+    proof_plans = raw.get("proof_plans", DEFAULT_GRAPH_PROOF_PLANS)
+    if not isinstance(proof_plans, str) or proof_plans.strip() not in GRAPH_PROOF_PLAN_POLICIES:
+        allowed = ", ".join(sorted(GRAPH_PROOF_PLAN_POLICIES))
+        raise ValueError(f"Project config graph.proof_plans must be one of {allowed}: {path}")
+
+    return GraphDisplayConfig(
+        max_visible_nodes=_parse_positive_int(
+            raw.get("max_visible_nodes"),
+            path=path,
+            field="max_visible_nodes",
+            default=DEFAULT_GRAPH_MAX_VISIBLE_NODES,
+        ),
+        max_expand_nodes=_parse_positive_int(
+            raw.get("max_expand_nodes"),
+            path=path,
+            field="max_expand_nodes",
+            default=DEFAULT_GRAPH_MAX_EXPAND_NODES,
+        ),
+        proof_plans=proof_plans.strip(),
+    )
 
 
 def _parse_delimiters(raw: Any, *, path: Path, field: str, default: tuple[tuple[str, str], ...]) -> list[tuple[str, str]]:
@@ -266,4 +323,5 @@ def load_project_config(knowledge_root: Path, config_path: Path | None = None) -
         site=SiteConfig(title=title.strip(), short_title=short_title),
         math=_parse_math_config(raw.get("math"), path=path),
         lean=_parse_lean_config(raw.get("lean"), path=path),
+        graph=_parse_graph_config(raw.get("graph"), path=path),
     )

@@ -396,6 +396,9 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         graph_config_json=json.dumps({
             "topicOverviewUrl": "graph_topics.json",
             "topicSubgraphBaseUrl": "subgraphs/topics",
+            "maxVisibleNodes": config.graph.max_visible_nodes,
+            "maxExpandNodes": config.graph.max_expand_nodes,
+            "proofPlans": config.graph.proof_plans,
             "mode": "topic-overview",
         }),
     )
