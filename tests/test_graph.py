@@ -2,6 +2,7 @@ from pathlib import Path
 
 from tools.knowledge.graph import build_graph, topological_sort
 from tools.knowledge.parser import parse_file, scan_directory
+from tools.knowledge.models import Node
 
 _TESTS_DIR = Path(__file__).parent
 GENERIC_ROOT = _TESTS_DIR / "fixtures" / "generic_knowledge"
@@ -56,12 +57,95 @@ class TestDuplicateIds:
 
 class TestTaskConstraint:
     def test_math_uses_task(self):
-        from tools.knowledge.models import Node
         task = Node(id="test.some_task", title="Task", kind="task", status="admitted")
         math = parse_file(INVALID_DIR / "math_uses_task.md")
         _, diags = build_graph([task, math])
         errors = [d for d in diags if d.level == "error"]
         assert any("task" in d.message for d in errors)
+
+
+class TestProofPlanEdges:
+    def test_proof_plan_target_is_tracked_without_polluting_theorem_dependencies(self):
+        group = Node(id="algebra.group", title="Group", kind="definition", status="admitted")
+        theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="admitted",
+            uses=["algebra.group"],
+        )
+        plan = Node(
+            id="algebra.group_identity_unique.plan.via_left_cancel",
+            title="Via Left Cancellation",
+            kind="proof-plan",
+            status="staged",
+            target="algebra.group_identity_unique",
+            plan_status="candidate",
+            uses=["algebra.group"],
+        )
+
+        graph, diags = build_graph([group, theorem, plan])
+
+        assert [d for d in diags if d.level == "error"] == []
+        assert graph.proof_plan_targets[plan.id] == theorem.id
+        assert graph.proof_plans_by_target[theorem.id] == [plan.id]
+        assert graph.edges[theorem.id] == ["algebra.group"]
+        assert graph.edges[plan.id] == ["algebra.group"]
+        assert plan.id not in graph.reverse_edges[theorem.id]
+
+    def test_missing_proof_plan_target_is_diagnostic(self):
+        plan = Node(
+            id="algebra.group_identity_unique.plan.via_left_cancel",
+            title="Via Left Cancellation",
+            kind="proof-plan",
+            status="staged",
+        )
+
+        _, diags = build_graph([plan])
+
+        assert any("proof-plan target" in d.message for d in diags)
+
+    def test_mathematical_node_cannot_use_proof_plan_as_dependency(self):
+        theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="admitted",
+            uses=["algebra.group_identity_unique.plan.via_left_cancel"],
+        )
+        plan = Node(
+            id="algebra.group_identity_unique.plan.via_left_cancel",
+            title="Via Left Cancellation",
+            kind="proof-plan",
+            status="staged",
+            target="algebra.group_identity_unique",
+        )
+
+        _, diags = build_graph([theorem, plan])
+
+        errors = [d for d in diags if d.level == "error"]
+        assert any("proof-plan" in d.message and "uses" in d.message for d in errors)
+
+    def test_proof_plan_cannot_use_its_target_as_dependency(self):
+        theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="admitted",
+        )
+        plan = Node(
+            id="algebra.group_identity_unique.plan.circular",
+            title="Circular Plan",
+            kind="proof-plan",
+            status="staged",
+            target="algebra.group_identity_unique",
+            uses=["algebra.group_identity_unique"],
+        )
+
+        _, diags = build_graph([theorem, plan])
+
+        errors = [d for d in diags if d.level == "error"]
+        assert any("proof-plan cannot use its target" in d.message for d in errors)
 
 
 class TestTopologicalSort:

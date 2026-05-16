@@ -141,6 +141,10 @@ proof-plan    — a sketch or plan, not a complete mathematical claim; no gate r
 task          — a work item, not a mathematical claim; no gate required
 ```
 
+Proof plans are attached to theorem-like targets with a typed `has_plan` relation.
+Their `uses` dependencies belong to the proof route and must not be copied onto the
+target theorem's logical dependency list.
+
 Exempt kinds may still receive an informal generality note if the reviewer judges it
 useful, but this note does not block admission.
 

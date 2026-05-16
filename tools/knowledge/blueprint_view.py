@@ -13,7 +13,6 @@ THEOREM_LIKE_KINDS = frozenset({
     "proposition",
     "theorem",
     "external-theorem",
-    "proof-plan",
 })
 
 NOT_READY_STATUSES = frozenset({
@@ -35,6 +34,8 @@ class BlueprintNodeView:
     kind: str
     status: str
     shape: str
+    target: str | None = None
+    plan_status: str | None = None
     border_state: str | None = None
     fill_state: str | None = None
     lean_declarations: tuple[str, ...] = ()
@@ -46,6 +47,7 @@ class BlueprintNodeView:
 class BlueprintGraphView:
     nodes: list[BlueprintNodeView] = field(default_factory=list)
     edges: list[tuple[str, str]] = field(default_factory=list)
+    proof_plan_edges: list[tuple[str, str]] = field(default_factory=list)
 
 
 def display_label(node_id: str) -> str:
@@ -81,7 +83,7 @@ def node_shape(kind: str) -> str:
         return "box"
     if kind in THEOREM_LIKE_KINDS:
         return "ellipse"
-    if kind == "example":
+    if kind in {"example", "proof-plan"}:
         return "note"
     if kind == "task":
         return "component"
@@ -149,6 +151,8 @@ def build_blueprint_graph(g: KnowledgeGraph) -> BlueprintGraphView:
                 caption=kind_caption(node.kind),
                 kind=node.kind,
                 status=node.status,
+                target=node.target,
+                plan_status=node.plan_status,
                 shape=node_shape(node.kind),
                 border_state=_border_state(node, g),
                 fill_state=_fill_state(node, g),
@@ -163,7 +167,12 @@ def build_blueprint_graph(g: KnowledgeGraph) -> BlueprintGraphView:
         for dependency in sorted(g.edges[dependent]):
             edges.append((dependency, dependent))
 
-    return BlueprintGraphView(nodes=nodes, edges=edges)
+    proof_plan_edges = [
+        (target_id, plan_id)
+        for plan_id, target_id in sorted(g.proof_plan_targets.items())
+    ]
+
+    return BlueprintGraphView(nodes=nodes, edges=edges, proof_plan_edges=proof_plan_edges)
 
 
 def dot_node_attributes(view: BlueprintNodeView) -> dict[str, str]:
@@ -192,6 +201,11 @@ def dot_node_attributes(view: BlueprintNodeView) -> dict[str, str]:
     elif view.fill_state == "fully_proved":
         attrs["fillcolor"] = "#1CAC78"
         attrs["style"] = "filled"
+    if view.kind == "proof-plan":
+        attrs["style"] = "dashed"
+        if view.plan_status == "selected":
+            attrs["color"] = "blue"
+            attrs["penwidth"] = "2.4"
     return attrs
 
 
@@ -208,5 +222,12 @@ def graph_to_dot(view: BlueprintGraphView) -> str:
         lines.append(f"\t{dot_quote(node.id)} [{attr_text}];")
     for source, target in view.edges:
         lines.append(f"\t{dot_quote(source)} -> {dot_quote(target)} [style=dashed];")
+    for source, target in view.proof_plan_edges:
+        attrs = {
+            "label": "has plan",
+            "style": "dotted",
+        }
+        attr_text = ", ".join(f"{key}={dot_quote(value)}" for key, value in sorted(attrs.items()))
+        lines.append(f"\t{dot_quote(source)} -> {dot_quote(target)} [{attr_text}];")
     lines.append("}")
     return "\n".join(lines)

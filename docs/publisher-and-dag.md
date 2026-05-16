@@ -65,7 +65,11 @@ The generated site intentionally follows leanblueprint's presentation style with
 - Python emits all graph semantics and DOT attributes.
 - Browser JavaScript renders the DOT and handles modal interaction only.
 - Dependencies display as `dependency -> dependent`, even though internal graph edges store `dependent -> dependency`.
-- Definitions and concepts use box nodes; theorem-like nodes use ellipse nodes; examples and tasks use distinct shapes.
+- Proof plans use typed graph semantics: theorem-like targets attach to plans with
+  dotted `has plan` edges, while proof-plan `uses` dependencies remain separate
+  proof-route dependencies.
+- Definitions and concepts use box nodes; theorem-like nodes use ellipse nodes;
+  examples and proof plans use note nodes; tasks use component nodes.
 - Visible labels prefer node titles. Stable node ids remain available in URLs, anchors, and machine data.
 - Status and formalization fields determine border and fill colors: not-ready nodes are orange, ready admitted nodes are blue, formalized statements are green-bordered, formalized definitions are light green, and fully proved theorem-like nodes are dark green.
 - Node pages and graph modals keep proof text in a collapsed `<details>` section by default.

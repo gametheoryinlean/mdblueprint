@@ -20,6 +20,10 @@ def export_graph_json(g: KnowledgeGraph) -> dict:
         }
         if node.tags:
             entry["tags"] = node.tags
+        if node.target:
+            entry["target"] = node.target
+        if node.plan_status:
+            entry["plan_status"] = node.plan_status
         if node.lean:
             entry["lean_declarations"] = node.lean.declarations
         if node.file_path:

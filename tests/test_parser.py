@@ -85,6 +85,25 @@ class TestParseNode:
         assert node.lean is not None
         assert node.lean.repository == "main"
 
+    def test_parse_proof_plan_target(self):
+        node = parse_node(
+            "---\n"
+            "id: algebra.group_identity_unique.plan.via_left_cancel\n"
+            "title: Group Identity Is Unique via Left Cancellation\n"
+            "kind: proof-plan\n"
+            "status: staged\n"
+            "target: algebra.group_identity_unique\n"
+            "plan_status: candidate\n"
+            "uses:\n"
+            "  - algebra.group\n"
+            "---\n\n"
+            "# Group Identity Is Unique via Left Cancellation\n"
+        )
+
+        assert node.target == "algebra.group_identity_unique"
+        assert node.plan_status == "candidate"
+        assert node.uses == ["algebra.group"]
+
     def test_parse_generality(self):
         node = parse_file(GENERIC_NODES_DIR / "group.md")
         assert node.generality is not None

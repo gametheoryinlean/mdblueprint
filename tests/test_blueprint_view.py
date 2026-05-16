@@ -109,3 +109,27 @@ def test_graph_to_dot_is_deterministic_and_uses_reversed_edges():
     assert '"t.base" -> "t.thm"' in dot
     assert 'shape="box"' in dot
     assert 'shape="ellipse"' in dot
+
+
+def test_proof_plan_edges_are_attached_to_target_in_blueprint_dot():
+    base = Node(id="t.base", title="Base", kind="definition", status="admitted")
+    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="admitted", uses=["t.base"])
+    plan = Node(
+        id="t.thm.plan.direct",
+        title="Direct Plan",
+        kind="proof-plan",
+        status="staged",
+        target="t.thm",
+        plan_status="selected",
+        uses=["t.base"],
+    )
+    graph, diags = build_graph([base, thm, plan])
+    assert diags == []
+
+    view = build_blueprint_graph(graph)
+    dot = graph_to_dot(view)
+
+    assert view.proof_plan_edges == [("t.thm", "t.thm.plan.direct")]
+    assert '"t.thm" -> "t.thm.plan.direct"' in dot
+    assert 'label="has plan"' in dot
+    assert 'style="dotted"' in dot

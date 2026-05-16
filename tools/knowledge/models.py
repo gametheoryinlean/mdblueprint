@@ -58,6 +58,10 @@ VALID_STATUSES = frozenset({
     "blocked", "deprecated",
 })
 
+VALID_PLAN_STATUSES = frozenset({
+    "candidate", "selected", "rejected", "blocked", "formalized",
+})
+
 ADMITTED_STATUSES = frozenset({"admitted", "formalized", "proved"})
 STAGED_STATUSES = frozenset({
     "staged", "needs_statement_review", "needs_definition_review",
@@ -71,6 +75,7 @@ MATH_KINDS = frozenset({
 
 STATEMENT_KINDS = frozenset({"lemma", "proposition", "theorem", "external-theorem"})
 DEFINITION_KINDS = frozenset({"definition", "concept"})
+PROOF_PLAN_TARGET_KINDS = frozenset({"lemma", "proposition", "theorem", "external-theorem"})
 GENERALITY_REQUIRED_KINDS = frozenset({
     "definition", "lemma", "proposition", "theorem", "external-theorem",
 })
@@ -97,6 +102,8 @@ class Node:
     kind: str
     status: str
     uses: list[str] = field(default_factory=list)
+    target: str | None = None
+    plan_status: str | None = None
     lean: LeanRef | None = None
     source: Source | None = None
     verification: Verification | None = None

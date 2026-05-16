@@ -186,6 +186,44 @@ nodes in their `uses` field. A `task` node's `uses` field lists only other `task
 or mathematical nodes that the task depends on for context, but not as a logical
 mathematical dependency. Routine project management items should not be in the node body.
 
+`proof-plan` nodes describe candidate proof routes for a theorem-like node. They
+must use `target` to name the theorem, lemma, proposition, or external theorem they
+are trying to prove. Their `uses` list records dependencies of that proof route,
+not extra logical dependencies of the target theorem.
+
+```yaml
+id: algebra.group_identity_unique.plan.via_left_cancel
+title: Group Identity Is Unique via Left Cancellation
+kind: proof-plan
+status: staged
+target: algebra.group_identity_unique
+plan_status: candidate
+uses:
+  - algebra.group
+```
+
+Valid `plan_status` values are:
+
+```text
+candidate
+selected
+rejected
+blocked
+formalized
+```
+
+The dependency graph treats proof plans with typed edges:
+
+```text
+theorem --has_plan--> proof-plan
+proof-plan --uses--> lemma-or-definition
+```
+
+Do not put a proof-plan id in a theorem's `uses` list. This keeps the main
+mathematical dependency DAG separate from alternative proof routes. A proof plan
+also must not put its own `target` in `uses`; the `target` relation is represented
+by the typed `has_plan` edge.
+
 ## Status Model
 
 Use a small status vocabulary:

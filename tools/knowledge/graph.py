@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from tools.knowledge.models import MATH_KINDS, Node
+from tools.knowledge.models import MATH_KINDS, PROOF_PLAN_TARGET_KINDS, Node
 from tools.knowledge.validator import Diagnostic
 
 
@@ -13,6 +13,8 @@ class KnowledgeGraph:
     nodes: dict[str, Node] = field(default_factory=dict)
     edges: dict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
     reverse_edges: dict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
+    proof_plan_targets: dict[str, str] = field(default_factory=dict)
+    proof_plans_by_target: dict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
 
 
 def build_graph(nodes: list[Node]) -> tuple[KnowledgeGraph, list[Diagnostic]]:
@@ -57,6 +59,59 @@ def build_graph(nodes: list[Node]) -> tuple[KnowledgeGraph, list[Diagnostic]]:
                         f"mathematical node references task node: {dep!r}",
                         node.file_path,
                     ))
+                if node.kind in MATH_KINDS and node.kind != "proof-plan" and dep_node.kind == "proof-plan":
+                    diags.append(Diagnostic(
+                        "error", nid,
+                        f"mathematical node uses proof-plan node as a dependency; "
+                        f"proof-plan nodes must use target instead: {dep!r}",
+                        node.file_path,
+                    ))
+                if node.kind == "proof-plan" and node.target == dep:
+                    diags.append(Diagnostic(
+                        "error", nid,
+                        f"proof-plan cannot use its target as a dependency: {dep!r}",
+                        node.file_path,
+                    ))
+
+    # Proof-plan attachment edges are typed separately from logical uses edges.
+    for nid, node in g.nodes.items():
+        if node.kind != "proof-plan":
+            continue
+        if not node.target:
+            diags.append(Diagnostic(
+                "error", nid,
+                "proof-plan target is required",
+                node.file_path,
+            ))
+            continue
+        if node.target == nid:
+            diags.append(Diagnostic(
+                "error", nid,
+                "proof-plan target cannot be itself",
+                node.file_path,
+            ))
+            continue
+        if node.target not in g.nodes:
+            level = "warning" if node.status == "staged" else "error"
+            diags.append(Diagnostic(
+                level, nid,
+                f"proof-plan target not found: {node.target!r}",
+                node.file_path,
+            ))
+            continue
+        target_node = g.nodes[node.target]
+        if target_node.kind not in PROOF_PLAN_TARGET_KINDS:
+            diags.append(Diagnostic(
+                "error", nid,
+                f"proof-plan target must be theorem-like, got {target_node.kind!r}: {node.target!r}",
+                node.file_path,
+            ))
+            continue
+        g.proof_plan_targets[nid] = node.target
+        g.proof_plans_by_target[node.target].append(nid)
+
+    for plan_ids in g.proof_plans_by_target.values():
+        plan_ids.sort()
 
     # Cycle detection via DFS
     WHITE, GRAY, BLACK = 0, 1, 2

@@ -269,6 +269,11 @@ external-theorem
 task
 ```
 
+`proof-plan` nodes are proof-route artifacts, not extra logical dependencies of
+their theorem. They must name the theorem-like target with `target`, may record
+route state with `plan_status`, and should put only proof-route dependencies in
+`uses`.
+
 Supported statuses:
 
 ```text

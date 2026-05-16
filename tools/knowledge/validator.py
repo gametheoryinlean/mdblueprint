@@ -16,6 +16,7 @@ from tools.knowledge.models import (
     VALID_DEFINITION_VALUES,
     VALID_KINDS,
     VALID_LOCATOR_FORMATS,
+    VALID_PLAN_STATUSES,
     VALID_PROOF_VALUES,
     VALID_STATEMENT_VALUES,
     VALID_STATUSES,
@@ -63,6 +64,20 @@ def validate_node(node: Node, *, is_staged_dir: bool = False) -> list[Diagnostic
         err("missing required field: status")
     elif node.status not in VALID_STATUSES:
         err(f"invalid status: {node.status!r}")
+
+    # Proof plans attach to a mathematical target. They are not ordinary uses edges.
+    if node.kind == "proof-plan":
+        if not node.target:
+            err("proof-plan target is required")
+        elif node.target == node.id:
+            err("proof-plan target cannot be itself")
+        if node.plan_status is not None and node.plan_status not in VALID_PLAN_STATUSES:
+            err(f"invalid plan_status value: {node.plan_status!r}")
+    else:
+        if node.target is not None:
+            err("target is only valid for proof-plan nodes")
+        if node.plan_status is not None:
+            err("plan_status is only valid for proof-plan nodes")
 
     # Directory-status consistency
     if is_staged_dir and node.status in ADMITTED_STATUSES:

@@ -89,3 +89,29 @@ class TestExportGraphJson:
 
         assert set(data) == {"nodes", "edges"}
         assert {"from": "algebra.group_homomorphism", "to": "algebra.group"} in data["edges"]
+
+    def test_proof_plan_metadata_exports_without_attachment_edge_polluting_uses(self):
+        from tools.knowledge.models import Node
+
+        base = Node(id="t.base", title="Base", kind="definition", status="admitted")
+        thm = Node(id="t.thm", title="Theorem", kind="theorem", status="admitted", uses=["t.base"])
+        plan = Node(
+            id="t.thm.plan.direct",
+            title="Direct Plan",
+            kind="proof-plan",
+            status="staged",
+            target="t.thm",
+            plan_status="selected",
+            uses=["t.base"],
+        )
+        graph, diags = build_graph([base, thm, plan])
+        assert diags == []
+
+        data = export_graph_json(graph)
+        plan_entry = next(node for node in data["nodes"] if node["id"] == plan.id)
+        edge_pairs = {(edge["from"], edge["to"]) for edge in data["edges"]}
+
+        assert plan_entry["target"] == "t.thm"
+        assert plan_entry["plan_status"] == "selected"
+        assert ("t.thm", "t.thm.plan.direct") not in edge_pairs
+        assert ("t.thm.plan.direct", "t.base") in edge_pairs
