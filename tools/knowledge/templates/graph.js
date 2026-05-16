@@ -49,6 +49,8 @@
     nodePayloadUrls: new Map(),
     nodePayloadCache: new Map(),
     expandedTopic: null,
+    currentTopicSubgraph: null,
+    proofPlanMode: null,
   };
   let graphRenderer = null;
 
@@ -104,8 +106,8 @@
   }
 
   function currentProofPlanMode() {
-    return GRAPH_PROOF_PLAN_POLICIES.has(graphState.config?.proofPlans)
-      ? graphState.config.proofPlans
+    return GRAPH_PROOF_PLAN_POLICIES.has(graphState.proofPlanMode)
+      ? graphState.proofPlanMode
       : GRAPH_DEFAULT_CONFIG.proofPlans;
   }
 
@@ -312,6 +314,39 @@
     });
   }
 
+  function updateProofPlanControls(visible) {
+    const controls = document.getElementById("proof-plan-controls");
+    if (!controls) return;
+    controls.hidden = !visible;
+    controls.querySelectorAll('input[name="proof-plan-mode"]').forEach((input) => {
+      input.checked = input.value === currentProofPlanMode();
+    });
+  }
+
+  function renderExpandedTopic(subgraph) {
+    const graphElement = document.getElementById("graph");
+    if (!graphElement || !subgraph?.topic) return;
+    graphState.currentTopicSubgraph = subgraph;
+    graphState.expandedTopic = subgraph.topic.id;
+    graphElement.dataset.expandedTopic = subgraph.topic.id;
+    if (exceedsTopicExpansionLimits(subgraph)) {
+      graphElement.dataset.graphMode = "topic-fallback";
+      updateProofPlanControls(false);
+      showOversizedTopicFallback(subgraph);
+      return;
+    }
+    graphElement.dataset.graphMode = "topic-expanded";
+    updateProofPlanControls(true);
+    renderDot(topicSubgraphToDot(subgraph));
+  }
+
+  function setProofPlanMode(mode) {
+    if (!GRAPH_PROOF_PLAN_POLICIES.has(mode)) return;
+    graphState.proofPlanMode = mode;
+    updateProofPlanControls(Boolean(graphState.currentTopicSubgraph));
+    if (graphState.currentTopicSubgraph) renderExpandedTopic(graphState.currentTopicSubgraph);
+  }
+
   function renderNodePayload(payload) {
     const proof = payload.proof_html
       ? `<details class="proof-details"><summary>Proof</summary><div class="proof-body">${payload.proof_html}</div></details>`
@@ -426,10 +461,15 @@
     if (!response.ok) throw new Error(`Unable to load ${config.topicOverviewUrl}`);
     const data = await response.json();
     graphState.config = config;
+    if (!GRAPH_PROOF_PLAN_POLICIES.has(graphState.proofPlanMode)) {
+      graphState.proofPlanMode = config.proofPlans;
+    }
     graphState.topicOverview = data;
     graphState.expandedTopic = null;
+    graphState.currentTopicSubgraph = null;
     graphElement.dataset.graphMode = "topic-overview";
     delete graphElement.dataset.expandedTopic;
+    updateProofPlanControls(false);
     renderDot(topicOverviewToDot(data));
   }
 
@@ -454,22 +494,17 @@
     try {
       if (graphState.expandedTopic === topicId) {
         graphState.expandedTopic = null;
+        graphState.currentTopicSubgraph = null;
         graphElement.dataset.graphMode = "topic-overview";
         delete graphElement.dataset.expandedTopic;
+        updateProofPlanControls(false);
         renderDot(topicOverviewToDot(graphState.topicOverview));
         return;
       }
       const subgraph = await fetchTopicSubgraph(topicId);
-      graphState.expandedTopic = topicId;
-      graphElement.dataset.expandedTopic = topicId;
-      if (exceedsTopicExpansionLimits(subgraph)) {
-        graphElement.dataset.graphMode = "topic-fallback";
-        showOversizedTopicFallback(subgraph);
-        return;
-      }
-      graphElement.dataset.graphMode = "topic-expanded";
-      renderDot(topicSubgraphToDot(subgraph));
+      renderExpandedTopic(subgraph);
     } catch (error) {
+      hideGraphFallback();
       graphElement.textContent = error.message;
     }
   }
@@ -486,6 +521,12 @@
     });
     document.querySelectorAll(".closebtn").forEach((button) => {
       button.addEventListener("click", () => closeNodeModal(button));
+    });
+    document.getElementById("proof-plan-controls")?.addEventListener("change", (event) => {
+      const target = event.target;
+      if (target?.matches?.('input[name="proof-plan-mode"]')) {
+        setProofPlanMode(target.value);
+      }
     });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {

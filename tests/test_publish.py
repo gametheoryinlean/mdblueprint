@@ -203,6 +203,19 @@ class TestExampleCorpusPublish:
         assert "showOversizedTopicFallback" in graph_js
         assert "Keyword pages" in graph_js
 
+    def test_graph_page_includes_proof_plan_visibility_control(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        graph_js = (tmp_path / "site" / "graph.js").read_text()
+
+        assert 'id="proof-plan-controls"' in graph_page
+        assert 'value="hidden"' in graph_page
+        assert 'value="selected-only"' in graph_page
+        assert 'value="all"' in graph_page
+        assert "setProofPlanMode" in graph_js
+        assert 'node.plan_status === "selected"' in graph_js
+        assert "proof_plan_attachments || []).filter" in graph_js
+
     def test_graph_modal_contains_node_body(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
         payload = json.loads(
