@@ -225,6 +225,23 @@ def test_publish_injects_configured_math_options(tmp_path):
     assert r'"left": "$"' not in node_page
 
 
+def test_katex_options_do_not_override_builtin_macros_that_can_recurse():
+    from tools.knowledge.config import MathConfig, katex_auto_render_options
+
+    options = katex_auto_render_options(MathConfig(
+        macros={
+            "notin": r"\notin",
+            "ldots": r"\dots",
+            "ast": r"\ast",
+            "R": r"\mathbb{R}",
+        },
+        inline_delimiters=[(r"\(", r"\)")],
+        display_delimiters=[(r"\[", r"\]")],
+    ))
+
+    assert options["macros"] == {r"\R": r"\mathbb{R}"}
+
+
 def _init_git_repo(path: Path) -> str:
     path.mkdir(parents=True)
     (path / "Example.lean").write_text("theorem Example : True := True.intro\n", encoding="utf-8")

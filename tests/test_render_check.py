@@ -74,6 +74,31 @@ def test_render_state_reports_katex_errors_from_browser():
     assert any("KaTeX error" in message for message in messages)
 
 
+def test_render_state_reports_katex_error_expression_and_context():
+    from tools.knowledge.render_check import KatexErrorDetail, PageRenderState, diagnose_render_state
+
+    state = PageRenderState(
+        path=Path("bad.html"),
+        had_math_source=True,
+        body_text="For every x outside C.",
+        katex_count=1,
+        katex_error_count=1,
+        katex_errors=[
+            KatexErrorDetail(
+                expression=r"x\notin C",
+                title="ParseError: Too many expansions",
+                context="Suppose x\\notin C and choose a separator.",
+            )
+        ],
+    )
+
+    messages = diagnose_render_state(state)
+
+    assert any(r"expression: x\notin C" in message for message in messages)
+    assert any("ParseError: Too many expansions" in message for message in messages)
+    assert any("context: Suppose x\\notin C" in message for message in messages)
+
+
 def test_render_state_reports_raw_tex_residue_and_missing_katex():
     from tools.knowledge.render_check import PageRenderState, diagnose_render_state
 

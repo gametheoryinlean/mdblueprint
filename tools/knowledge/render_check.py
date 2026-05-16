@@ -21,12 +21,20 @@ SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.IGNORECASE |
 
 
 @dataclass(frozen=True)
+class KatexErrorDetail:
+    expression: str
+    title: str
+    context: str
+
+
+@dataclass(frozen=True)
 class PageRenderState:
     path: Path
     had_math_source: bool
     body_text: str
     katex_count: int
     katex_error_count: int
+    katex_errors: list[KatexErrorDetail] = field(default_factory=list)
     console_errors: list[str] = field(default_factory=list)
     failed_requests: list[str] = field(default_factory=list)
 
@@ -53,6 +61,13 @@ def diagnose_render_state(state: PageRenderState) -> list[str]:
 
     if state.katex_error_count:
         messages.append(f"{state.path}: KaTeX error elements present: {state.katex_error_count}")
+        for index, error in enumerate(state.katex_errors, start=1):
+            detail = f"{state.path}: KaTeX error {index}: expression: {error.expression}"
+            if error.title:
+                detail += f"; title: {error.title}"
+            if error.context:
+                detail += f"; context: {error.context}"
+            messages.append(detail)
 
     if state.had_math_source and state.katex_count == 0:
         messages.append(f"{state.path}: source contains math but no rendered .katex elements were found")
@@ -120,6 +135,24 @@ async def _capture_page_state(browser, base_url: str, site_dir: Path, path: Path
         body_text = await page.locator("body").inner_text(timeout=timeout_ms)
         katex_count = await page.locator(".katex").count()
         katex_error_count = await page.locator(".katex-error").count()
+        katex_errors = [
+            KatexErrorDetail(
+                expression=item.get("expression", ""),
+                title=item.get("title", ""),
+                context=item.get("context", ""),
+            )
+            for item in await page.locator(".katex-error").evaluate_all(
+                """elements => elements.map((element) => {
+                  const container = element.closest('p, li, td, div, article, section, main, body');
+                  const compact = (value) => (value || '').replace(/\\s+/g, ' ').trim();
+                  return {
+                    expression: compact(element.textContent),
+                    title: compact(element.getAttribute('title')),
+                    context: compact(container ? container.textContent : '').slice(0, 500),
+                  };
+                })"""
+            )
+        ]
     finally:
         await page.close()
 
@@ -129,6 +162,7 @@ async def _capture_page_state(browser, base_url: str, site_dir: Path, path: Path
         body_text=body_text,
         katex_count=katex_count,
         katex_error_count=katex_error_count,
+        katex_errors=katex_errors,
         console_errors=console_errors,
         failed_requests=failed_requests,
     )

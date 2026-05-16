@@ -13,7 +13,7 @@ ENVIRONMENT_RE = re.compile(r"\\(begin|end)\{([^{}]+)\}")
 MACRO_RE = re.compile(r"\\([A-Za-z]+)")
 KNOWN_MACROS = frozenset({
     "Delta", "Gamma", "Lambda", "Longleftrightarrow", "Omega", "Phi", "Pi",
-    "Psi", "Rightarrow", "Sigma", "Theta", "Upsilon", "Xi", "alpha", "bar",
+    "Psi", "Rightarrow", "Sigma", "Theta", "Upsilon", "Xi", "alpha", "ast", "bar",
     "beta", "bigcap", "bigcup", "cdot", "chi",
     "colon", "delta", "dot", "downarrow", "ell", "emptyset", "epsilon", "eta",
     "exists", "forall", "frac", "gamma", "ge", "in", "inf", "infty", "int",

@@ -124,7 +124,7 @@ def test_static_math_check_accepts_katex_builtin_macros(tmp_path):
         node_id="math.katex_builtins",
         body=r"""
         Built-in KaTeX macros should not require project macro overrides:
-        $x \notin C$, $C_1,\ldots,C_n$, and
+        $x \notin C$, $C_1,\ldots,C_n$, $x^\ast$, and
         $\bigcap_i C_i \ne \emptyset$.
 
         We also use $\widetilde G$, $\langle x,y\rangle$,

@@ -84,7 +84,8 @@ Macro contract:
 - Do not put `\newcommand` or TeX preamble commands in node bodies.
 - Static checks reject unknown letter macros unless they are built in or declared in
   `math.macros`.
-- The publisher passes declared macros to KaTeX as browser auto-render options.
+- The publisher passes declared non-built-in macros to KaTeX as browser auto-render options.
+- Do not redeclare KaTeX built-ins such as `\notin`, `\ldots`, `\ast`, `\subseteq`, or `\widetilde`; mdblueprint accepts them as built-ins and does not pass project declarations that would override them.
 
 ## Markdown Interaction
 

@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from tools.knowledge.latex_check import KNOWN_MACROS
+
 
 DEFAULT_CONFIG_NAME = "mdblueprint.yml"
 DEFAULT_DISPLAY_DELIMITERS = ((r"$$", r"$$"), (r"\[", r"\]"))
@@ -207,13 +209,15 @@ def katex_auto_render_options(math: MathConfig) -> dict[str, Any]:
         {"left": left, "right": right, "display": False}
         for left, right in math.inline_delimiters
     ]
+    custom_macros = {
+        f"\\{name.lstrip('\\')}": expansion
+        for name, expansion in sorted(math.macros.items())
+        if name.lstrip("\\") not in KNOWN_MACROS
+    }
     return {
         "delimiters": delimiters,
         "throwOnError": math.throw_on_error,
-        "macros": {
-            f"\\{name.lstrip('\\')}": expansion
-            for name, expansion in sorted(math.macros.items())
-        },
+        "macros": custom_macros,
     }
 
 

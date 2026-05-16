@@ -159,6 +159,7 @@ Project config contract:
 - If no config exists, publishing still works and derives a deterministic neutral title from the knowledge root.
 - The CLI accepts `--config path/to/mdblueprint.yml` to use a config outside the knowledge root.
 - `math.macros` declares project macros once; use the macro name without the leading slash.
+- `math.macros` is for genuinely custom macros. KaTeX built-ins such as `notin`, `ldots`, `ast`, `subseteq`, and `widetilde` are accepted without project declarations, and declarations that would override known built-ins are not passed to KaTeX.
 - `math.delimiters.inline` and `math.delimiters.display` control the KaTeX auto-render delimiters.
 - Prefer `\(...\)` for inline math and `\[...\]` for display math in new nodes; dollar delimiters remain enabled by default for compatibility.
 - Markdown preservation and static math diagnostics are designed around the default delimiter family; use custom delimiter syntax only with browser render verification.
