@@ -15,7 +15,13 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
 from tools.knowledge.config import LeanConfig, katex_auto_render_options, load_project_config
-from tools.knowledge.export import topic_id_for_node, titleize_topic, write_graph_json, write_topic_overview_json
+from tools.knowledge.export import (
+    topic_id_for_node,
+    titleize_topic,
+    write_graph_json,
+    write_topic_overview_json,
+    write_topic_subgraph_jsons,
+)
 from tools.knowledge.graph import build_graph
 from tools.knowledge.lean_index import LeanDeclaration, LeanIndex, index_lean_project
 from tools.knowledge.models import Node
@@ -270,6 +276,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     # Write graph.json
     write_graph_json(g, output_dir / "graph.json")
     write_topic_overview_json(g, output_dir / "graph_topics.json")
+    write_topic_subgraph_jsons(g, output_dir / "subgraphs" / "topics")
 
     node_payloads = {}
     for node in all_nodes:

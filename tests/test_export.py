@@ -4,7 +4,12 @@ from pathlib import Path
 from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
 from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
-from tools.knowledge.export import export_graph_json, export_topic_overview_json, write_graph_json
+from tools.knowledge.export import (
+    export_graph_json,
+    export_topic_overview_json,
+    export_topic_subgraph_json,
+    write_graph_json,
+)
 
 NODES_DIR = Path(__file__).parent / "fixtures" / "generic_knowledge" / "nodes" / "algebra"
 
@@ -173,3 +178,129 @@ class TestExportTopicOverviewJson:
 
         assert [topic["id"] for topic in data["topics"]] == ["algebra"]
         assert data["edges"] == []
+
+
+class TestExportTopicSubgraphJson:
+    def test_topic_subgraph_contains_internal_nodes_and_edges(self):
+        from tools.knowledge.models import Node
+
+        base = Node(id="algebra.group", title="Group", kind="definition", status="admitted")
+        theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="admitted",
+            uses=["algebra.group"],
+        )
+        graph, diags = build_graph([base, theorem])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+
+        assert data["topic"]["id"] == "algebra"
+        assert [node["id"] for node in data["nodes"]] == [
+            "algebra.group",
+            "algebra.group_identity_unique",
+        ]
+        assert data["edges"] == [
+            {
+                "from": "algebra.group",
+                "to": "algebra.group_identity_unique",
+                "kind": "uses",
+            }
+        ]
+        assert data["boundary_topics"] == []
+        assert data["boundary_edges"] == []
+
+    def test_topic_subgraph_contains_dependency_and_dependent_boundary_topics(self):
+        from tools.knowledge.models import Node
+
+        algebra = Node(
+            id="algebra.group",
+            title="Group",
+            kind="definition",
+            status="admitted",
+            uses=["logic.exists_unique"],
+        )
+        logic = Node(id="logic.exists_unique", title="Exists Unique", kind="theorem", status="admitted")
+        topology = Node(
+            id="topology.topological_group",
+            title="Topological Group",
+            kind="definition",
+            status="admitted",
+            uses=["algebra.group"],
+        )
+        graph, diags = build_graph([algebra, logic, topology])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+
+        assert data["boundary_topics"] == [
+            {
+                "id": "logic",
+                "title": "Logic",
+                "href": "logic/index.html",
+                "role": "dependency",
+                "node_count": 1,
+            },
+            {
+                "id": "topology",
+                "title": "Topology",
+                "href": "topology/index.html",
+                "role": "dependent",
+                "node_count": 1,
+            },
+        ]
+        assert data["boundary_edges"] == [
+            {
+                "from": "topic:logic",
+                "to": "algebra.group",
+                "kind": "boundary_dependency",
+                "topic": "logic",
+                "count": 1,
+            },
+            {
+                "from": "algebra.group",
+                "to": "topic:topology",
+                "kind": "boundary_dependent",
+                "topic": "topology",
+                "count": 1,
+            },
+        ]
+
+    def test_topic_subgraph_keeps_proof_plan_attachments_separate_from_uses_edges(self):
+        from tools.knowledge.models import Node
+
+        base = Node(id="algebra.group", title="Group", kind="definition", status="admitted")
+        theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="admitted",
+            uses=["algebra.group"],
+        )
+        plan = Node(
+            id="algebra.group_identity_unique.plan.direct",
+            title="Direct Plan",
+            kind="proof-plan",
+            status="staged",
+            target="algebra.group_identity_unique",
+            plan_status="selected",
+            uses=["algebra.group"],
+        )
+        graph, diags = build_graph([base, theorem, plan])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+
+        assert {
+            "from": "algebra.group_identity_unique",
+            "to": "algebra.group_identity_unique.plan.direct",
+            "kind": "has_plan",
+            "plan_status": "selected",
+        } in data["proof_plan_attachments"]
+        assert {
+            "from": "algebra.group_identity_unique",
+            "to": "algebra.group_identity_unique.plan.direct",
+            "kind": "uses",
+        } not in data["edges"]

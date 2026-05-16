@@ -62,6 +62,19 @@ class TestExampleCorpusPublish:
         assert overview["topics"][0]["node_count"] == 5
         assert overview["edges"] == []
 
+    def test_publishes_per_topic_subgraph_artifacts(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        subgraph_path = tmp_path / "site" / "subgraphs" / "topics" / "algebra.json"
+
+        assert subgraph_path.exists()
+        subgraph = json.loads(subgraph_path.read_text())
+        assert subgraph["topic"]["id"] == "algebra"
+        assert {node["id"] for node in subgraph["nodes"]} >= {
+            "algebra.group",
+            "algebra.group_identity_unique",
+        }
+        assert all("body_html" not in node for node in subgraph["nodes"])
+
     def test_index_lists_all(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
         content = (tmp_path / "site" / "index.html").read_text()

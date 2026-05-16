@@ -108,5 +108,157 @@ def write_topic_overview_json(g: KnowledgeGraph, output: Path) -> None:
     output.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _topic_node_counts(g: KnowledgeGraph) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for node in g.nodes.values():
+        counts[topic_id_for_node(node)] += 1
+    return dict(counts)
+
+
+def _subgraph_node_entry(node: Node) -> dict:
+    entry = {
+        "id": node.id,
+        "title": node.title,
+        "kind": node.kind,
+        "status": node.status,
+        "href": f"{topic_id_for_node(node)}/{node.id.replace('.', '_')}.html",
+    }
+    if node.target:
+        entry["target"] = node.target
+    if node.plan_status:
+        entry["plan_status"] = node.plan_status
+    return entry
+
+
+def _boundary_topic_entry(topic_id: str, role: str, node_count: int) -> dict:
+    return {
+        "id": topic_id,
+        "title": titleize_topic(topic_id),
+        "href": f"{topic_id}/index.html",
+        "role": role,
+        "node_count": node_count,
+    }
+
+
+def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
+    internal_ids = sorted(
+        node.id
+        for node in g.nodes.values()
+        if topic_id_for_node(node) == topic_id
+    )
+    internal_set = set(internal_ids)
+    topic_counts = _topic_node_counts(g)
+
+    edges = []
+    boundary_edge_counts: Counter[tuple[str, str, str, str]] = Counter()
+    boundary_roles: dict[str, set[str]] = defaultdict(set)
+
+    for dependent_id in sorted(g.edges):
+        for dependency_id in sorted(g.edges[dependent_id]):
+            if dependency_id not in g.nodes or dependent_id not in g.nodes:
+                continue
+            dependent_internal = dependent_id in internal_set
+            dependency_internal = dependency_id in internal_set
+
+            if dependent_internal and dependency_internal:
+                edges.append({
+                    "from": dependency_id,
+                    "to": dependent_id,
+                    "kind": "uses",
+                })
+                continue
+
+            if dependent_internal and not dependency_internal:
+                boundary_topic = topic_id_for_node(g.nodes[dependency_id])
+                boundary_roles[boundary_topic].add("dependency")
+                boundary_edge_counts[(
+                    f"topic:{boundary_topic}",
+                    dependent_id,
+                    "boundary_dependency",
+                    boundary_topic,
+                )] += 1
+                continue
+
+            if dependency_internal and not dependent_internal:
+                boundary_topic = topic_id_for_node(g.nodes[dependent_id])
+                boundary_roles[boundary_topic].add("dependent")
+                boundary_edge_counts[(
+                    dependency_id,
+                    f"topic:{boundary_topic}",
+                    "boundary_dependent",
+                    boundary_topic,
+                )] += 1
+
+    boundary_topics = []
+    for boundary_topic in sorted(boundary_roles):
+        roles = boundary_roles[boundary_topic]
+        role = "dependency_and_dependent" if roles == {"dependency", "dependent"} else next(iter(roles))
+        boundary_topics.append(_boundary_topic_entry(
+            boundary_topic,
+            role,
+            topic_counts.get(boundary_topic, 0),
+        ))
+
+    edge_sort_order = {"boundary_dependency": 0, "boundary_dependent": 1}
+    boundary_edges = []
+    for (source, target, kind, boundary_topic), count in sorted(
+        boundary_edge_counts.items(),
+        key=lambda item: (edge_sort_order[item[0][2]], item[0][3], item[0][0], item[0][1]),
+    ):
+        boundary_edges.append({
+            "from": source,
+            "to": target,
+            "kind": kind,
+            "topic": boundary_topic,
+            "count": count,
+        })
+
+    proof_plan_attachments = []
+    for plan_id, target_id in sorted(g.proof_plan_targets.items()):
+        if plan_id not in g.nodes or target_id not in g.nodes:
+            continue
+        if plan_id not in internal_set and target_id not in internal_set:
+            continue
+        plan = g.nodes[plan_id]
+        attachment = {
+            "from": target_id,
+            "to": plan_id,
+            "kind": "has_plan",
+        }
+        if plan.plan_status:
+            attachment["plan_status"] = plan.plan_status
+        proof_plan_attachments.append(attachment)
+
+    return {
+        "topic": {
+            "id": topic_id,
+            "title": titleize_topic(topic_id),
+            "href": f"{topic_id}/index.html",
+            "node_count": len(internal_ids),
+        },
+        "counts": {
+            "internal_nodes": len(internal_ids),
+            "boundary_topics": len(boundary_topics),
+            "proof_plan_attachments": len(proof_plan_attachments),
+        },
+        "nodes": [_subgraph_node_entry(g.nodes[node_id]) for node_id in internal_ids],
+        "edges": edges,
+        "boundary_topics": boundary_topics,
+        "boundary_edges": boundary_edges,
+        "proof_plan_attachments": proof_plan_attachments,
+    }
+
+
+def write_topic_subgraph_jsons(g: KnowledgeGraph, output_dir: Path) -> None:
+    topic_ids = sorted({topic_id_for_node(node) for node in g.nodes.values()})
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for topic_id in topic_ids:
+        data = export_topic_subgraph_json(g, topic_id)
+        (output_dir / f"{topic_id}.json").write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+
 def export_blueprint_dot(g: KnowledgeGraph) -> str:
     return graph_to_dot(build_blueprint_graph(g))
