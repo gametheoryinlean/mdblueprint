@@ -15,7 +15,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
 from tools.knowledge.config import LeanConfig, katex_auto_render_options, load_project_config
-from tools.knowledge.export import write_graph_json
+from tools.knowledge.export import topic_id_for_node, titleize_topic, write_graph_json, write_topic_overview_json
 from tools.knowledge.graph import build_graph
 from tools.knowledge.lean_index import LeanDeclaration, LeanIndex, index_lean_project
 from tools.knowledge.models import Node
@@ -48,7 +48,7 @@ def _node_href_from_root(node_id: str) -> str:
 
 
 def _titleize(value: str) -> str:
-    return value.replace("_", " ").replace("-", " ").title()
+    return titleize_topic(value)
 
 
 def _split_proof_markdown(body: str) -> tuple[str, str | None]:
@@ -244,8 +244,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     # Group by topic
     topics: dict[str, list] = defaultdict(list)
     for node in all_nodes:
-        parts = node.id.split(".")
-        topic = parts[0] if len(parts) > 1 else "misc"
+        topic = topic_id_for_node(node)
         topics[topic].append(node)
 
     topic_names = sorted(topics.keys())
@@ -270,11 +269,11 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
 
     # Write graph.json
     write_graph_json(g, output_dir / "graph.json")
+    write_topic_overview_json(g, output_dir / "graph_topics.json")
 
     node_payloads = {}
     for node in all_nodes:
-        parts = node.id.split(".")
-        topic = parts[0] if len(parts) > 1 else "misc"
+        topic = topic_id_for_node(node)
 
         deps = []
         for dep_id in node.uses:

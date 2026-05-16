@@ -4,7 +4,7 @@ from pathlib import Path
 from tools.knowledge.blueprint_view import build_blueprint_graph, graph_to_dot
 from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
-from tools.knowledge.export import export_graph_json, write_graph_json
+from tools.knowledge.export import export_graph_json, export_topic_overview_json, write_graph_json
 
 NODES_DIR = Path(__file__).parent / "fixtures" / "generic_knowledge" / "nodes" / "algebra"
 
@@ -115,3 +115,61 @@ class TestExportGraphJson:
         assert plan_entry["plan_status"] == "selected"
         assert ("t.thm", "t.thm.plan.direct") not in edge_pairs
         assert ("t.thm.plan.direct", "t.base") in edge_pairs
+
+
+class TestExportTopicOverviewJson:
+    def test_topics_include_counts_and_cross_topic_dependency_edges(self):
+        from tools.knowledge.models import Node
+
+        algebra_group = Node(id="algebra.group", title="Group", kind="definition", status="admitted")
+        algebra_theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="proved",
+            uses=["algebra.group", "logic.exists_unique"],
+        )
+        logic_theorem = Node(
+            id="logic.exists_unique",
+            title="Exists Unique",
+            kind="theorem",
+            status="formalized",
+        )
+        graph, diags = build_graph([algebra_group, algebra_theorem, logic_theorem])
+        assert diags == []
+
+        data = export_topic_overview_json(graph)
+
+        assert [topic["id"] for topic in data["topics"]] == ["algebra", "logic"]
+        algebra = data["topics"][0]
+        assert algebra["title"] == "Algebra"
+        assert algebra["href"] == "algebra/index.html"
+        assert algebra["node_count"] == 2
+        assert algebra["kind_counts"] == {"definition": 1, "theorem": 1}
+        assert algebra["status_counts"] == {"admitted": 1, "proved": 1}
+        assert data["edges"] == [
+            {
+                "from": "logic",
+                "to": "algebra",
+                "count": 1,
+            }
+        ]
+
+    def test_same_topic_edges_do_not_become_topic_self_edges(self):
+        from tools.knowledge.models import Node
+
+        base = Node(id="algebra.group", title="Group", kind="definition", status="admitted")
+        theorem = Node(
+            id="algebra.group_identity_unique",
+            title="Group Identity Is Unique",
+            kind="theorem",
+            status="admitted",
+            uses=["algebra.group"],
+        )
+        graph, diags = build_graph([base, theorem])
+        assert diags == []
+
+        data = export_topic_overview_json(graph)
+
+        assert [topic["id"] for topic in data["topics"]] == ["algebra"]
+        assert data["edges"] == []

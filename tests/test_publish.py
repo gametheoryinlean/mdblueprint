@@ -51,6 +51,17 @@ class TestExampleCorpusPublish:
         data = json.loads((tmp_path / "site" / "graph.json").read_text())
         assert len(data["nodes"]) >= 10
 
+    def test_publishes_topic_overview_graph_artifact(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        overview_path = tmp_path / "site" / "graph_topics.json"
+
+        assert overview_path.exists()
+        overview = json.loads(overview_path.read_text())
+        assert overview["topics"][0]["id"] == "algebra"
+        assert overview["topics"][0]["href"] == "algebra/index.html"
+        assert overview["topics"][0]["node_count"] == 5
+        assert overview["edges"] == []
+
     def test_index_lists_all(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
         content = (tmp_path / "site" / "index.html").read_text()
