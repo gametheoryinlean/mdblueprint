@@ -137,6 +137,20 @@ class TestExampleCorpusPublish:
         assert "topicOverviewUrl" in graph_js
         assert "renderTopicOverview" in graph_js
 
+    def test_graph_js_supports_topic_expand_collapse_state(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()
+        graph_js = (tmp_path / "site" / "graph.js").read_text()
+
+        assert "topicSubgraphBaseUrl" in graph_page
+        assert "graphState" in graph_js
+        assert "expandedTopic" in graph_js
+        assert "fetchTopicSubgraph" in graph_js
+        assert "topicSubgraphToDot" in graph_js
+        assert "handleTopicActivation" in graph_js
+        assert "topicCache" in graph_js
+        assert "expanded" in graph_js
+
     def test_graph_modal_contains_node_body(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
         graph_page = (tmp_path / "site" / "dep_graph_document.html").read_text()

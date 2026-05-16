@@ -348,6 +348,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         keywords=keyword_names,
         graph_config_json=json.dumps({
             "topicOverviewUrl": "graph_topics.json",
+            "topicSubgraphBaseUrl": "subgraphs/topics",
             "mode": "topic-overview",
         }),
         graph_nodes=[node_payloads[view.id] for view in blueprint_graph.nodes],
