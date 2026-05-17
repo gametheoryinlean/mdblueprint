@@ -20,6 +20,8 @@ from tools.knowledge.export import (
     topic_path,
     topic_prefixes,
     topic_id_for_node,
+    home_topic_for_node,
+    leaf_topic_ids_for_node,
     titleize_topic,
     write_graph_json,
     write_topic_overview_json,
@@ -82,6 +84,23 @@ def _build_topic_tree(topic_names: list[str]) -> list[dict]:
             if parent_id in tree:
                 tree[parent_id]["children"].append(node)
     return roots
+
+
+def _load_topic_catalog(
+    knowledge_root: Path, topic_id: str, md: markdown.Markdown
+) -> str | None:
+    """Read and render a topics.md catalog file for a topic, if it exists."""
+    for base in ("nodes", "staged"):
+        catalog = knowledge_root / base / topic_path(topic_id) / "topics.md"
+        if catalog.exists():
+            text = catalog.read_text(encoding="utf-8")
+            if text.startswith("---"):
+                end = text.find("---", 3)
+                if end != -1:
+                    text = text[end + 3:].lstrip()
+            md.reset()
+            return _convert_markdown_preserving_tex(md, text)
+    return None
 
 
 def _split_proof_markdown(body: str) -> tuple[str, str | None]:
@@ -318,17 +337,30 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     env.globals["topic_path"] = topic_path
     env.globals["site"] = config.site
     env.globals["math_options_json"] = json.dumps(katex_auto_render_options(config.math))
+    env.filters["titleize"] = _titleize
 
-    # Group by topic. Every ancestor topic receives descendant nodes so root and
-    # intermediate topic pages have useful landing pages even when no node has
-    # that exact topic id.
+    # Group by topic using multi-topic membership. Every ancestor topic receives
+    # descendant nodes. Each node is added to a given topic at most once.
+    seen_per_topic: dict[str, set[str]] = defaultdict(set)
     topics: dict[str, list] = defaultdict(list)
     for node in all_nodes:
-        for topic in topic_prefixes(topic_id_for_node(node)):
-            topics[topic].append(node)
+        for leaf_topic in leaf_topic_ids_for_node(node):
+            for topic in topic_prefixes(leaf_topic):
+                if node.id not in seen_per_topic[topic]:
+                    seen_per_topic[topic].add(node.id)
+                    topics[topic].append(node)
 
     topic_names = sorted(topics.keys())
     topic_tree = _build_topic_tree(topic_names)
+
+    # One-level-deep child topic map
+    child_topics_map: dict[str, list[str]] = {}
+    for t in topic_names:
+        depth = len(t.split("."))
+        child_topics_map[t] = [
+            other for other in topic_names
+            if other.startswith(t + ".") and len(other.split(".")) == depth + 1
+        ]
     keywords: dict[str, list] = defaultdict(list)
     for node in all_nodes:
         for tag in node.tags:
@@ -482,6 +514,12 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         topic_dir.mkdir(parents=True, exist_ok=True)
         root = _root_prefix_for_topic(topic)
 
+        # Topic catalog and metadata
+        catalog_html = _load_topic_catalog(knowledge_root, topic, md)
+        status_counts: dict[str, int] = {}
+        for n in topic_nodes:
+            status_counts[n.status] = status_counts.get(n.status, 0) + 1
+
         # Topic index
         tmpl = env.get_template("topic.html")
         (topic_dir / "index.html").write_text(
@@ -494,6 +532,9 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                 keywords=keyword_names,
                 topic=topic,
                 topic_title=_titleize(topic),
+                child_topics=child_topics_map[topic],
+                catalog_html=catalog_html,
+                status_counts=status_counts,
                 nodes=[
                     _summary_payload(node, blueprint_nodes, _node_href(node.id, from_topic=topic))
                     for node in sorted(topic_nodes, key=lambda n: n.title)
@@ -502,12 +543,13 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
             encoding="utf-8",
         )
 
-        # Node pages
+        # Node pages — write once, at the node's canonical (ID-derived) topic directory
         tmpl = env.get_template("node.html")
         for node in topic_nodes:
             if topic_id_for_node(node) != topic:
                 continue
             payload = node_payloads[node.id]
+            topic_memberships = leaf_topic_ids_for_node(node)
 
             filename = node.id.replace(".", "_") + ".html"
             (topic_dir / filename).write_text(
@@ -525,6 +567,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                     deps=payload["deps"],
                     dependents=payload["dependents"],
                     lean_refs=payload["lean_refs"],
+                    topic_memberships=topic_memberships,
                 ),
                 encoding="utf-8",
             )

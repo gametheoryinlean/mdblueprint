@@ -87,6 +87,17 @@
   </section>
   {% endif %}
 
+  {% if topic_memberships and topic_memberships | length > 1 %}
+  <section class="topic-memberships">
+    <h2>Also in</h2>
+    <ul>
+      {% for t in topic_memberships %}
+      <li><a href="{{ root }}{{ topic_path(t) }}/index.html">{{ t | titleize }}</a></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
   {% if node.tags %}
   <footer class="tags">
     {% for tag in node.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
