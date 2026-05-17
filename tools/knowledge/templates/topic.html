@@ -2,6 +2,31 @@
 {% block content %}
 <h1>{{ topic_title }}</h1>
 
+<div class="topic-meta">
+  <div class="topic-stats">
+    <span class="topic-node-count">{{ nodes | length }} node{{ "s" if nodes | length != 1 else "" }}</span>
+    {% for status, count in status_counts.items() | sort %}
+    <span class="badge status-{{ status }}">{{ count }} {{ status }}</span>
+    {% endfor %}
+  </div>
+  {% if child_topics %}
+  <nav class="child-topics" aria-label="Subtopics">
+    <h2>Subtopics</h2>
+    <ul>
+      {% for ct in child_topics %}
+      <li><a href="{{ root }}{{ topic_path(ct) }}/index.html">{{ ct | titleize }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+
+{% if catalog_html %}
+<div class="topic-catalog">
+  {{ catalog_html | safe }}
+</div>
+{% endif %}
+
 <div class="blueprint-node-list">
   {% for node in nodes %}
   <article class="{{ node.kind }}_thmwrapper theorem-style-{{ node.kind }} summary-node">

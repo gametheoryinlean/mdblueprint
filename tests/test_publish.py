@@ -687,3 +687,172 @@ class TestBuildTopicTree:
         page = (tmp_path / "site" / "algebra" / "group" / "index.html").read_text()
         assert "details" in page
         assert "open" in page
+
+
+class TestMultiTopicPublish:
+    """Tests for Issue #79: multi-topic publisher views."""
+
+    def _make_knowledge(self, tmp_path):
+        knowledge = tmp_path / "knowledge"
+        nodes_dir = knowledge / "nodes" / "algebra" / "groups"
+        monoids_dir = knowledge / "nodes" / "algebra" / "monoids"
+        nodes_dir.mkdir(parents=True)
+        monoids_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text("site:\n  title: Multi-Topic Test\n")
+        # Node that belongs to both algebra.groups and algebra.monoids
+        (nodes_dir / "cayley.md").write_text(
+            "---\n"
+            "id: algebra.groups.cayley\n"
+            "title: Cayley's Theorem\n"
+            "kind: theorem\n"
+            "status: admitted\n"
+            "primary_topic: algebra.groups\n"
+            "topics:\n"
+            "  - algebra.groups\n"
+            "  - algebra.monoids\n"
+            "---\n\n# Cayley's Theorem\n\nEvery group is isomorphic to a subgroup of a symmetric group.\n"
+        )
+        # Node only in algebra.monoids
+        (monoids_dir / "identity.md").write_text(
+            "---\n"
+            "id: algebra.monoids.identity\n"
+            "title: Monoid Identity\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "---\n\n# Monoid Identity\n\nA monoid has a unique identity element.\n"
+        )
+        return knowledge
+
+    def test_multi_topic_node_appears_on_both_topic_pages(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        groups_page = (tmp_path / "site" / "algebra" / "groups" / "index.html").read_text()
+        monoids_page = (tmp_path / "site" / "algebra" / "monoids" / "index.html").read_text()
+        assert "Cayley" in groups_page
+        assert "Cayley" in monoids_page
+
+    def test_multi_topic_node_has_one_canonical_html_file(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        # Node page is written once at its ID-derived topic directory
+        canonical = tmp_path / "site" / "algebra" / "groups" / "algebra_groups_cayley.html"
+        assert canonical.exists()
+        # No duplicate in monoids
+        duplicate = tmp_path / "site" / "algebra" / "monoids" / "algebra_groups_cayley.html"
+        assert not duplicate.exists()
+
+    def test_multi_topic_node_link_from_monoids_page_resolves_to_canonical(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        monoids_page = (tmp_path / "site" / "algebra" / "monoids" / "index.html").read_text()
+        # Link from monoids page must point to the canonical algebra/groups page
+        assert "algebra_groups_cayley" in monoids_page
+
+    def test_single_topic_node_not_duplicated_on_ancestor_page(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        algebra_page = (tmp_path / "site" / "algebra" / "index.html").read_text()
+        # Cayley appears once (deduplicated) on the ancestor algebra page
+        assert algebra_page.count("Cayley") == 1
+
+    def test_global_unique_node_count_not_inflated(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        import json
+        graph = json.loads((tmp_path / "site" / "graph.json").read_text())
+        # 2 unique nodes, not 3 (cayley should not be double-counted)
+        assert len(graph["nodes"]) == 2
+
+    def test_node_page_shows_all_topic_memberships_when_multi_topic(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "groups" / "algebra_groups_cayley.html").read_text()
+        # "Also in" section with both topics linked
+        assert "Also in" in page
+        assert "algebra/groups" in page
+        assert "algebra/monoids" in page
+
+    def test_node_page_no_also_in_section_when_single_topic(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "monoids" / "algebra_monoids_identity.html").read_text()
+        assert "Also in" not in page
+
+
+class TestTopicCatalogPages:
+    """Tests for Issue #82: topic catalog content on topic index pages."""
+
+    def _make_knowledge(self, tmp_path):
+        knowledge = tmp_path / "knowledge"
+        nodes_dir = knowledge / "nodes" / "algebra"
+        nodes_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text("site:\n  title: Catalog Test\n")
+        (nodes_dir / "group.md").write_text(
+            "---\nid: algebra.group\ntitle: Group\nkind: definition\nstatus: admitted\n---\n\n# Group\n\nA group.\n"
+        )
+        (nodes_dir / "ring.md").write_text(
+            "---\nid: algebra.ring\ntitle: Ring\nkind: definition\nstatus: admitted\n---\n\n# Ring\n\nA ring.\n"
+        )
+        return knowledge
+
+    def test_topic_page_with_catalog_shows_intro_text(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        (knowledge / "nodes" / "algebra" / "topics.md").write_text(
+            "This topic covers abstract algebra, including groups and rings.\n"
+        )
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "index.html").read_text()
+        assert "abstract algebra" in page
+        assert "groups and rings" in page
+
+    def test_topic_page_without_catalog_shows_node_count(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "index.html").read_text()
+        assert "2 nodes" in page
+
+    def test_topic_page_shows_status_counts(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "index.html").read_text()
+        assert "admitted" in page
+
+    def test_topic_page_shows_child_topics(self, tmp_path):
+        knowledge = tmp_path / "knowledge"
+        root_dir = knowledge / "nodes" / "algebra"
+        sub_dir = knowledge / "nodes" / "algebra" / "groups"
+        sub_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text("site:\n  title: Child Topics Test\n")
+        (root_dir / "ring.md").write_text(
+            "---\nid: algebra.ring\ntitle: Ring\nkind: definition\nstatus: admitted\n---\n\n# Ring\n"
+        )
+        (sub_dir / "group.md").write_text(
+            "---\nid: algebra.groups.group\ntitle: Group\nkind: definition\nstatus: admitted\n---\n\n# Group\n"
+        )
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "index.html").read_text()
+        assert "Subtopics" in page
+        assert "algebra/groups" in page
+
+    def test_topic_page_without_child_topics_shows_no_subtopics_section(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "index.html").read_text()
+        assert "Subtopics" not in page
+
+    def test_malformed_topics_md_frontmatter_stripped(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        (knowledge / "nodes" / "algebra" / "topics.md").write_text(
+            "---\ntitle: Algebra Catalog\n---\n\nAlgebra covers structures with operations.\n"
+        )
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "index.html").read_text()
+        assert "Algebra covers structures" in page
+        # Frontmatter should not appear verbatim
+        assert "title: Algebra Catalog" not in page
+
+    def test_missing_topics_md_does_not_break_publishing(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        # No topics.md — should publish cleanly
+        publish(knowledge, tmp_path / "site")
+        assert (tmp_path / "site" / "algebra" / "index.html").exists()
