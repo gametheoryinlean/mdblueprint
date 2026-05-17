@@ -19,6 +19,17 @@ def topic_id_for_node(node: Node) -> str:
     return ".".join(parts[:-1])
 
 
+def leaf_topic_ids_for_node(node: Node) -> list[str]:
+    """Return the leaf topic IDs this node belongs to.
+
+    Uses the explicit ``topics`` list when present; falls back to the
+    ID-derived topic so existing nodes without the field are unaffected.
+    """
+    if node.topics:
+        return list(node.topics)
+    return [topic_id_for_node(node)]
+
+
 def parent_topic_id(topic_id: str) -> str | None:
     parts = topic_id.split(".")
     if len(parts) == 1:
@@ -74,11 +85,13 @@ def _empty_topic_data(topic_id: str) -> dict:
 def _topic_hierarchy_data(g: KnowledgeGraph) -> dict[str, dict]:
     topic_data: dict[str, dict] = {}
     for node in g.nodes.values():
-        leaf_topic = topic_id_for_node(node)
-        for topic_id in topic_prefixes(leaf_topic):
-            topic_data.setdefault(topic_id, _empty_topic_data(topic_id))
-            topic_data[topic_id]["all_nodes"].append(node)
-        topic_data[leaf_topic]["direct_nodes"].append(node)
+        for leaf_topic in leaf_topic_ids_for_node(node):
+            for topic_id in topic_prefixes(leaf_topic):
+                topic_data.setdefault(topic_id, _empty_topic_data(topic_id))
+                if node not in topic_data[topic_id]["all_nodes"]:
+                    topic_data[topic_id]["all_nodes"].append(node)
+            if node not in topic_data[leaf_topic]["direct_nodes"]:
+                topic_data[leaf_topic]["direct_nodes"].append(node)
 
     for topic_id in list(topic_data):
         parent = topic_data[topic_id]["parent"]
@@ -120,6 +133,8 @@ def export_graph_json(g: KnowledgeGraph) -> dict:
         }
         if node.tags:
             entry["tags"] = node.tags
+        if node.topics:
+            entry["topics"] = node.topics
         if node.target:
             entry["target"] = node.target
         if node.plan_status:
@@ -208,8 +223,12 @@ def write_topic_hierarchy_json(g: KnowledgeGraph, output: Path) -> None:
 def _topic_node_counts(g: KnowledgeGraph) -> dict[str, int]:
     counts: Counter[str] = Counter()
     for node in g.nodes.values():
-        for topic_id in topic_prefixes(topic_id_for_node(node)):
-            counts[topic_id] += 1
+        seen: set[str] = set()
+        for leaf_topic in leaf_topic_ids_for_node(node):
+            for topic_id in topic_prefixes(leaf_topic):
+                if topic_id not in seen:
+                    counts[topic_id] += 1
+                    seen.add(topic_id)
     return dict(counts)
 
 
@@ -356,7 +375,7 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
     internal_ids = sorted(
         node.id
         for node in g.nodes.values()
-        if topic_id_for_node(node) == topic_id
+        if topic_id in leaf_topic_ids_for_node(node)
     )
     internal_set = set(internal_ids)
     internal_nodes = [g.nodes[node_id] for node_id in internal_ids]

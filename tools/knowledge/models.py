@@ -109,5 +109,6 @@ class Node:
     verification: Verification | None = None
     generality: Generality | None = None
     tags: list[str] = field(default_factory=list)
+    topics: list[str] = field(default_factory=list)
     body: str = ""
     file_path: Path | None = None

@@ -605,3 +605,108 @@ class TestExportTopicSubgraphJson:
             {"id": "plan", "title": "plan", "href": "keywords/plan.html", "count": 1},
             {"id": "theorem", "title": "theorem", "href": "keywords/theorem.html", "count": 1},
         ]
+
+
+class TestMultiTopicMembership:
+    """Tests for Issue #75: explicit topics list for multi-topic node membership."""
+
+    def _make_node(self, node_id: str, topics: list[str] | None = None):
+        from tools.knowledge.models import Node
+        return Node(
+            id=node_id,
+            title=node_id.replace(".", " ").title(),
+            kind="theorem",
+            status="admitted",
+            topics=topics or [],
+        )
+
+    def test_leaf_topic_ids_for_node_falls_back_to_id_derived(self):
+        from tools.knowledge.models import Node
+        from tools.knowledge.export import leaf_topic_ids_for_node, topic_id_for_node
+        node = Node(id="algebra.group", title="Group", kind="definition", status="admitted")
+        assert leaf_topic_ids_for_node(node) == [topic_id_for_node(node)]
+
+    def test_leaf_topic_ids_for_node_returns_explicit_topics(self):
+        from tools.knowledge.models import Node
+        from tools.knowledge.export import leaf_topic_ids_for_node
+        node = Node(
+            id="algebra.group",
+            title="Group",
+            kind="definition",
+            status="admitted",
+            topics=["algebra", "linear_programming.duality"],
+        )
+        assert leaf_topic_ids_for_node(node) == ["algebra", "linear_programming.duality"]
+
+    def test_node_with_explicit_topics_appears_in_both_topic_subgraphs(self):
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.export import export_topic_subgraph_json
+
+        shared = self._make_node("zero_sum.minimax", topics=["zero_sum", "linear_programming"])
+        other_zero_sum = self._make_node("zero_sum.payoff")
+        other_lp = self._make_node("linear_programming.simplex")
+
+        graph, diags = build_graph([shared, other_zero_sum, other_lp])
+        assert diags == []
+
+        zs_data = export_topic_subgraph_json(graph, "zero_sum")
+        lp_data = export_topic_subgraph_json(graph, "linear_programming")
+
+        zs_ids = {n["id"] for n in zs_data["nodes"]}
+        lp_ids = {n["id"] for n in lp_data["nodes"]}
+
+        assert "zero_sum.minimax" in zs_ids
+        assert "zero_sum.minimax" in lp_ids
+        assert "zero_sum.payoff" in zs_ids
+        assert "linear_programming.simplex" in lp_ids
+
+    def test_topic_hierarchy_includes_node_in_all_explicit_topics(self):
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.export import export_topic_overview_json
+
+        shared = self._make_node("zero_sum.minimax", topics=["zero_sum", "linear_programming"])
+        graph, diags = build_graph([shared])
+        assert diags == []
+
+        data = export_topic_overview_json(graph)
+        topic_ids = [t["id"] for t in data["topics"]]
+        assert "zero_sum" in topic_ids
+        assert "linear_programming" in topic_ids
+
+        zs = next(t for t in data["topics"] if t["id"] == "zero_sum")
+        lp = next(t for t in data["topics"] if t["id"] == "linear_programming")
+        assert zs["node_count"] == 1
+        assert lp["node_count"] == 1
+
+    def test_graph_json_includes_topics_field_when_set(self):
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.export import export_graph_json
+
+        node = self._make_node("zero_sum.minimax", topics=["zero_sum", "linear_programming"])
+        graph, _ = build_graph([node])
+        data = export_graph_json(graph)
+
+        entry = next(n for n in data["nodes"] if n["id"] == "zero_sum.minimax")
+        assert entry["topics"] == ["zero_sum", "linear_programming"]
+
+    def test_graph_json_omits_topics_field_when_empty(self):
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.export import export_graph_json
+
+        node = self._make_node("algebra.group")
+        graph, _ = build_graph([node])
+        data = export_graph_json(graph)
+
+        entry = next(n for n in data["nodes"] if n["id"] == "algebra.group")
+        assert "topics" not in entry
+
+    def test_node_appears_only_once_per_topic_subgraph(self):
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.export import export_topic_subgraph_json
+
+        node = self._make_node("zero_sum.minimax", topics=["zero_sum", "linear_programming"])
+        graph, _ = build_graph([node])
+
+        zs_data = export_topic_subgraph_json(graph, "zero_sum")
+        ids = [n["id"] for n in zs_data["nodes"]]
+        assert ids.count("zero_sum.minimax") == 1
