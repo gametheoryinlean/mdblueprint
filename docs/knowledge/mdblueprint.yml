@@ -1,3 +1,10 @@
 site:
   title: Game Theory Library Blueprint
   short_title: Game Theory
+topics:
+  - id: strategic_games
+    title: Strategic Games
+    aliases:
+      - strategic_game
+      - strategicgames
+      - strategic_games_staged

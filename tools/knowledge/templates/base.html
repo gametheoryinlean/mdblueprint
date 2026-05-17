@@ -25,9 +25,12 @@
 <body>
   <nav class="sidebar">
     <a class="logo" href="{{ root }}index.html">{{ site.short_title or site.title }}</a>
+    <a class="nav-link" href="{{ root }}dep_graph_document.html">Dependency graph</a>
     <section class="nav-section" aria-labelledby="nav-topics">
-      <h2 id="nav-topics">Topics</h2>
-      <ul class="topic-list nav-list">
+      <button class="sidebar-toggle" type="button" aria-expanded="true" aria-controls="topic-list">
+        <span class="toggle-icon" aria-hidden="true">▾</span> Topics
+      </button>
+      <ul id="topic-list" class="topic-list nav-list">
       {% for topic in topics %}
         <li><a href="{{ root }}{{ topic }}/index.html">{{ topic }}</a></li>
       {% endfor %}
@@ -35,19 +38,51 @@
     </section>
     {% if keywords %}
     <section class="nav-section" aria-labelledby="nav-keywords">
-      <h2 id="nav-keywords">Keywords</h2>
-      <ul class="keyword-list nav-list">
+      <button class="sidebar-toggle sidebar-toggle-keywords" type="button" aria-expanded="true" aria-controls="keyword-list">
+        <span class="toggle-icon" aria-hidden="true">▾</span> Keywords
+      </button>
+      <ul id="keyword-list" class="keyword-list nav-list">
       {% for keyword in keywords %}
         <li><a href="{{ root }}keywords/{{ keyword }}.html">{{ keyword }}</a></li>
       {% endfor %}
       </ul>
     </section>
     {% endif %}
-    <a class="nav-link" href="{{ root }}dep_graph_document.html">Dependency graph</a>
   </nav>
   <main>
     {% block content %}{% endblock %}
   </main>
   <script src="{{ root }}graph.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.querySelector('.sidebar-toggle');
+      var list = document.getElementById('topic-list');
+      if (!btn || !list) return;
+      var stored = localStorage.getItem('sidebar-topics-folded');
+      var folded = stored === 'true';
+      list.hidden = folded;
+      btn.setAttribute('aria-expanded', String(!folded));
+      btn.addEventListener('click', function() {
+        folded = !folded;
+        list.hidden = folded;
+        btn.setAttribute('aria-expanded', String(!folded));
+        localStorage.setItem('sidebar-topics-folded', String(folded));
+      });
+      var keywordBtn = document.querySelector('.sidebar-toggle-keywords');
+      var keywordList = document.getElementById('keyword-list');
+      if (keywordBtn && keywordList) {
+        var kwStored = localStorage.getItem('sidebar-keywords-folded');
+        var kwFolded = kwStored === 'true';
+        keywordList.hidden = kwFolded;
+        keywordBtn.setAttribute('aria-expanded', String(!kwFolded));
+        keywordBtn.addEventListener('click', function() {
+          kwFolded = !kwFolded;
+          keywordList.hidden = kwFolded;
+          keywordBtn.setAttribute('aria-expanded', String(!kwFolded));
+          localStorage.setItem('sidebar-keywords-folded', String(kwFolded));
+        });
+      }
+    });
+  </script>
 </body>
 </html>

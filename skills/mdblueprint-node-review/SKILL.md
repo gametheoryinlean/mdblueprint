@@ -13,12 +13,22 @@ When deciding whether a staged node should be admitted to the knowledge base.
 
 ## Workflow
 
-1. Run deterministic Python checks: `python -m tools.knowledge.check`.
-2. For definitions and concepts: invoke the statement/definition verifier.
-3. For nodes with proof content: invoke the proof verifier.
-4. Enforce the generality gate for required kinds (definition, lemma, proposition, theorem, external-theorem).
-5. Produce review reports with explicit decisions under `docs/knowledge/reviews/`.
-6. If all checks pass, recommend to the admission referee.
+1. Read `docs/knowledge/mdblueprint.yml` to know the canonical topic registry before reviewing any node.
+2. Read any extraction reports under `docs/knowledge/reviews/` to find staged nodes created by source-extraction.
+3. Run deterministic Python checks: `python -m tools.knowledge.check`.
+4. For definitions and concepts: invoke the statement/definition verifier.
+5. For nodes with proof content: invoke the proof verifier.
+6. Enforce the generality gate for required kinds (definition, lemma, proposition, theorem, external-theorem).
+7. Check that each staged node's id prefix is a canonical topic id from the registry — flag any alias usage and note the canonical replacement in the report.
+8. Produce review reports with explicit decisions under `docs/knowledge/reviews/`.
+9. If all checks pass, recommend to the admission referee.
+10. **Stop after writing the review report.** Do not automatically admit nodes; the referee makes that decision.
+
+## Handoff contract
+
+- Source extraction produces: staged nodes in `docs/knowledge/staged/` and an extraction report listing created paths.
+- Node review consumes: staged nodes and the extraction report. Select nodes for review by listing `docs/knowledge/staged/` markdown files; optionally filter by paths in the extraction report.
+- The review report is the durable handoff artifact for the admission referee. It is not consumed by any automated tool.
 
 ## Generality gate questions
 

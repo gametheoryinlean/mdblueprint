@@ -2,6 +2,7 @@ import json
 import textwrap
 from pathlib import Path
 
+import pytest
 from tools.knowledge.publish import publish
 
 ROOT = Path(__file__).parent.parent
@@ -68,6 +69,21 @@ class TestExampleCorpusPublish:
         assert overview["topics"][0]["href"] == "algebra/index.html"
         assert overview["topics"][0]["node_count"] == 5
         assert overview["edges"] == []
+
+    def test_publishes_topic_hierarchy_artifact(self, tmp_path):
+        publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
+        hierarchy_path = tmp_path / "site" / "graph_topics_hierarchy.json"
+
+        assert hierarchy_path.exists()
+        hierarchy = json.loads(hierarchy_path.read_text())
+        assert "roots" in hierarchy
+        assert "topics" in hierarchy
+        assert len(hierarchy["roots"]) == 1
+        assert hierarchy["roots"][0]["id"] == "algebra"
+        assert "algebra" in hierarchy["topics"]
+        assert hierarchy["topics"]["algebra"]["id"] == "algebra"
+        assert hierarchy["topics"]["algebra"]["depth"] == 1
+        assert hierarchy["topics"]["algebra"]["children"] == []
 
     def test_publishes_per_topic_subgraph_artifacts(self, tmp_path):
         publish(GENERIC_KNOWLEDGE_ROOT, tmp_path / "site")
@@ -177,6 +193,56 @@ class TestExampleCorpusPublish:
         assert "updateGraphNavigationControls" in graph_js
         assert "topicCache" in graph_js
         assert "expanded" in graph_js
+
+    def test_topic_subgraph_includes_child_topics_field(self, tmp_path):
+        from tools.knowledge.export import export_topic_subgraph_json
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.models import Node
+
+        parent = Node(id="game_theory.strategic", title="Strategic", kind="concept", status="admitted")
+        child1 = Node(id="game_theory.strategic.nash.classic", title="Classic Nash", kind="theorem", status="admitted")
+        child2 = Node(id="game_theory.strategic.nash.correlated", title="Correlated Equilibrium", kind="theorem", status="admitted")
+        graph, diags = build_graph([parent, child1, child2])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "game_theory.strategic")
+        assert "child_topics" in data
+        assert sorted(data["child_topics"]) == ["game_theory.strategic.nash"]
+
+    def test_topic_subgraph_child_topics_empty_when_no_children(self, tmp_path):
+        from tools.knowledge.export import export_topic_subgraph_json
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.models import Node
+
+        base = Node(id="algebra.group", title="Group", kind="definition", status="admitted")
+        theorem = Node(id="algebra.group_identity_unique", title="Group Identity Is Unique", kind="theorem", status="admitted")
+        graph, diags = build_graph([base, theorem])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+        assert "child_topics" in data
+        assert data["child_topics"] == []
+
+    def test_dot_label_uses_real_newlines_not_double_escaped_sequences(self, tmp_path):
+        graph_js = (ROOT / "tools" / "knowledge" / "templates" / "graph.js").read_text()
+        assert '${data.topic.title}\\nexpanded' not in graph_js
+        assert 'topic.title}\\\\n' not in graph_js
+
+    def test_publish_refuses_to_write_into_source_tree(self, tmp_path):
+        from tools.knowledge.publish import publish
+
+        knowledge = tmp_path / "knowledge"
+        knowledge.mkdir()
+        nodes_dir = knowledge / "nodes" / "algebra"
+        nodes_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text("site:\n  title: Test\n", encoding="utf-8")
+        (nodes_dir / "group.md").write_text(
+            "---\nid: algebra.group\ntitle: Group\nkind: definition\nstatus: admitted\n---\n# Group\n",
+            encoding="utf-8",
+        )
+        inside_output = knowledge / "site"
+        with pytest.raises(ValueError, match="inside the knowledge source tree"):
+            publish(knowledge, inside_output)
 
     def test_graph_js_keeps_topic_labels_uncluttered(self):
         graph_js = (ROOT / "tools" / "knowledge" / "templates" / "graph.js").read_text()
@@ -324,6 +390,51 @@ class TestExampleCorpusPublish:
         assert 'href="keywords/dominance.html"' in page
         assert 'href="keywords/equilibrium.html"' in page
         assert 'href="keywords/solution-concept.html"' in page
+
+    def test_sidebar_dag_link_before_topics(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "index.html").read_text()
+        dag_pos = page.find('dep_graph_document.html')
+        topics_pos = page.find('nav-topics')
+        assert dag_pos < topics_pos, "DAG link must appear before Topics section"
+
+    def test_sidebar_dag_link_before_topics_on_nested_page(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "strategic_games" / "strategic_games_strategic_game.html").read_text()
+        dag_pos = page.find('dep_graph_document.html')
+        topics_pos = page.find('nav-topics')
+        assert dag_pos < topics_pos, "DAG link must appear before Topics section on nested page"
+
+    def test_sidebar_topic_fold_button_exists(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "index.html").read_text()
+        assert 'sidebar-toggle' in page
+        assert 'topic-list' in page
+        assert 'aria-expanded' in page
+
+    def test_sidebar_keyword_fold_button_exists(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "index.html").read_text()
+        assert 'sidebar-toggle-keywords' in page
+        assert 'keyword-list' in page
+
+    def test_sidebar_topic_fold_on_topic_page(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "strategic_games" / "index.html").read_text()
+        assert 'sidebar-toggle' in page
+        assert 'topic-list' in page
+
+    def test_sidebar_topic_fold_on_node_page(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "strategic_games" / "strategic_games_strategic_game.html").read_text()
+        assert 'sidebar-toggle' in page
+        assert 'topic-list' in page
+
+    def test_no_js_topic_links_remain_accessible(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "index.html").read_text()
+        assert 'href="strategic_games/index.html"' in page
+        assert 'href="keywords/dominance.html"' in page
 
     def test_keyword_pages_list_matching_nodes_with_blueprint_summaries(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")

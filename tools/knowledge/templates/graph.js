@@ -153,14 +153,16 @@
     if (data.topic) {
       lines.push(`\t${dotQuote(topicGraphId(data.topic.id))} [${dotAttributes({
         color: "blue",
-        label: `${data.topic.title}\\nexpanded`,
+        label: `${data.topic.title}
+expanded`,
         penwidth: "2.4",
         shape: "box",
         URL: `#${topicGraphId(data.topic.id)}`,
       })}];`);
     }
     (data.boundary_topics || []).forEach((topic) => {
-      const label = `${topic.title}\\n${topic.role.replace(/_/g, " ")}`;
+      const label = `${topic.title}
+${topic.role.replace(/_/g, " ")}`;
       lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
         color: "#777777",
         label,

@@ -20,6 +20,7 @@ from tools.knowledge.export import (
     titleize_topic,
     write_graph_json,
     write_topic_overview_json,
+    write_topic_hierarchy_json,
     write_topic_subgraph_jsons,
 )
 from tools.knowledge.graph import build_graph
@@ -309,6 +310,12 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     resolved_root = knowledge_root.resolve()
     if resolved_out == resolved_root or resolved_root.is_relative_to(resolved_out):
         raise ValueError(f"Refusing to delete {output_dir}: would remove source tree")
+    if resolved_out.is_relative_to(resolved_root) and resolved_out != resolved_root:
+        raise ValueError(
+            f"Refusing to publish into {output_dir}: output directory is inside the knowledge source tree "
+            f"{knowledge_root}. Use a directory outside the knowledge root (e.g. /tmp/mdblueprint-site). "
+            "The check command and publish command support an explicit output_dir argument."
+        )
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
@@ -320,6 +327,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     # Write graph.json
     write_graph_json(g, output_dir / "graph.json")
     write_topic_overview_json(g, output_dir / "graph_topics.json")
+    write_topic_hierarchy_json(g, output_dir / "graph_topics_hierarchy.json")
     write_topic_subgraph_jsons(g, output_dir / "subgraphs" / "topics")
 
     node_payloads = {}

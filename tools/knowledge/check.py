@@ -6,12 +6,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tools.knowledge.config import load_project_config
+from tools.knowledge.config import ProjectConfig, load_project_config
 from tools.knowledge.graph import build_graph
 from tools.knowledge.latex_check import check_node_math
 from tools.knowledge.lean_check import check_configured_lean_references, check_lean_references
 from tools.knowledge.lean_index import index_lean_project
-from tools.knowledge.parser import scan_directory
+from tools.knowledge.models import Node
+from tools.knowledge.parser import parse_node_id, scan_directory
 from tools.knowledge.validator import Diagnostic, validate_node
 
 
@@ -21,6 +22,7 @@ def check_knowledge_base(
     lean_root: Path | None = None,
     config_path: Path | None = None,
     strict_lean_git: bool = False,
+    strict_lean_placeholders: bool = False,
 ) -> list[Diagnostic]:
     diags: list[Diagnostic] = []
     nodes_dir = root / "nodes"
@@ -32,13 +34,17 @@ def check_knowledge_base(
         for node in scan_directory(nodes_dir):
             diags.extend(validate_node(node, is_staged_dir=False))
             diags.extend(check_node_math(node, declared_macros=set(config.math.macros)))
+            diags.extend(_check_topic_registry(node, config))
             all_nodes.append(node)
 
     if staged_dir.exists():
         for node in scan_directory(staged_dir):
             diags.extend(validate_node(node, is_staged_dir=True))
             diags.extend(check_node_math(node, declared_macros=set(config.math.macros)))
+            diags.extend(_check_topic_registry(node, config))
             all_nodes.append(node)
+
+    diags.extend(_check_duplicate_topic_ids(all_nodes, config))
 
     _, graph_diags = build_graph(all_nodes)
     diags.extend(graph_diags)
@@ -62,6 +68,7 @@ def check_knowledge_base(
             indexes,
             dirty_repositories=dirty,
             strict_dirty=strict_lean_git,
+            strict_placeholders=strict_lean_placeholders,
         ))
 
     return diags
@@ -77,6 +84,93 @@ def _repository_is_dirty(path: Path) -> bool:
     except subprocess.CalledProcessError:
         return False
     return bool(output.strip())
+
+
+def _check_topic_registry(node: Node, config: ProjectConfig) -> list[Diagnostic]:
+    diags: list[Diagnostic] = []
+    if not config.topics:
+        return diags
+    topic_prefix = parse_node_id(node.id)[0] if node.id else None
+    if not topic_prefix:
+        return diags
+    canonical_ids = {t.id for t in config.topics}
+    all_aliases = {alias for t in config.topics for alias in t.aliases}
+    if topic_prefix in all_aliases:
+        for t in config.topics:
+            if topic_prefix in t.aliases:
+                diags.append(Diagnostic(
+                    "error",
+                    node.id,
+                    f"node topic prefix {topic_prefix!r} is an alias of canonical topic {t.id!r}; use {t.id!r} instead",
+                    node.file_path,
+                ))
+                break
+    elif topic_prefix not in canonical_ids:
+        diags.append(Diagnostic(
+            "warning",
+            node.id,
+            f"node topic prefix {topic_prefix!r} is not in the canonical topic registry; add it to mdblueprint.yml topics or use an existing topic",
+            node.file_path,
+        ))
+    return diags
+
+
+def _check_duplicate_topic_ids(nodes: list[Node], config: ProjectConfig) -> list[Diagnostic]:
+    diags: list[Diagnostic] = []
+    if not config.topics:
+        return diags
+    canonical_ids = {t.id for t in config.topics}
+    alias_to_canonical = {alias: t.id for t in config.topics for alias in t.aliases}
+    dir_to_canonical: dict[str, str] = {}
+    for node in nodes:
+        if not node.id or not node.file_path:
+            continue
+        prefix = parse_node_id(node.id)[0]
+        canonical = alias_to_canonical.get(prefix, prefix)
+        if canonical not in canonical_ids:
+            continue
+        parts = node.file_path.parts
+        nodes_idx = None
+        for i, p in enumerate(parts):
+            if p == "nodes":
+                nodes_idx = i
+                break
+        if nodes_idx is None or len(parts) <= nodes_idx + 2:
+            continue
+        topic_dir = parts[nodes_idx + 1]
+        if topic_dir in dir_to_canonical:
+            if dir_to_canonical[topic_dir] != canonical:
+                diags.append(Diagnostic(
+                    "error",
+                    "<top-level>",
+                    f"directory {topic_dir!r} contains nodes with different canonical topic prefixes ({dir_to_canonical[topic_dir]!r} and {canonical!r}); each topic directory must map to one canonical topic",
+                    None,
+                ))
+        else:
+            dir_to_canonical[topic_dir] = canonical
+    return diags
+    canonical_ids = {t.id for t in config.topics}
+    alias_to_canonical = {alias: t.id for t in config.topics for alias in t.aliases}
+    topic_dir_to_canonical: dict[str, str] = {}
+    for node in nodes:
+        prefix = parse_node_id(node.id)[0] if node.id else None
+        if not prefix:
+            continue
+        canonical = alias_to_canonical.get(prefix, prefix)
+        if canonical not in canonical_ids:
+            continue
+        node_dir = str(node.file_path.parent.relative_to(node.file_path.parents[len(node.file_path.parts) - 2])) if node.file_path else ""
+        if node_dir in topic_dir_to_canonical:
+            if topic_dir_to_canonical[node_dir] != canonical:
+                diags.append(Diagnostic(
+                    "error",
+                    "<top-level>",
+                    f"topic directory {node_dir!r} maps to canonical {canonical!r} but also to {topic_dir_to_canonical[node_dir]!r}; cannot have two canonical topic directories",
+                    None,
+                ))
+        else:
+            topic_dir_to_canonical[node_dir] = canonical
+    return diags
 
 
 def main() -> None:
@@ -99,6 +193,10 @@ def main() -> None:
         "--strict-lean-git", action="store_true",
         help="treat dirty configured Lean repositories as errors",
     )
+    parser.add_argument(
+        "--strict-lean-placeholders", action="store_true",
+        help="treat Lean sorry/admit diagnostics as errors instead of warnings",
+    )
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -109,6 +207,7 @@ def main() -> None:
         lean_root=lean_root,
         config_path=config_path,
         strict_lean_git=args.strict_lean_git,
+        strict_lean_placeholders=args.strict_lean_placeholders,
     )
 
     errors = [d for d in diags if d.level == "error"]

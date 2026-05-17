@@ -311,7 +311,7 @@ class TestExportTopicSubgraphJson:
             uses=["algebra.group"],
         )
         plan = Node(
-            id="algebra.group_identity_unique.plan.direct",
+            id="algebra.plan",
             title="Direct Plan",
             kind="proof-plan",
             status="staged",
@@ -326,18 +326,18 @@ class TestExportTopicSubgraphJson:
 
         assert {
             "from": "algebra.group_identity_unique",
-            "to": "algebra.group_identity_unique.plan.direct",
+            "to": "algebra.plan",
             "kind": "has_plan",
             "plan_status": "selected",
         } in data["proof_plan_attachments"]
         assert {
             "from": "algebra.group",
-            "to": "algebra.group_identity_unique.plan.direct",
+            "to": "algebra.plan",
             "kind": "proof_plan_uses",
         } in data["edges"]
         assert {
             "from": "algebra.group",
-            "to": "algebra.group_identity_unique.plan.direct",
+            "to": "algebra.plan",
             "kind": "uses",
         } not in data["edges"]
 
@@ -352,7 +352,7 @@ class TestExportTopicSubgraphJson:
             status="admitted",
         )
         plan = Node(
-            id="algebra.group_identity_unique.plan.logic",
+            id="algebra.plan_logic",
             title="Logic Plan",
             kind="proof-plan",
             status="staged",
@@ -367,7 +367,7 @@ class TestExportTopicSubgraphJson:
 
         assert {
             "from": "topic:logic",
-            "to": "algebra.group_identity_unique.plan.logic",
+            "to": "algebra.plan_logic",
             "kind": "boundary_proof_plan_dependency",
             "topic": "logic",
             "count": 1,
@@ -392,7 +392,7 @@ class TestExportTopicSubgraphJson:
             tags=["algebra", "theorem"],
         )
         plan = Node(
-            id="algebra.group_identity_unique.plan.direct",
+            id="algebra.plan",
             title="Direct Plan",
             kind="proof-plan",
             status="staged",

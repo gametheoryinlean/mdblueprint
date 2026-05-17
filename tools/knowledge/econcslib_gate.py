@@ -108,6 +108,33 @@ def verify_graph_artifacts(site_dir: Path) -> dict[str, Path | list[Path]]:
     return artifacts
 
 
+def verify_resolved_lean_links(site_dir: Path) -> None:
+    import json
+    payloads_dir = site_dir / "node_payloads"
+    if not payloads_dir.exists():
+        return
+    unresolved: list[tuple[str, str, str]] = []
+    for payload_file in sorted(payloads_dir.glob("*.json")):
+        try:
+            payload = json.loads(payload_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        lean_refs = payload.get("lean_refs", [])
+        for ref in lean_refs:
+            status = ref.get("status", "unknown")
+            if status in ("raw", "unresolved"):
+                node_id = payload.get("id", payload_file.stem)
+                decl_name = ref.get("display_name") or ref.get("name", "?")
+                unresolved.append((node_id, decl_name, status))
+    if unresolved:
+        lines = ["unresolved Lean declarations found in generated site:"]
+        for node_id, decl_name, status in unresolved[:20]:
+            lines.append(f"  {node_id}: {decl_name} ({status})")
+        if len(unresolved) > 20:
+            lines.append(f"  ... and {len(unresolved) - 20} more")
+        raise GateFailure("\n".join(lines))
+
+
 def smoke_render_pages(site_dir: Path) -> list[Path]:
     selected = [site_dir / page for page in DEFAULT_SMOKE_PAGES if (site_dir / page).exists()]
     if selected:
@@ -181,6 +208,7 @@ def run_gate(
 
         publish(knowledge_root, output_dir)
         artifacts = verify_graph_artifacts(output_dir)
+        verify_resolved_lean_links(output_dir)
 
         targets = _render_targets(output_dir, render_mode=render_mode, render_pages=render_pages or [])
         if targets:

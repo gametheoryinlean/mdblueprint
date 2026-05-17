@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -58,11 +58,19 @@ class GraphDisplayConfig:
 
 
 @dataclass(frozen=True)
+class TopicConfig:
+    id: str
+    title: str
+    aliases: tuple[str, ...] = field(default_factory=())
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     site: SiteConfig
     math: MathConfig
     lean: LeanConfig
     graph: GraphDisplayConfig
+    topics: tuple[TopicConfig, ...] = field(default_factory=())
 
 
 def _titleize_path_name(name: str) -> str:
@@ -78,6 +86,7 @@ def _fallback_config(knowledge_root: Path) -> ProjectConfig:
         math=_default_math_config(),
         lean=_default_lean_config(),
         graph=_default_graph_config(),
+        topics=(),
     )
 
 
@@ -298,6 +307,35 @@ def _parse_lean_config(raw: Any, *, path: Path) -> LeanConfig:
     return LeanConfig(default_repository=default_repository, repositories=repositories)
 
 
+def _parse_topics_config(raw: Any, *, path: Path) -> tuple[TopicConfig, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise ValueError(f"Project config topics must be a list: {path}")
+    topics: list[TopicConfig] = []
+    seen_ids: set[str] = set()
+    for index, item in enumerate(raw):
+        prefix = f"topics[{index}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"Project config {prefix} must be a mapping: {path}")
+        topic_id = _required_str(item, "id", path=path, prefix=prefix)
+        if topic_id in seen_ids:
+            raise ValueError(f"Project config duplicate topic id {topic_id!r}: {path}")
+        seen_ids.add(topic_id)
+        title = _required_str(item, "title", path=path, prefix=prefix)
+        aliases_raw = item.get("aliases")
+        aliases: tuple[str, ...] = ()
+        if aliases_raw is not None:
+            if not isinstance(aliases_raw, list):
+                raise ValueError(f"Project config {prefix}.aliases must be a list: {path}")
+            aliases = tuple(
+                str(a).strip() for a in aliases_raw
+                if isinstance(a, str) and a.strip()
+            )
+        topics.append(TopicConfig(id=topic_id, title=title, aliases=aliases))
+    return tuple(topics)
+
+
 def load_project_config(knowledge_root: Path, config_path: Path | None = None) -> ProjectConfig:
     path = config_path if config_path is not None else knowledge_root / DEFAULT_CONFIG_NAME
     if not path.exists():
@@ -328,4 +366,5 @@ def load_project_config(knowledge_root: Path, config_path: Path | None = None) -
         math=_parse_math_config(raw.get("math"), path=path),
         lean=_parse_lean_config(raw.get("lean"), path=path),
         graph=_parse_graph_config(raw.get("graph"), path=path),
+        topics=_parse_topics_config(raw.get("topics"), path=path),
     )

@@ -115,3 +115,57 @@ def test_econcslib_gate_smoke_render_pages_are_bounded(tmp_path):
         "dep_graph_document.html",
         "graph.html",
     ]
+
+
+def test_econcslib_gate_fails_when_lean_refs_are_unresolved_in_published_site(tmp_path):
+    from tools.knowledge.econcslib_gate import GateFailure, run_gate
+
+    repo = tmp_path / "repo"
+    _write_fake_econcslib_repo_with_lean(repo)
+    site_dir = tmp_path / "site"
+
+    with pytest.raises(GateFailure, match="unresolved Lean declarations"):
+        run_gate(repo_path=repo, site_dir=site_dir, render_mode="none")
+
+
+def _write_fake_econcslib_repo_with_lean(repo: Path) -> None:
+    node_dir = repo / "docs" / "knowledge" / "nodes" / "analysis"
+    node_dir.mkdir(parents=True)
+    (repo / "docs" / "knowledge" / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            """
+            site:
+              title: Fake EconCSLib Blueprint
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    body = textwrap.dedent(
+        r"""
+        ---
+        id: analysis.limit_unique
+        title: Limit Is Unique
+        kind: theorem
+        status: admitted
+        uses: []
+        lean:
+          repository: fake_lean_repo
+          modules:
+            - Analysis.Limit
+          declarations:
+            - limit_unique
+        tags:
+          - analysis
+        ---
+
+        # Limit Is Unique
+
+        If $\lim x_n = x$, the limit is unique.
+        """
+    ).strip()
+    (node_dir / "limit.md").write_text(body, encoding="utf-8")
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.test"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "fixture"], cwd=repo, check=True, capture_output=True)

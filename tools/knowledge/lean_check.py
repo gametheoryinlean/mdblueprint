@@ -27,6 +27,7 @@ def check_lean_references(
     *,
     repository_id: str | None = None,
     strict_ambiguity: bool = False,
+    strict_placeholders: bool = False,
 ) -> list[Diagnostic]:
     diags: list[Diagnostic] = []
 
@@ -74,8 +75,9 @@ def check_lean_references(
                 if matched_name in idx.declarations:
                     lean_decl = idx.declarations[matched_name]
                     if lean_decl.has_sorry:
+                        level = "error" if strict_placeholders else "warning"
                         diags.append(Diagnostic(
-                            "warning", nid,
+                            level, nid,
                             f"Lean declaration has sorry/admit{_context(repository_id)}: {decl!r} "
                             f"({lean_decl.file}:{lean_decl.line})",
                             fp,
@@ -91,6 +93,7 @@ def check_configured_lean_references(
     *,
     dirty_repositories: set[str] | None = None,
     strict_dirty: bool = False,
+    strict_placeholders: bool = False,
 ) -> list[Diagnostic]:
     diags: list[Diagnostic] = []
     dirty_repositories = dirty_repositories or set()
@@ -127,5 +130,6 @@ def check_configured_lean_references(
             indexes[repo_id],
             repository_id=repo_id,
             strict_ambiguity=True,
+            strict_placeholders=strict_placeholders,
         ))
     return diags

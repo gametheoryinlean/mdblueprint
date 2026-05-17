@@ -100,6 +100,14 @@ def parse_file(path: Path) -> Node:
     return parse_node(path.read_text(encoding="utf-8"), file_path=path)
 
 
+def parse_node_id(node_id: str) -> tuple[str, str]:
+    """Split a node id into (topic_prefix, local_name)."""
+    if "." in node_id:
+        parts = node_id.split(".", 1)
+        return parts[0], parts[1]
+    return node_id, ""
+
+
 def scan_directory(root: Path) -> list[Node]:
     nodes = []
     for p in sorted(root.rglob("*.md")):

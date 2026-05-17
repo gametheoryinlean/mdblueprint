@@ -14,13 +14,14 @@ When converting source material into staged Markdown knowledge nodes.
 ## Workflow
 
 1. Identify the source artifact and create a manifest entry.
-2. Read the source material and identify mathematical content: definitions, theorems, lemmas, examples, proof ideas.
-3. For each item, search the existing node index (admitted + staged) for duplicates.
-4. If no duplicate, create a staged node under `docs/knowledge/staged/` following the node format.
-5. Record source spans with artifact binding and locator format.
-6. Convert formulas to the supported node math syntax in `docs/math-authoring.md`; declare reusable macros in project config instead of writing TeX preamble commands.
-7. If the source statement appears narrower than the reusable mathematical form, note a generality question — do not assert the broader form as truth.
-8. Write an extraction report under `docs/knowledge/reviews/`.
+2. Read `docs/knowledge/mdblueprint.yml`. If `topics` is configured, select a canonical topic id from the registry. Do NOT invent new top-level topic prefixes; if no existing topic fits, record the gap in the extraction report.
+3. Read the source material and identify mathematical content: definitions, theorems, lemmas, examples, proof ideas.
+4. For each item, search the existing node index (admitted + staged) for duplicates.
+5. If no duplicate, create a staged node under `docs/knowledge/staged/` following the node format, using the canonical topic prefix from the registry. If the intended prefix is an alias, use the canonical id and note the alias in the report.
+6. Record source spans with artifact binding and locator format.
+7. Convert formulas to the supported node math syntax in `docs/math-authoring.md`; declare reusable macros in project config instead of writing TeX preamble commands.
+8. If the source statement appears narrower than the reusable mathematical form, note a generality question — do not assert the broader form as truth.
+9. Write an extraction report under `docs/knowledge/reviews/`.
 
 ## Book and PDF extraction checklist
 
@@ -38,6 +39,9 @@ When converting source material into staged Markdown knowledge nodes.
 - Do not invent dependencies beyond what the source or node index justifies.
 - Check for near-duplicates before creating a new staged file.
 - Preserve source-local statements; propose normalizations as questions.
+- **Stop after writing the extraction report.** Do not invoke node-review or wait for it. The handoff is the report artifact.
+- If the source material is large, split it into bounded batches (one per extraction run) before processing. Stop with a partial report rather than consuming unbounded context.
+- Do not loop, wait for another agent, or recursively invoke another skill. Each run is one-shot.
 
 ## Report format
 

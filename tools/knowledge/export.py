@@ -12,7 +12,30 @@ from tools.knowledge.models import Node
 
 def topic_id_for_node(node: Node) -> str:
     parts = node.id.split(".")
-    return parts[0] if len(parts) > 1 else "misc"
+    if len(parts) == 1:
+        return "misc"
+    if len(parts) == 2:
+        return parts[0]
+    return ".".join(parts[:-1])
+
+
+def parent_topic_id(topic_id: str) -> str | None:
+    parts = topic_id.split(".")
+    if len(parts) == 1:
+        return None
+    return ".".join(parts[:-1])
+
+
+def topic_depth(topic_id: str) -> int:
+    return len(topic_id.split("."))
+
+
+def topic_slug(topic_id: str) -> str:
+    return topic_id.replace(".", "-")
+
+
+def topic_path(topic_id: str) -> str:
+    return topic_id.replace(".", "/")
 
 
 def titleize_topic(topic_id: str) -> str:
@@ -106,8 +129,57 @@ def export_topic_overview_json(g: KnowledgeGraph) -> dict:
     return {"topics": topics, "edges": edges}
 
 
+def export_topic_hierarchy_json(g: KnowledgeGraph) -> dict:
+    topic_nodes: dict[str, list[Node]] = defaultdict(list)
+    for node in g.nodes.values():
+        topic_nodes[topic_id_for_node(node)].append(node)
+
+    topic_data: dict[str, dict] = {}
+    for topic_id, nodes in topic_nodes.items():
+        kind_counts = Counter(node.kind for node in nodes)
+        status_counts = Counter(node.status for node in nodes)
+        topic_data[topic_id] = {
+            "node_count": len(nodes),
+            "kind_counts": dict(sorted(kind_counts.items())),
+            "status_counts": dict(sorted(status_counts.items())),
+            "children": [],
+            "parent": parent_topic_id(topic_id),
+        }
+
+    for topic_id in list(topic_data):
+        parent = topic_data[topic_id]["parent"]
+        if parent is not None and parent in topic_data:
+            topic_data[parent]["children"].append(topic_id)
+
+    roots = sorted(tid for tid, d in topic_data.items() if d["parent"] is None)
+
+    def topic_entry(tid: str) -> dict:
+        d = topic_data[tid]
+        return {
+            "id": tid,
+            "title": titleize_topic(tid),
+            "depth": topic_depth(tid),
+            "node_count": d["node_count"],
+            "kind_counts": d["kind_counts"],
+            "status_counts": d["status_counts"],
+            "href": f"{tid}/index.html",
+            "children": sorted(d["children"]),
+        }
+
+    return {
+        "roots": [topic_entry(r) for r in roots],
+        "topics": {tid: topic_entry(tid) for tid in topic_data},
+    }
+
+
 def write_topic_overview_json(g: KnowledgeGraph, output: Path) -> None:
     data = export_topic_overview_json(g)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def write_topic_hierarchy_json(g: KnowledgeGraph, output: Path) -> None:
+    data = export_topic_hierarchy_json(g)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -274,6 +346,12 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
     non_proof_plan_count = len(internal_nodes) - len(proof_plan_nodes)
     selected_proof_plan_count = sum(1 for node in proof_plan_nodes if node.plan_status == "selected")
 
+    child_topics = sorted(set(
+        topic_id_for_node(n)
+        for n in g.nodes.values()
+        if topic_id_for_node(n).startswith(topic_id + ".")
+    ))
+
     return {
         "topic": {
             "id": topic_id,
@@ -297,6 +375,7 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
         "boundary_edges": boundary_edges,
         "keywords": _keyword_entries(internal_nodes),
         "proof_plan_attachments": proof_plan_attachments,
+        "child_topics": child_topics,
     }
 
 
