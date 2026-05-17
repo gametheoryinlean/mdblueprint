@@ -4,6 +4,21 @@
 
 It does not use LaTeX, plasTeX, or leanblueprint as the source pipeline. The project borrows the useful presentation style of leanblueprint while keeping the source model simple enough for humans and AI agents to edit safely.
 
+## Agent Entry Points
+
+This repository is designed so Codex, Claude Code, OpenCode, and other coding
+agents can work on it at the same time without sharing hidden state.
+
+- Human overview: this `README.md`.
+- Agent operating rules: [`AGENTS.md`](AGENTS.md).
+- Claude Code compatibility shim: [`CLAUDE.md`](CLAUDE.md), which points back to
+  `AGENTS.md`.
+- Detailed agent role contracts: [`docs/agent-contracts.md`](docs/agent-contracts.md).
+- Skills and how to install/use them: [`docs/skills.md`](docs/skills.md).
+
+When in doubt, an agent should read `AGENTS.md` first, then the specific docs for
+the files it plans to edit.
+
 ## What This Tool Owns
 
 `mdblueprint` separates mathematical source, deterministic build products, and AI assistance:
@@ -81,6 +96,69 @@ Run the full test suite:
 uv run --extra dev python -m pytest -q
 ```
 
+## Development Commands
+
+Run commands from the repository root.
+
+```bash
+# Install development dependencies
+uv sync --extra dev
+
+# Full Python test suite
+uv run --extra dev python -m pytest -q
+
+# Focused graph and publisher tests
+uv run --extra dev python -m pytest tests/test_export.py tests/test_publish.py tests/test_graph_navigation_docs.py -q
+
+# Structural check for the example knowledge base
+uv run python -m tools.knowledge.check docs/knowledge
+
+# Publish a local preview outside the source tree
+uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
+
+# Browser render check for generated math and graph pages
+uv run --extra browser python -m tools.knowledge.render_check /tmp/mdblueprint-site
+
+# Real EconCSLib integration gate
+uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode smoke
+```
+
+For first-time browser checks, install Chromium once:
+
+```bash
+uv run --extra browser playwright install chromium
+```
+
+## GitHub Sync Contract
+
+`main` is the shared integration branch for mdblueprint. Multiple agents should
+use short-lived branches or worktrees for active work, then merge or fast-forward
+only after verification.
+
+```bash
+# See local state before starting or handing off
+git status --short --branch
+
+# Sync main without rewriting history
+git fetch origin
+git pull --ff-only origin main
+
+# Push completed verified work
+git push origin main
+```
+
+Rules for concurrent agents:
+
+- Treat GitHub issues as the coordination queue. Claim the issue or state the
+  file set you are editing before making broad changes.
+- Use one branch or worktree per agent task when work can overlap.
+- Do not rewrite another agent's files, force-push shared branches, or clean
+  untracked files that you did not create.
+- Keep generated artifacts out of commits unless the issue explicitly asks for a
+  committed fixture.
+- Close issues only after tests or the real-library gate relevant to that issue
+  have passed.
+
 ## Command Reference
 
 Call the tools as Python modules from the repository root.
@@ -137,6 +215,34 @@ uv run --extra browser python -m tools.knowledge.econcslib_gate \
 
 Use `--render-mode all` before release when a change could affect broad browser
 rendering behavior.
+
+## EconCSLib Relationship
+
+mdblueprint is the tooling repository. EconCSLib is the real Lean/knowledge-base
+consumer used as the integration target.
+
+- Changes to `tools/knowledge/check.py`, `publish.py`, `export.py`, templates,
+  graph behavior, Lean link resolution, or node schema can change what EconCSLib
+  publishes.
+- EconCSLib's workflow is expected to run mdblueprint from GitHub, currently from
+  mdblueprint `main` unless the workflow pins another ref.
+- Pushing mdblueprint `main` can therefore affect the next EconCSLib blueprint
+  build even if EconCSLib itself has no code change.
+- EconCSLib content changes live in the EconCSLib repository. mdblueprint should
+  not carry domain-specific knowledge except small generic fixtures or documented
+  integration references.
+- Before merging broad publisher, graph, schema, or Lean-link changes, run the
+  local real-library gate against a current EconCSLib checkout when available:
+
+```bash
+uv run --extra browser python -m tools.knowledge.econcslib_gate \
+  --repo-path /path/to/EconCSLib \
+  --site-dir /tmp/mdblueprint-econcslib-gate \
+  --render-mode smoke
+```
+
+Use `--render-mode all` for release-level checks or after changes to math
+rendering, navigation, graph JavaScript, or page templates.
 
 ## Project Config
 
@@ -196,7 +302,7 @@ Project config contract:
 
 Read [docs/math-authoring.md](docs/math-authoring.md) for supported node math syntax, macro authoring, static diagnostics, and browser render QA. Read [docs/lean-repositories.md](docs/lean-repositories.md) for the full Lean repository linking workflow, diagnostics, and publishing contract.
 
-## Project Layout
+## Repository Structure
 
 ```text
 tools/knowledge/
