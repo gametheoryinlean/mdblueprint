@@ -200,9 +200,11 @@ uv run --extra browser playwright install chromium
 
 The real-library gate uses the current mdblueprint checkout, clones EconCSLib
 `main` by default, runs `check`, publishes the site, verifies `graph_topics.json`
-and per-topic `subgraphs/topics/*.json` payloads, then render-checks a bounded
-smoke set of pages. It logs the source checkout, source ref, exact source
-commit, generated site directory, checked pages, and graph artifact locations.
+`graph_topics_hierarchy.json`, and per-topic `subgraphs/topics/*.json` payloads,
+requires published Lean references to resolve to source URLs unless explicitly
+allowed, then render-checks a bounded smoke set of pages. It logs the source
+checkout, source ref, exact source commit, generated site directory, checked
+pages, and graph artifact locations.
 
 Use a local EconCSLib checkout when testing pending knowledge-base changes:
 
@@ -215,6 +217,10 @@ uv run --extra browser python -m tools.knowledge.econcslib_gate \
 
 Use `--render-mode all` before release when a change could affect broad browser
 rendering behavior.
+
+Use `--allow-unresolved-lean-refs` only for an intentional transitional gate run
+where raw Lean declarations are acceptable. Normal gate runs fail when generated
+node payloads contain Lean declarations without resolved `source_url` fields.
 
 ## EconCSLib Relationship
 
@@ -504,6 +510,7 @@ The generated site includes:
 - `graph.html`: compatibility alias for the dependency graph
 - `graph.json`: deterministic full machine graph export
 - `graph_topics.json`: topic overview graph used by the default graph page
+- `graph_topics_hierarchy.json`: topic parent/child hierarchy, aggregate counts, and child lists
 - `subgraphs/topics/<topic>.json`: per-topic expandable browsing subgraphs
 - `node_payloads/<node>.json`: lazy node-detail payloads used by graph modals
 
@@ -511,11 +518,17 @@ Graph navigation contract:
 
 - The default graph is topic-first so large knowledge bases open at a readable scale.
 - `graph.json` remains the full machine graph. Browser UI artifacts are derived browsing projections, not replacements for the machine export.
+- Topic ids are hierarchical. A node id such as `algebra.groups.group` belongs
+  to topic `algebra.groups`; `algebra` is its parent topic.
 - Topic overview edges display `dependency topic -> dependent topic`.
 - Topic overview edges summarize ordinary mathematical dependencies. Proof-plan
   route edges stay out of the overview so candidate proof routes do not look
   like admitted topic dependencies.
-- Expanding a topic shows its internal node-level subgraph, plus dashed boundary topic nodes for external prerequisites and external users.
+- Expanding a topic with child topics shows the next subtopic layer first.
+  Expanding a leaf topic shows its internal node-level subgraph, plus dashed
+  boundary topic nodes for external prerequisites and external users.
+- Breadcrumbs and explicit parent/root controls allow moving back up the topic
+  hierarchy.
 - Node-level graph display uses `dependency -> dependent`, even though internal graph edges store `dependent -> dependency`.
 - Oversized topics use the configured graph limits and show links to the topic page and keyword pages instead of rendering an unreadable subgraph.
 - Graph node modals load `node_payloads/<node>.json` on demand.

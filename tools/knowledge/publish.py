@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import posixpath
 import re
 import shutil
 import sys
@@ -16,6 +17,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from tools.knowledge.blueprint_view import build_blueprint_graph
 from tools.knowledge.config import LeanConfig, katex_auto_render_options, load_project_config
 from tools.knowledge.export import (
+    topic_path,
+    topic_prefixes,
     topic_id_for_node,
     titleize_topic,
     write_graph_json,
@@ -39,19 +42,21 @@ TEX_MATH_RE = re.compile(
 
 
 def _node_href(node_id: str, from_topic: str | None = None) -> str:
-    parts = node_id.split(".")
-    topic = parts[0] if len(parts) > 1 else "misc"
-    filename = node_id.replace(".", "_") + ".html"
-    if from_topic == topic:
-        return filename
-    return f"../{topic}/{filename}" if from_topic else f"{topic}/{filename}"
+    target = _node_href_from_root(node_id)
+    if from_topic is None:
+        return target
+    source_dir = topic_path(from_topic)
+    return posixpath.relpath(target, start=source_dir)
 
 
 def _node_href_from_root(node_id: str) -> str:
-    parts = node_id.split(".")
-    topic = parts[0] if len(parts) > 1 else "misc"
+    topic = ".".join(node_id.split(".")[:-1]) if "." in node_id else "misc"
     filename = node_id.replace(".", "_") + ".html"
-    return f"{topic}/{filename}"
+    return f"{topic_path(topic)}/{filename}"
+
+
+def _root_prefix_for_topic(topic: str) -> str:
+    return "../" * len(topic_path(topic).split("/"))
 
 
 def _titleize(value: str) -> str:
@@ -289,14 +294,17 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         autoescape=select_autoescape(["html"]),
     )
     env.globals["node_href_from_root"] = _node_href_from_root
+    env.globals["topic_path"] = topic_path
     env.globals["site"] = config.site
     env.globals["math_options_json"] = json.dumps(katex_auto_render_options(config.math))
 
-    # Group by topic
+    # Group by topic. Every ancestor topic receives descendant nodes so root and
+    # intermediate topic pages have useful landing pages even when no node has
+    # that exact topic id.
     topics: dict[str, list] = defaultdict(list)
     for node in all_nodes:
-        topic = topic_id_for_node(node)
-        topics[topic].append(node)
+        for topic in topic_prefixes(topic_id_for_node(node)):
+            topics[topic].append(node)
 
     topic_names = sorted(topics.keys())
     keywords: dict[str, list] = defaultdict(list)
@@ -374,7 +382,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         topic_groups.append({
             "name": topic,
             "title": _titleize(topic),
-            "href": f"{topic}/index.html",
+            "href": f"{topic_path(topic)}/index.html",
             "nodes": [
                 _summary_payload(node, blueprint_nodes, _node_href(node.id))
                 for node in sorted(topics[topic], key=lambda n: n.title)
@@ -442,21 +450,22 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
 
     # Topic pages and node pages
     for topic, topic_nodes in topics.items():
-        topic_dir = output_dir / topic
+        topic_dir = output_dir / topic_path(topic)
         topic_dir.mkdir(parents=True, exist_ok=True)
+        root = _root_prefix_for_topic(topic)
 
         # Topic index
         tmpl = env.get_template("topic.html")
         (topic_dir / "index.html").write_text(
             tmpl.render(
                 title=topic,
-                root="../",
+                root=root,
                 topics=topic_names,
                 keywords=keyword_names,
                 topic=topic,
                 topic_title=_titleize(topic),
                 nodes=[
-                    _summary_payload(node, blueprint_nodes, node.id.replace(".", "_") + ".html")
+                    _summary_payload(node, blueprint_nodes, _node_href(node.id, from_topic=topic))
                     for node in sorted(topic_nodes, key=lambda n: n.title)
                 ],
             ),
@@ -466,13 +475,15 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         # Node pages
         tmpl = env.get_template("node.html")
         for node in topic_nodes:
+            if topic_id_for_node(node) != topic:
+                continue
             payload = node_payloads[node.id]
 
             filename = node.id.replace(".", "_") + ".html"
             (topic_dir / filename).write_text(
                 tmpl.render(
                     title=node.title,
-                    root="../",
+                    root=root,
                     topics=topic_names,
                     keywords=keyword_names,
                     node=node,

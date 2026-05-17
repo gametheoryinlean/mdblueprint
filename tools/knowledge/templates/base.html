@@ -32,7 +32,7 @@
       </button>
       <ul id="topic-list" class="topic-list nav-list">
       {% for topic in topics %}
-        <li><a href="{{ root }}{{ topic }}/index.html">{{ topic }}</a></li>
+        <li><a href="{{ root }}{{ topic_path(topic) }}/index.html">{{ topic }}</a></li>
       {% endfor %}
       </ul>
     </section>

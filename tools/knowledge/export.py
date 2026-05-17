@@ -38,8 +38,74 @@ def topic_path(topic_id: str) -> str:
     return topic_id.replace(".", "/")
 
 
+def topic_prefixes(topic_id: str) -> list[str]:
+    parts = topic_id.split(".")
+    return [".".join(parts[:index]) for index in range(1, len(parts) + 1)]
+
+
+def root_topic_id(topic_id: str) -> str:
+    return topic_id.split(".", 1)[0]
+
+
+def child_topic_id(parent_id: str, descendant_id: str) -> str | None:
+    if descendant_id == parent_id:
+        return None
+    prefix = f"{parent_id}."
+    if not descendant_id.startswith(prefix):
+        return None
+    remainder = descendant_id[len(prefix):]
+    child_slug = remainder.split(".", 1)[0]
+    return f"{parent_id}.{child_slug}"
+
+
 def titleize_topic(topic_id: str) -> str:
     return topic_id.replace("_", " ").replace("-", " ").title()
+
+
+def _empty_topic_data(topic_id: str) -> dict:
+    return {
+        "direct_nodes": [],
+        "all_nodes": [],
+        "children": set(),
+        "parent": parent_topic_id(topic_id),
+    }
+
+
+def _topic_hierarchy_data(g: KnowledgeGraph) -> dict[str, dict]:
+    topic_data: dict[str, dict] = {}
+    for node in g.nodes.values():
+        leaf_topic = topic_id_for_node(node)
+        for topic_id in topic_prefixes(leaf_topic):
+            topic_data.setdefault(topic_id, _empty_topic_data(topic_id))
+            topic_data[topic_id]["all_nodes"].append(node)
+        topic_data[leaf_topic]["direct_nodes"].append(node)
+
+    for topic_id in list(topic_data):
+        parent = topic_data[topic_id]["parent"]
+        if parent is not None:
+            topic_data.setdefault(parent, _empty_topic_data(parent))
+            topic_data[parent]["children"].add(topic_id)
+
+    return topic_data
+
+
+def _topic_entry(topic_id: str, data: dict) -> dict:
+    nodes = data["all_nodes"]
+    kind_counts = Counter(node.kind for node in nodes)
+    status_counts = Counter(node.status for node in nodes)
+    children = sorted(data["children"])
+    return {
+        "id": topic_id,
+        "title": titleize_topic(topic_id),
+        "depth": topic_depth(topic_id),
+        "parent": data["parent"],
+        "node_count": len(nodes),
+        "direct_node_count": len(data["direct_nodes"]),
+        "kind_counts": dict(sorted(kind_counts.items())),
+        "status_counts": dict(sorted(status_counts.items())),
+        "href": f"{topic_path(topic_id)}/index.html",
+        "children": children,
+    }
 
 
 def export_graph_json(g: KnowledgeGraph) -> dict:
@@ -85,35 +151,23 @@ def write_graph_json(g: KnowledgeGraph, output: Path) -> None:
 
 
 def export_topic_overview_json(g: KnowledgeGraph) -> dict:
-    topic_nodes: dict[str, list[Node]] = defaultdict(list)
-    for node in g.nodes.values():
-        topic_nodes[topic_id_for_node(node)].append(node)
-
+    topic_data = _topic_hierarchy_data(g)
+    root_ids = sorted(topic_id for topic_id, data in topic_data.items() if data["parent"] is None)
     topics = []
-    for topic_id in sorted(topic_nodes):
-        nodes = sorted(topic_nodes[topic_id], key=lambda node: node.id)
-        kind_counts = Counter(node.kind for node in nodes)
-        status_counts = Counter(node.status for node in nodes)
-        topics.append({
-            "id": topic_id,
-            "title": titleize_topic(topic_id),
-            "node_count": len(nodes),
-            "kind_counts": dict(sorted(kind_counts.items())),
-            "status_counts": dict(sorted(status_counts.items())),
-            "href": f"{topic_id}/index.html",
-        })
+    for topic_id in root_ids:
+        topics.append(_topic_entry(topic_id, topic_data[topic_id]))
 
     edge_counts: Counter[tuple[str, str]] = Counter()
     for dependent_id in sorted(g.edges):
         if g.nodes[dependent_id].kind == "proof-plan":
             continue
-        dependent_topic = topic_id_for_node(g.nodes[dependent_id])
+        dependent_topic = root_topic_id(topic_id_for_node(g.nodes[dependent_id]))
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes:
                 continue
             if g.nodes[dependency_id].kind == "proof-plan":
                 continue
-            dependency_topic = topic_id_for_node(g.nodes[dependency_id])
+            dependency_topic = root_topic_id(topic_id_for_node(g.nodes[dependency_id]))
             if dependency_topic == dependent_topic:
                 continue
             edge_counts[(dependency_topic, dependent_topic)] += 1
@@ -130,45 +184,12 @@ def export_topic_overview_json(g: KnowledgeGraph) -> dict:
 
 
 def export_topic_hierarchy_json(g: KnowledgeGraph) -> dict:
-    topic_nodes: dict[str, list[Node]] = defaultdict(list)
-    for node in g.nodes.values():
-        topic_nodes[topic_id_for_node(node)].append(node)
-
-    topic_data: dict[str, dict] = {}
-    for topic_id, nodes in topic_nodes.items():
-        kind_counts = Counter(node.kind for node in nodes)
-        status_counts = Counter(node.status for node in nodes)
-        topic_data[topic_id] = {
-            "node_count": len(nodes),
-            "kind_counts": dict(sorted(kind_counts.items())),
-            "status_counts": dict(sorted(status_counts.items())),
-            "children": [],
-            "parent": parent_topic_id(topic_id),
-        }
-
-    for topic_id in list(topic_data):
-        parent = topic_data[topic_id]["parent"]
-        if parent is not None and parent in topic_data:
-            topic_data[parent]["children"].append(topic_id)
-
+    topic_data = _topic_hierarchy_data(g)
     roots = sorted(tid for tid, d in topic_data.items() if d["parent"] is None)
 
-    def topic_entry(tid: str) -> dict:
-        d = topic_data[tid]
-        return {
-            "id": tid,
-            "title": titleize_topic(tid),
-            "depth": topic_depth(tid),
-            "node_count": d["node_count"],
-            "kind_counts": d["kind_counts"],
-            "status_counts": d["status_counts"],
-            "href": f"{tid}/index.html",
-            "children": sorted(d["children"]),
-        }
-
     return {
-        "roots": [topic_entry(r) for r in roots],
-        "topics": {tid: topic_entry(tid) for tid in topic_data},
+        "roots": [_topic_entry(r, topic_data[r]) for r in roots],
+        "topics": {tid: _topic_entry(tid, topic_data[tid]) for tid in sorted(topic_data)},
     }
 
 
@@ -187,7 +208,8 @@ def write_topic_hierarchy_json(g: KnowledgeGraph, output: Path) -> None:
 def _topic_node_counts(g: KnowledgeGraph) -> dict[str, int]:
     counts: Counter[str] = Counter()
     for node in g.nodes.values():
-        counts[topic_id_for_node(node)] += 1
+        for topic_id in topic_prefixes(topic_id_for_node(node)):
+            counts[topic_id] += 1
     return dict(counts)
 
 
@@ -211,10 +233,105 @@ def _boundary_topic_entry(topic_id: str, role: str, node_count: int) -> dict:
     return {
         "id": topic_id,
         "title": titleize_topic(topic_id),
-        "href": f"{topic_id}/index.html",
+        "href": f"{topic_path(topic_id)}/index.html",
         "role": role,
         "node_count": node_count,
     }
+
+
+def _child_topic_edges(g: KnowledgeGraph, topic_id: str) -> list[dict]:
+    edge_counts: Counter[tuple[str, str]] = Counter()
+    for dependent_id in sorted(g.edges):
+        if dependent_id not in g.nodes or g.nodes[dependent_id].kind == "proof-plan":
+            continue
+        dependent_child = child_topic_id(topic_id, topic_id_for_node(g.nodes[dependent_id]))
+        if dependent_child is None:
+            continue
+        for dependency_id in sorted(g.edges[dependent_id]):
+            if dependency_id not in g.nodes or g.nodes[dependency_id].kind == "proof-plan":
+                continue
+            dependency_child = child_topic_id(topic_id, topic_id_for_node(g.nodes[dependency_id]))
+            if dependency_child is None or dependency_child == dependent_child:
+                continue
+            edge_counts[(dependency_child, dependent_child)] += 1
+
+    return [
+        {
+            "from": f"topic:{source}",
+            "to": f"topic:{target}",
+            "kind": "topic_dependency",
+            "count": count,
+        }
+        for (source, target), count in sorted(edge_counts.items())
+    ]
+
+
+def _topic_layer_boundary(g: KnowledgeGraph, topic_id: str, topic_counts: dict[str, int]) -> tuple[list[dict], list[dict]]:
+    boundary_roles: dict[str, set[str]] = defaultdict(set)
+    edge_counts: Counter[tuple[str, str, str, str]] = Counter()
+
+    def inside_current(node_topic: str) -> bool:
+        return node_topic == topic_id or node_topic.startswith(f"{topic_id}.")
+
+    for dependent_id in sorted(g.edges):
+        if dependent_id not in g.nodes or g.nodes[dependent_id].kind == "proof-plan":
+            continue
+        dependent_topic = topic_id_for_node(g.nodes[dependent_id])
+        dependent_inside = inside_current(dependent_topic)
+        dependent_child = child_topic_id(topic_id, dependent_topic)
+
+        for dependency_id in sorted(g.edges[dependent_id]):
+            if dependency_id not in g.nodes or g.nodes[dependency_id].kind == "proof-plan":
+                continue
+            dependency_topic = topic_id_for_node(g.nodes[dependency_id])
+            dependency_inside = inside_current(dependency_topic)
+            dependency_child = child_topic_id(topic_id, dependency_topic)
+
+            if dependent_inside and not dependency_inside and dependent_child is not None:
+                boundary_roles[dependency_topic].add("dependency")
+                edge_counts[(
+                    f"topic:{dependency_topic}",
+                    f"topic:{dependent_child}",
+                    "boundary_dependency",
+                    dependency_topic,
+                )] += 1
+            elif dependency_inside and not dependent_inside and dependency_child is not None:
+                boundary_roles[dependent_topic].add("dependent")
+                edge_counts[(
+                    f"topic:{dependency_child}",
+                    f"topic:{dependent_topic}",
+                    "boundary_dependent",
+                    dependent_topic,
+                )] += 1
+
+    boundary_topics = []
+    for boundary_topic in sorted(boundary_roles):
+        roles = boundary_roles[boundary_topic]
+        role = "dependency_and_dependent" if roles == {"dependency", "dependent"} else next(iter(roles))
+        boundary_topics.append(_boundary_topic_entry(
+            boundary_topic,
+            role,
+            topic_counts.get(boundary_topic, 0),
+        ))
+
+    edge_sort_order = {
+        "boundary_dependency": 0,
+        "boundary_dependent": 1,
+    }
+    boundary_edges = [
+        {
+            "from": source,
+            "to": target,
+            "kind": kind,
+            "topic": boundary_topic,
+            "count": count,
+        }
+        for (source, target, kind, boundary_topic), count in sorted(
+            edge_counts.items(),
+            key=lambda item: (edge_sort_order[item[0][2]], item[0][3], item[0][0], item[0][1]),
+        )
+    ]
+    return boundary_topics, boundary_edges
 
 
 def _keyword_entries(nodes: list[Node]) -> list[dict]:
@@ -233,6 +350,9 @@ def _keyword_entries(nodes: list[Node]) -> list[dict]:
 
 
 def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
+    topic_data = _topic_hierarchy_data(g)
+    current_topic_data = topic_data.get(topic_id, _empty_topic_data(topic_id))
+    child_ids = sorted(current_topic_data["children"])
     internal_ids = sorted(
         node.id
         for node in g.nodes.values()
@@ -346,21 +466,25 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
     non_proof_plan_count = len(internal_nodes) - len(proof_plan_nodes)
     selected_proof_plan_count = sum(1 for node in proof_plan_nodes if node.plan_status == "selected")
 
-    child_topics = sorted(set(
-        topic_id_for_node(n)
-        for n in g.nodes.values()
-        if topic_id_for_node(n).startswith(topic_id + ".")
-    ))
+    child_topic_nodes = [
+        _topic_entry(child_id, topic_data[child_id])
+        for child_id in child_ids
+    ]
+    child_boundary_topics, child_boundary_edges = _topic_layer_boundary(g, topic_id, topic_counts)
 
     return {
         "topic": {
             "id": topic_id,
             "title": titleize_topic(topic_id),
-            "href": f"{topic_id}/index.html",
+            "href": f"{topic_path(topic_id)}/index.html",
+            "parent": parent_topic_id(topic_id),
             "node_count": len(internal_ids),
+            "descendant_node_count": len(current_topic_data["all_nodes"]),
         },
         "counts": {
             "internal_nodes": len(internal_ids),
+            "descendant_nodes": len(current_topic_data["all_nodes"]),
+            "child_topics": len(child_topic_nodes),
             "non_proof_plan_nodes": non_proof_plan_count,
             "proof_plan_nodes": len(proof_plan_nodes),
             "selected_proof_plan_nodes": selected_proof_plan_count,
@@ -375,12 +499,16 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
         "boundary_edges": boundary_edges,
         "keywords": _keyword_entries(internal_nodes),
         "proof_plan_attachments": proof_plan_attachments,
-        "child_topics": child_topics,
+        "child_topics": child_ids,
+        "child_topic_nodes": child_topic_nodes,
+        "child_topic_edges": _child_topic_edges(g, topic_id),
+        "child_boundary_topics": child_boundary_topics,
+        "child_boundary_edges": child_boundary_edges,
     }
 
 
 def write_topic_subgraph_jsons(g: KnowledgeGraph, output_dir: Path) -> None:
-    topic_ids = sorted({topic_id_for_node(node) for node in g.nodes.values()})
+    topic_ids = sorted(_topic_hierarchy_data(g))
     output_dir.mkdir(parents=True, exist_ok=True)
     for topic_id in topic_ids:
         data = export_topic_subgraph_json(g, topic_id)

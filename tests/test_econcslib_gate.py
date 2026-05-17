@@ -77,6 +77,7 @@ def test_econcslib_gate_uses_current_checkout_and_verifies_graph_artifacts(tmp_p
     assert result.site_dir == site_dir.resolve()
     assert result.error_count == 0
     assert result.artifacts["graph_topics.json"] == site_dir / "graph_topics.json"
+    assert result.artifacts["graph_topics_hierarchy.json"] == site_dir / "graph_topics_hierarchy.json"
     assert result.artifacts["topic_subgraphs"]
     assert result.artifacts["node_payloads"]
 
@@ -128,20 +129,89 @@ def test_econcslib_gate_fails_when_lean_refs_are_unresolved_in_published_site(tm
         run_gate(repo_path=repo, site_dir=site_dir, render_mode="none")
 
 
-def _write_fake_econcslib_repo_with_lean(repo: Path) -> None:
+def test_econcslib_gate_can_explicitly_allow_unresolved_lean_refs(tmp_path):
+    from tools.knowledge.econcslib_gate import run_gate
+
+    repo = tmp_path / "repo"
+    _write_fake_econcslib_repo_with_lean(repo)
+
+    result = run_gate(
+        repo_path=repo,
+        site_dir=tmp_path / "site",
+        render_mode="none",
+        allow_unresolved_lean_refs=True,
+    )
+
+    assert result.error_count == 0
+
+
+def test_econcslib_gate_passes_when_lean_refs_have_source_urls(tmp_path):
+    from tools.knowledge.econcslib_gate import run_gate
+
+    repo = tmp_path / "repo"
+    _write_fake_econcslib_repo_with_lean(repo, configured=True)
+    site_dir = tmp_path / "site"
+
+    result = run_gate(repo_path=repo, site_dir=site_dir, render_mode="none")
+
+    assert result.error_count == 0
+    payload = (site_dir / "node_payloads" / "analysis_limit_unique.json").read_text()
+    assert "https://example.test/fake/blob/" in payload
+    assert "Analysis/Limit.lean#L" in payload
+
+
+def _write_fake_econcslib_repo_with_lean(repo: Path, *, configured: bool = False) -> None:
     node_dir = repo / "docs" / "knowledge" / "nodes" / "analysis"
     node_dir.mkdir(parents=True)
-    (repo / "docs" / "knowledge" / "mdblueprint.yml").write_text(
+    lean_file = repo / "Analysis" / "Limit.lean"
+    lean_file.parent.mkdir(parents=True)
+    lean_file.write_text(
         textwrap.dedent(
+            """
+            namespace Analysis
+
+            theorem limit_unique : True := by
+              trivial
+
+            end Analysis
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    repository = "fake_lean_repo"
+    declaration = "limit_unique"
+    if configured:
+        repository = "core"
+        declaration = "Analysis.limit_unique"
+        config_text = textwrap.dedent(
+            """
+            site:
+              title: Fake EconCSLib Blueprint
+            lean:
+              default_repository: core
+              repositories:
+                - id: core
+                  title: Fake Lean Repo
+                  local_path: ../..
+                  web_url: https://example.test/fake
+                  source_url_template: "{web_url}/blob/{revision}/{path}#L{line}"
+                  revision: auto
+            """
+        ).rstrip()
+    else:
+        config_text = textwrap.dedent(
             """
             site:
               title: Fake EconCSLib Blueprint
             """
-        ).strip(),
+        ).strip()
+    (repo / "docs" / "knowledge" / "mdblueprint.yml").write_text(
+        config_text,
         encoding="utf-8",
     )
     body = textwrap.dedent(
-        r"""
+        rf"""
         ---
         id: analysis.limit_unique
         title: Limit Is Unique
@@ -149,11 +219,11 @@ def _write_fake_econcslib_repo_with_lean(repo: Path) -> None:
         status: admitted
         uses: []
         lean:
-          repository: fake_lean_repo
+          repository: {repository}
           modules:
             - Analysis.Limit
           declarations:
-            - limit_unique
+            - {declaration}
         tags:
           - analysis
         ---

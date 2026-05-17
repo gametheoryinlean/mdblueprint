@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import shutil
 import subprocess
 import sys
@@ -88,6 +89,7 @@ def _artifact_paths(site_dir: Path) -> dict[str, Path | list[Path]]:
     return {
         "graph.json": site_dir / "graph.json",
         "graph_topics.json": site_dir / "graph_topics.json",
+        "graph_topics_hierarchy.json": site_dir / "graph_topics_hierarchy.json",
         "dep_graph_document.html": site_dir / "dep_graph_document.html",
         "graph.html": site_dir / "graph.html",
         "topic_subgraphs": topic_subgraphs,
@@ -108,8 +110,9 @@ def verify_graph_artifacts(site_dir: Path) -> dict[str, Path | list[Path]]:
     return artifacts
 
 
-def verify_resolved_lean_links(site_dir: Path) -> None:
-    import json
+def verify_resolved_lean_links(site_dir: Path, *, allow_unresolved: bool = False) -> None:
+    if allow_unresolved:
+        return
     payloads_dir = site_dir / "node_payloads"
     if not payloads_dir.exists():
         return
@@ -122,7 +125,8 @@ def verify_resolved_lean_links(site_dir: Path) -> None:
         lean_refs = payload.get("lean_refs", [])
         for ref in lean_refs:
             status = ref.get("status", "unknown")
-            if status in ("raw", "unresolved"):
+            source_url = ref.get("source_url")
+            if status != "resolved" or not source_url:
                 node_id = payload.get("id", payload_file.stem)
                 decl_name = ref.get("display_name") or ref.get("name", "?")
                 unresolved.append((node_id, decl_name, status))
@@ -183,6 +187,7 @@ def run_gate(
     render_mode: str = "smoke",
     render_pages: list[str] | None = None,
     timeout_ms: int = 30_000,
+    allow_unresolved_lean_refs: bool = False,
 ) -> GateResult:
     if render_mode not in {"smoke", "all", "none"}:
         raise ValueError("render_mode must be one of: smoke, all, none")
@@ -208,7 +213,7 @@ def run_gate(
 
         publish(knowledge_root, output_dir)
         artifacts = verify_graph_artifacts(output_dir)
-        verify_resolved_lean_links(output_dir)
+        verify_resolved_lean_links(output_dir, allow_unresolved=allow_unresolved_lean_refs)
 
         targets = _render_targets(output_dir, render_mode=render_mode, render_pages=render_pages or [])
         if targets:
@@ -258,6 +263,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--render-mode", choices=["smoke", "all", "none"], default="smoke")
     parser.add_argument("--render-page", action="append", default=[], help="relative page to render-check; may repeat")
     parser.add_argument("--timeout-ms", type=int, default=30_000)
+    parser.add_argument(
+        "--allow-unresolved-lean-refs",
+        action="store_true",
+        help="allow raw or unresolved Lean refs in generated node payloads",
+    )
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
 
     try:
@@ -270,6 +280,7 @@ def main(argv: list[str] | None = None) -> None:
             render_mode=args.render_mode,
             render_pages=args.render_page,
             timeout_ms=args.timeout_ms,
+            allow_unresolved_lean_refs=args.allow_unresolved_lean_refs,
         )
     except GateFailure as exc:
         print(str(exc), file=sys.stderr)

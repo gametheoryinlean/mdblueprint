@@ -116,9 +116,15 @@ The generated site intentionally follows leanblueprint's presentation style with
 The graph page uses browsing artifacts derived from the full graph:
 
 - `graph.json` remains the full machine graph. It preserves every parsed node and every `uses` edge in the deterministic export contract.
-- `graph_topics.json` is the default topic overview graph. It contains topic nodes, topic counts, and cross-topic edges.
-- `subgraphs/topics/<topic>.json` is a per-topic expandable browsing subgraph.
+- `graph_topics.json` is the default root topic overview graph. It contains root topic nodes, aggregate topic counts, child topic lists, and cross-root-topic edges.
+- `graph_topics_hierarchy.json` records every topic id, parent topic, child topics, aggregate node counts, status counts, and kind counts.
+- `subgraphs/topics/<topic>.json` is a per-topic expandable browsing subgraph. For non-leaf topics it includes child topic nodes and child-topic dependency edges; for leaf topics it includes node-level DAG data.
 - `node_payloads/<node>.json` is a lazy node detail payload used by graph modals after a rendered graph node is clicked.
+
+Topic ids are hierarchical. For a node id `algebra.groups.group`, the topic id
+is `algebra.groups` and the node slug is `group`. Parent topics are prefixes:
+`algebra` is the parent of `algebra.groups`. Existing two-part ids such as
+`algebra.group` remain in topic `algebra`.
 
 A topic overview edge is displayed from a dependency topic to a dependent topic.
 If any node in topic `B` uses a node in topic `A`, the topic overview displays
@@ -133,10 +139,13 @@ proof routes are visible.
 
 A per-topic subgraph contains:
 
-- internal nodes whose ids belong to the expanded topic;
+- child topic nodes when the selected topic has subtopics;
+- child-topic dependency edges displayed as `dependency child topic -> dependent child topic`;
+- child boundary topic nodes when dependencies cross out of the current topic hierarchy layer;
+- internal nodes whose ids belong exactly to a leaf expanded topic;
 - internal `uses` edges displayed as `dependency -> dependent`;
 - a boundary topic node for each external topic that supplies a prerequisite or uses an internal node;
-- dashed boundary edges connecting external topic nodes to internal nodes;
+- dashed boundary edges connecting external topic nodes to internal nodes or child topic nodes;
 - proof-plan attachments as dotted `has plan` edges, separate from `uses` edges;
 - proof-plan route dependencies as visually distinct proof-route edges when
   proof routes are visible;
@@ -148,10 +157,14 @@ stores edges as `dependent -> dependency` because that is convenient for
 validation and topological sorting, but every human-facing graph projection
 reverses the direction.
 
-The graph page keeps only one expanded topic visible at a time. Clicking a
-topic in the overview loads its `subgraphs/topics/<topic>.json` payload. Clicking
-a boundary topic switches expansion to that topic. Clicking an internal node
-loads its lazy node detail payload and opens the shared modal.
+The graph page keeps only one topic layer or expanded node-level topic visible
+at a time. Clicking a root topic in the overview loads its
+`subgraphs/topics/<topic>.json` payload. If that payload has child topics, the
+page renders the child-topic layer. Clicking a child topic descends one layer
+or opens the leaf node-level DAG. Breadcrumbs plus parent/root controls move
+back up the hierarchy. Clicking a boundary topic switches expansion to that
+topic. Clicking an internal node loads its lazy node detail payload and opens
+the shared modal.
 
 Large-topic behavior is bounded by project config. If expansion would exceed
 `graph.max_expand_nodes` or `graph.max_visible_nodes`, the page shows a fallback

@@ -310,6 +310,32 @@ a { color: var(--accent); }
   outline-offset: 2px;
 }
 
+.graph-breadcrumbs {
+  align-items: center;
+  color: #555;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  gap: 0.35rem;
+  margin: -0.25rem 0 0.75rem;
+}
+
+.graph-breadcrumbs button {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-transform: capitalize;
+}
+
+.graph-breadcrumbs button:disabled {
+  color: #555;
+  cursor: default;
+  font-weight: 700;
+}
+
 .graph-fallback {
   background: var(--panel);
   border: 1px solid var(--border);

@@ -6,12 +6,44 @@ from tools.knowledge.graph import build_graph
 from tools.knowledge.parser import scan_directory
 from tools.knowledge.export import (
     export_graph_json,
+    export_topic_hierarchy_json,
     export_topic_overview_json,
     export_topic_subgraph_json,
+    parent_topic_id,
+    topic_depth,
     write_graph_json,
+    topic_id_for_node,
+    topic_path,
+    topic_slug,
 )
 
 NODES_DIR = Path(__file__).parent / "fixtures" / "generic_knowledge" / "nodes" / "algebra"
+
+
+class TestTopicPathHelpers:
+    def test_hierarchical_topic_ids_use_all_but_node_slug(self):
+        from tools.knowledge.models import Node
+
+        assert topic_id_for_node(Node(id="algebra.group", title="Group", kind="definition", status="admitted")) == "algebra"
+        assert topic_id_for_node(Node(
+            id="game_theory.strategic.nash",
+            title="Nash",
+            kind="theorem",
+            status="admitted",
+        )) == "game_theory.strategic"
+        assert topic_id_for_node(Node(
+            id="game_theory.strategic.refinements.perfect",
+            title="Perfect",
+            kind="theorem",
+            status="admitted",
+        )) == "game_theory.strategic.refinements"
+
+    def test_topic_path_helpers_are_stable(self):
+        assert parent_topic_id("game_theory.strategic.refinements") == "game_theory.strategic"
+        assert parent_topic_id("game_theory") is None
+        assert topic_depth("game_theory.strategic.refinements") == 3
+        assert topic_slug("game_theory.strategic.refinements") == "game_theory-strategic-refinements"
+        assert topic_path("game_theory.strategic.refinements") == "game_theory/strategic/refinements"
 
 
 class TestExportGraphJson:
@@ -123,6 +155,35 @@ class TestExportGraphJson:
 
 
 class TestExportTopicOverviewJson:
+    def test_hierarchical_overview_shows_root_topics_not_leaf_subtopics(self):
+        from tools.knowledge.models import Node
+
+        zero_sum = Node(
+            id="game_theory.zero_sum.minimax",
+            title="Minimax",
+            kind="theorem",
+            status="admitted",
+        )
+        strategic = Node(
+            id="game_theory.strategic.nash",
+            title="Nash",
+            kind="theorem",
+            status="admitted",
+            uses=["game_theory.zero_sum.minimax"],
+        )
+        logic = Node(id="logic.basic.true_intro", title="Truth", kind="lemma", status="proved")
+        graph, diags = build_graph([zero_sum, strategic, logic])
+        assert diags == []
+
+        data = export_topic_overview_json(graph)
+
+        assert [topic["id"] for topic in data["topics"]] == ["game_theory", "logic"]
+        game_theory = data["topics"][0]
+        assert game_theory["node_count"] == 2
+        assert game_theory["children"] == ["game_theory.strategic", "game_theory.zero_sum"]
+        assert game_theory["href"] == "game_theory/index.html"
+        assert data["edges"] == []
+
     def test_topics_include_counts_and_cross_topic_dependency_edges(self):
         from tools.knowledge.models import Node
 
@@ -212,6 +273,110 @@ class TestExportTopicOverviewJson:
 
 
 class TestExportTopicSubgraphJson:
+    def test_parent_topic_subgraph_contains_immediate_child_topics_and_edges(self):
+        from tools.knowledge.models import Node
+
+        base = Node(
+            id="game_theory.zero_sum.minimax",
+            title="Minimax",
+            kind="theorem",
+            status="admitted",
+        )
+        nash = Node(
+            id="game_theory.strategic.nash",
+            title="Nash",
+            kind="theorem",
+            status="admitted",
+            uses=["game_theory.zero_sum.minimax"],
+        )
+        perfect = Node(
+            id="game_theory.strategic.refinements.perfect",
+            title="Perfect Equilibrium",
+            kind="theorem",
+            status="staged",
+            uses=["game_theory.strategic.nash"],
+        )
+        graph, diags = build_graph([base, nash, perfect])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "game_theory")
+
+        assert data["topic"]["id"] == "game_theory"
+        assert data["counts"]["descendant_nodes"] == 3
+        assert [topic["id"] for topic in data["child_topic_nodes"]] == [
+            "game_theory.strategic",
+            "game_theory.zero_sum",
+        ]
+        strategic = data["child_topic_nodes"][0]
+        assert strategic["parent"] == "game_theory"
+        assert strategic["node_count"] == 2
+        assert strategic["children"] == ["game_theory.strategic.refinements"]
+        assert data["child_topic_edges"] == [
+            {
+                "from": "topic:game_theory.zero_sum",
+                "to": "topic:game_theory.strategic",
+                "kind": "topic_dependency",
+                "count": 1,
+            }
+        ]
+        assert data["nodes"] == []
+
+    def test_parent_topic_subgraph_contains_boundary_topics_for_external_edges(self):
+        from tools.knowledge.models import Node
+
+        logic = Node(id="logic.order.preorder", title="Preorder", kind="definition", status="admitted")
+        base = Node(
+            id="algebra.groups.group",
+            title="Group",
+            kind="definition",
+            status="admitted",
+            uses=["logic.order.preorder"],
+        )
+        theorem = Node(
+            id="topology.groups.topological_group",
+            title="Topological Group",
+            kind="definition",
+            status="admitted",
+            uses=["algebra.groups.group"],
+        )
+        graph, diags = build_graph([logic, base, theorem])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+
+        assert data["child_boundary_topics"] == [
+            {
+                "id": "logic.order",
+                "title": "Logic.Order",
+                "href": "logic/order/index.html",
+                "role": "dependency",
+                "node_count": 1,
+            },
+            {
+                "id": "topology.groups",
+                "title": "Topology.Groups",
+                "href": "topology/groups/index.html",
+                "role": "dependent",
+                "node_count": 1,
+            },
+        ]
+        assert data["child_boundary_edges"] == [
+            {
+                "from": "topic:logic.order",
+                "to": "topic:algebra.groups",
+                "kind": "boundary_dependency",
+                "topic": "logic.order",
+                "count": 1,
+            },
+            {
+                "from": "topic:algebra.groups",
+                "to": "topic:topology.groups",
+                "kind": "boundary_dependent",
+                "topic": "topology.groups",
+                "count": 1,
+            },
+        ]
+
     def test_topic_subgraph_contains_internal_nodes_and_edges(self):
         from tools.knowledge.models import Node
 
@@ -242,6 +407,29 @@ class TestExportTopicSubgraphJson:
         ]
         assert data["boundary_topics"] == []
         assert data["boundary_edges"] == []
+
+    def test_hierarchy_artifact_includes_ancestor_topics_without_direct_nodes(self):
+        from tools.knowledge.models import Node
+
+        nodes = [
+            Node(id="game_theory.strategic.nash", title="Nash", kind="theorem", status="admitted"),
+            Node(id="game_theory.strategic.refinements.perfect", title="Perfect", kind="theorem", status="staged"),
+            Node(id="game_theory.zero_sum.minimax", title="Minimax", kind="theorem", status="proved"),
+        ]
+        graph, diags = build_graph(nodes)
+        assert diags == []
+
+        data = export_topic_hierarchy_json(graph)
+
+        assert [topic["id"] for topic in data["roots"]] == ["game_theory"]
+        assert data["topics"]["game_theory"]["node_count"] == 3
+        assert data["topics"]["game_theory"]["children"] == [
+            "game_theory.strategic",
+            "game_theory.zero_sum",
+        ]
+        assert data["topics"]["game_theory.strategic"]["children"] == [
+            "game_theory.strategic.refinements"
+        ]
 
     def test_topic_subgraph_contains_dependency_and_dependent_boundary_topics(self):
         from tools.knowledge.models import Node

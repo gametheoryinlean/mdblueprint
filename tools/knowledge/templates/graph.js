@@ -49,6 +49,7 @@
     nodePayloadUrls: new Map(),
     nodePayloadCache: new Map(),
     expandedTopic: null,
+    currentTopicLayer: null,
     currentTopicSubgraph: null,
     proofPlanMode: null,
   };
@@ -196,6 +197,44 @@ ${topic.role.replace(/_/g, " ")}`;
     return lines.join("\n");
   }
 
+  function topicLayerToDot(data) {
+    const lines = [
+      'strict digraph "" {',
+      "\tgraph [bgcolor=transparent];",
+      '\tnode [label="\\N", penwidth=1.8, shape=box];',
+      "\tedge [arrowhead=vee];",
+    ];
+    (data.child_topic_nodes || []).forEach((topic) => {
+      const label = topic.title;
+      lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
+        label,
+        shape: "box",
+        URL: `#${topicGraphId(topic.id)}`,
+      })}];`);
+    });
+    (data.child_boundary_topics || []).forEach((topic) => {
+      const label = `${topic.title}
+${topic.role.replace(/_/g, " ")}`;
+      lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
+        color: "#777777",
+        label,
+        shape: "box",
+        style: "dashed",
+        URL: `#${topicGraphId(topic.id)}`,
+      })}];`);
+    });
+    (data.child_topic_edges || []).forEach((edge) => {
+      lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes({
+        style: "dashed",
+      })}];`);
+    });
+    (data.child_boundary_edges || []).forEach((edge) => {
+      lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes(boundaryEdgeDisplayAttributes(edge))}];`);
+    });
+    lines.push("}");
+    return lines.join("\n");
+  }
+
   function bindGraphInteractions() {
     document.querySelectorAll("#graph .node").forEach((node) => {
       const graphNodeId = node.querySelector("title")?.textContent?.trim();
@@ -296,11 +335,57 @@ ${topic.role.replace(/_/g, " ")}`;
 
   function updateGraphNavigationControls(mode) {
     const overviewButton = document.getElementById("graph-overview-button");
+    const parentButton = document.getElementById("graph-parent-button");
     const resetButton = document.getElementById("graph-reset-view-button");
     const isOverview = mode === "topic-overview";
     const isFallback = mode === "topic-fallback";
     if (overviewButton) overviewButton.hidden = isOverview;
+    if (parentButton) {
+      const topic = graphState.currentTopicLayer?.topic || graphState.currentTopicSubgraph?.topic || null;
+      parentButton.hidden = isOverview || !topic?.parent;
+    }
     if (resetButton) resetButton.hidden = isFallback;
+  }
+
+  function topicPathIds(topicId) {
+    if (!topicId) return [];
+    const parts = topicId.split(".");
+    return parts.map((_, index) => parts.slice(0, index + 1).join("."));
+  }
+
+  function updateGraphBreadcrumbs(topic) {
+    const nav = document.getElementById("graph-breadcrumbs");
+    if (!nav) return;
+    nav.replaceChildren();
+    if (!topic) {
+      nav.hidden = true;
+      return;
+    }
+    const rootButton = document.createElement("button");
+    rootButton.type = "button";
+    rootButton.textContent = "Topic overview";
+    rootButton.addEventListener("click", () => {
+      goToTopicOverview().catch((error) => {
+        const graphElement = document.getElementById("graph");
+        if (graphElement) graphElement.textContent = error.message;
+      });
+    });
+    nav.append(rootButton);
+    topicPathIds(topic.id).forEach((topicId) => {
+      const separator = document.createElement("span");
+      separator.textContent = "/";
+      separator.setAttribute("aria-hidden", "true");
+      nav.append(separator);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = topicId.split(".").at(-1).replace(/[_-]/g, " ");
+      button.disabled = topicId === topic.id;
+      button.addEventListener("click", () => {
+        handleTopicActivation(topicId);
+      });
+      nav.append(button);
+    });
+    nav.hidden = false;
   }
 
   function showOversizedTopicFallback(data) {
@@ -343,20 +428,37 @@ ${topic.role.replace(/_/g, " ")}`;
   function renderExpandedTopic(subgraph) {
     const graphElement = document.getElementById("graph");
     if (!graphElement || !subgraph?.topic) return;
+    graphState.currentTopicLayer = null;
     graphState.currentTopicSubgraph = subgraph;
     graphState.expandedTopic = subgraph.topic.id;
     graphElement.dataset.expandedTopic = subgraph.topic.id;
     if (exceedsTopicExpansionLimits(subgraph)) {
       graphElement.dataset.graphMode = "topic-fallback";
       updateGraphNavigationControls("topic-fallback");
+      updateGraphBreadcrumbs(subgraph.topic);
       updateProofPlanControls(false);
       showOversizedTopicFallback(subgraph);
       return;
     }
     graphElement.dataset.graphMode = "topic-expanded";
     updateGraphNavigationControls("topic-expanded");
+    updateGraphBreadcrumbs(subgraph.topic);
     updateProofPlanControls(true);
     renderDot(topicSubgraphToDot(subgraph));
+  }
+
+  function renderTopicLayer(subgraph) {
+    const graphElement = document.getElementById("graph");
+    if (!graphElement || !subgraph?.topic) return;
+    graphState.currentTopicLayer = subgraph;
+    graphState.currentTopicSubgraph = null;
+    graphState.expandedTopic = subgraph.topic.id;
+    graphElement.dataset.expandedTopic = subgraph.topic.id;
+    graphElement.dataset.graphMode = "topic-layer";
+    updateGraphNavigationControls("topic-layer");
+    updateGraphBreadcrumbs(subgraph.topic);
+    updateProofPlanControls(false);
+    renderDot(topicLayerToDot(subgraph));
   }
 
   function setProofPlanMode(mode) {
@@ -549,7 +651,11 @@ ${topic.role.replace(/_/g, " ")}`;
         return;
       }
       const subgraph = await fetchTopicSubgraph(topicId);
-      renderExpandedTopic(subgraph);
+      if ((subgraph.child_topic_nodes || []).length) {
+        renderTopicLayer(subgraph);
+      } else {
+        renderExpandedTopic(subgraph);
+      }
     } catch (error) {
       hideGraphFallback();
       graphElement.textContent = error.message;
@@ -560,12 +666,23 @@ ${topic.role.replace(/_/g, " ")}`;
     const graphElement = document.getElementById("graph");
     if (!graphElement || !graphState.topicOverview) return;
     graphState.expandedTopic = null;
+    graphState.currentTopicLayer = null;
     graphState.currentTopicSubgraph = null;
     graphElement.dataset.graphMode = "topic-overview";
     delete graphElement.dataset.expandedTopic;
     updateGraphNavigationControls("topic-overview");
+    updateGraphBreadcrumbs(null);
     updateProofPlanControls(false);
     renderDot(topicOverviewToDot(graphState.topicOverview));
+  }
+
+  async function goToParentTopic() {
+    const topic = graphState.currentTopicLayer?.topic || graphState.currentTopicSubgraph?.topic || null;
+    if (!topic?.parent) {
+      await goToTopicOverview();
+      return;
+    }
+    await handleTopicActivation(topic.parent);
   }
 
   window.addEventListener("DOMContentLoaded", () => {
@@ -589,6 +706,12 @@ ${topic.role.replace(/_/g, " ")}`;
     });
     document.getElementById("graph-overview-button")?.addEventListener("click", () => {
       goToTopicOverview().catch((error) => {
+        const graphElement = document.getElementById("graph");
+        if (graphElement) graphElement.textContent = error.message;
+      });
+    });
+    document.getElementById("graph-parent-button")?.addEventListener("click", () => {
+      goToParentTopic().catch((error) => {
         const graphElement = document.getElementById("graph");
         if (graphElement) graphElement.textContent = error.message;
       });

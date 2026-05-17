@@ -182,11 +182,18 @@ class TestExampleCorpusPublish:
         graph_js = (tmp_path / "site" / "graph.js").read_text()
 
         assert 'id="graph-overview-button"' in graph_page
+        assert 'id="graph-parent-button"' in graph_page
+        assert 'id="graph-breadcrumbs"' in graph_page
         assert 'id="graph-reset-view-button"' in graph_page
         assert "topicSubgraphBaseUrl" in graph_page
         assert "graphState" in graph_js
         assert "expandedTopic" in graph_js
+        assert "currentTopicLayer" in graph_js
         assert "fetchTopicSubgraph" in graph_js
+        assert "topicLayerToDot" in graph_js
+        assert "renderTopicLayer" in graph_js
+        assert "goToParentTopic" in graph_js
+        assert "updateGraphBreadcrumbs" in graph_js
         assert "topicSubgraphToDot" in graph_js
         assert "handleTopicActivation" in graph_js
         assert "goToTopicOverview" in graph_js
@@ -222,6 +229,41 @@ class TestExampleCorpusPublish:
         data = export_topic_subgraph_json(graph, "algebra")
         assert "child_topics" in data
         assert data["child_topics"] == []
+
+    def test_hierarchical_topic_ids_publish_nested_topic_and_node_paths(self, tmp_path):
+        knowledge = tmp_path / "knowledge"
+        node_dir = knowledge / "nodes" / "game_theory" / "strategic"
+        node_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text("site:\n  title: Hierarchy Fixture\n", encoding="utf-8")
+        (node_dir / "nash.md").write_text(
+            textwrap.dedent(
+                """
+                ---
+                id: game_theory.strategic.nash
+                title: Nash Equilibrium
+                kind: theorem
+                status: admitted
+                uses: []
+                ---
+
+                # Nash Equilibrium
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+
+        publish(knowledge, tmp_path / "site")
+        site = tmp_path / "site"
+
+        assert (site / "game_theory" / "index.html").exists()
+        assert (site / "game_theory" / "strategic" / "index.html").exists()
+        assert (site / "game_theory" / "strategic" / "game_theory_strategic_nash.html").exists()
+        assert (site / "subgraphs" / "topics" / "game_theory.json").exists()
+        assert (site / "subgraphs" / "topics" / "game_theory.strategic.json").exists()
+
+        overview = json.loads((site / "graph_topics.json").read_text())
+        assert overview["topics"][0]["id"] == "game_theory"
+        assert overview["topics"][0]["children"] == ["game_theory.strategic"]
 
     def test_dot_label_uses_real_newlines_not_double_escaped_sequences(self, tmp_path):
         graph_js = (ROOT / "tools" / "knowledge" / "templates" / "graph.js").read_text()
