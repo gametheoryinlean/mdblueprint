@@ -15,6 +15,7 @@ agents can work on it at the same time without sharing hidden state.
   `AGENTS.md`.
 - Detailed agent role contracts: [`docs/agent-contracts.md`](docs/agent-contracts.md).
 - Skills and how to install/use them: [`docs/skills.md`](docs/skills.md).
+- GitHub Actions publishing setup: [`docs/github-integration.md`](docs/github-integration.md).
 
 When in doubt, an agent should read `AGENTS.md` first, then the specific docs for
 the files it plans to edit.
@@ -327,6 +328,7 @@ tools/knowledge/
 
 docs/
   architecture.md
+  github-integration.md
   lean-repositories.md
   math-authoring.md
   node-format.md
