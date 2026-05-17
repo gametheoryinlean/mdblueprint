@@ -63,6 +63,27 @@ def _titleize(value: str) -> str:
     return titleize_topic(value)
 
 
+def _build_topic_tree(topic_names: list[str]) -> list[dict]:
+    """Build a nested list of topic dicts from a sorted flat topic list.
+
+    Each dict has ``id``, ``label`` (display name), and ``children`` (list).
+    """
+    tree: dict[str, dict] = {}
+    roots: list[dict] = []
+    for topic_id in topic_names:
+        parts = topic_id.split(".")
+        label = parts[-1].replace("_", " ").title()
+        node: dict = {"id": topic_id, "label": label, "children": []}
+        tree[topic_id] = node
+        if len(parts) == 1:
+            roots.append(node)
+        else:
+            parent_id = ".".join(parts[:-1])
+            if parent_id in tree:
+                tree[parent_id]["children"].append(node)
+    return roots
+
+
 def _split_proof_markdown(body: str) -> tuple[str, str | None]:
     match = PROOF_MARKER_RE.search(body)
     if match is None:
@@ -307,6 +328,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
             topics[topic].append(node)
 
     topic_names = sorted(topics.keys())
+    topic_tree = _build_topic_tree(topic_names)
     keywords: dict[str, list] = defaultdict(list)
     for node in all_nodes:
         for tag in node.tags:
@@ -394,6 +416,8 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
             title="Home",
             root="",
             topics=topic_names,
+            topic_tree=topic_tree,
+            active_topic="",
             keywords=keyword_names,
             topic_groups=topic_groups,
             node_count=len(all_nodes),
@@ -408,6 +432,8 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         title="Dependency graph",
         root="",
         topics=topic_names,
+        topic_tree=topic_tree,
+        active_topic="",
         keywords=keyword_names,
         graph_config_json=json.dumps({
             "topicOverviewUrl": "graph_topics.json",
@@ -438,6 +464,8 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                 title=f"Keyword: {keyword}",
                 root="../",
                 topics=topic_names,
+                topic_tree=topic_tree,
+                active_topic="",
                 keywords=keyword_names,
                 keyword=keyword,
                 nodes=[
@@ -461,6 +489,8 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                 title=topic,
                 root=root,
                 topics=topic_names,
+                topic_tree=topic_tree,
+                active_topic=topic,
                 keywords=keyword_names,
                 topic=topic,
                 topic_title=_titleize(topic),
@@ -485,6 +515,8 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                     title=node.title,
                     root=root,
                     topics=topic_names,
+                    topic_tree=topic_tree,
+                    active_topic=topic,
                     keywords=keyword_names,
                     node=node,
                     node_view=payload["view"],

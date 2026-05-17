@@ -129,6 +129,64 @@ issue or explicitly named file set.
   publisher.
 - Close an issue only after the relevant tests, checks, or gate commands pass.
 
+## GitHub Issue Workflow
+
+GitHub issues are the coordination queue for this project. Agents read issues
+to understand scope and write back to close the loop.
+
+### Authentication
+
+`gh` requires a token. Load it from the environment before any `gh` command:
+
+```bash
+# Token is stored in ~/.zshrc as GH_TOKEN
+source ~/.zshrc
+```
+
+The repo slug is `gametheoryinlean/mdblueprint`.
+
+### Reading Issues
+
+```bash
+# List all open issues
+gh issue list --repo gametheoryinlean/mdblueprint --state open
+
+# Read a specific issue (full body + comments)
+gh issue view <number> --repo gametheoryinlean/mdblueprint --comments
+
+# Search for related issues
+gh issue list --repo gametheoryinlean/mdblueprint --search "keyword" --state all
+```
+
+### Writing to Issues
+
+```bash
+# Add a label
+gh issue edit <number> --repo gametheoryinlean/mdblueprint --add-label "bug"
+
+# Post a comment (progress update, question, or resolution note)
+gh issue comment <number> --repo gametheoryinlean/mdblueprint \
+  --body "Implemented in commit abc1234. Tests pass."
+
+# Close an issue after verification
+gh issue close <number> --repo gametheoryinlean/mdblueprint \
+  --comment "Resolved: <brief explanation>"
+```
+
+Close an issue **only after** the relevant tests, checks, or gate commands pass.
+
+### Pull Requests
+
+```bash
+# Create a PR targeting main
+gh pr create --repo gametheoryinlean/mdblueprint \
+  --title "feat: description" \
+  --body "Closes #<number>. <summary of changes and test plan>"
+
+# Check CI status on a PR
+gh pr checks <number> --repo gametheoryinlean/mdblueprint
+```
+
 ## GitHub Sync Contract
 
 `main` is the shared integration branch. Keep it fast-forwardable.

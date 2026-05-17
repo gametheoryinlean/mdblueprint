@@ -613,3 +613,77 @@ class TestGenericPublish:
         assert r"\((I, (S_i)_{i \in I}, (u_i)_{i \in I})\)" in graph_payload["body_html"]
         assert "<em>" not in node_page
         assert "<em>" not in graph_payload["body_html"]
+
+
+class TestBuildTopicTree:
+    """Tests for Issue #81: hierarchical sidebar topic tree."""
+
+    def _tree(self, names):
+        from tools.knowledge.publish import _build_topic_tree
+        return _build_topic_tree(names)
+
+    def test_flat_topics_become_roots(self):
+        tree = self._tree(["algebra", "logic"])
+        assert [n["id"] for n in tree] == ["algebra", "logic"]
+        assert tree[0]["children"] == []
+
+    def test_nested_topics_become_children(self):
+        tree = self._tree(["algebra", "algebra.group", "algebra.ring", "logic"])
+        assert len(tree) == 2
+        algebra = tree[0]
+        assert algebra["id"] == "algebra"
+        assert [c["id"] for c in algebra["children"]] == ["algebra.group", "algebra.ring"]
+        assert tree[1]["id"] == "logic"
+
+    def test_three_level_hierarchy(self):
+        tree = self._tree(["a", "a.b", "a.b.c"])
+        assert tree[0]["id"] == "a"
+        assert tree[0]["children"][0]["id"] == "a.b"
+        assert tree[0]["children"][0]["children"][0]["id"] == "a.b.c"
+
+    def test_label_is_last_segment_titleized(self):
+        tree = self._tree(["mechanism_design", "mechanism_design.basic"])
+        assert tree[0]["label"] == "Mechanism Design"
+        assert tree[0]["children"][0]["label"] == "Basic"
+
+    def test_sidebar_html_contains_nested_structure(self, tmp_path):
+        from tools.knowledge.publish import publish
+
+        knowledge = tmp_path / "knowledge"
+        nodes_dir = knowledge / "nodes" / "algebra" / "group"
+        nodes_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text(
+            "site:\n  title: Test\n  base_url: http://localhost\n"
+        )
+        (nodes_dir / "group.md").write_text(
+            "---\nid: algebra.group.definition\ntitle: Group\nkind: definition\n"
+            "status: admitted\n---\n\n# Group\n\nA group is a set.\n"
+        )
+        publish(knowledge, tmp_path / "site")
+        sidebar = (tmp_path / "site" / "algebra" / "group" / "index.html").read_text()
+        assert "details" in sidebar
+        assert "algebra" in sidebar.lower()
+
+    def test_active_topic_details_is_open(self, tmp_path):
+        from tools.knowledge.publish import publish
+
+        knowledge = tmp_path / "knowledge"
+        nodes_dir = knowledge / "nodes" / "algebra" / "group"
+        nodes_dir.mkdir(parents=True)
+        other_dir = knowledge / "nodes" / "logic"
+        other_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text(
+            "site:\n  title: Test\n  base_url: http://localhost\n"
+        )
+        (nodes_dir / "group.md").write_text(
+            "---\nid: algebra.group.def\ntitle: Group\nkind: definition\n"
+            "status: admitted\n---\n\n# Group\n\nA group.\n"
+        )
+        (other_dir / "truth.md").write_text(
+            "---\nid: logic.truth\ntitle: Truth\nkind: lemma\n"
+            "status: admitted\n---\n\n# Truth\n\nTrue.\n"
+        )
+        publish(knowledge, tmp_path / "site")
+        page = (tmp_path / "site" / "algebra" / "group" / "index.html").read_text()
+        assert "details" in page
+        assert "open" in page

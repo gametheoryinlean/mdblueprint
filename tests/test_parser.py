@@ -131,3 +131,73 @@ class TestParseNode:
         assert "algebra.group" in ids
         assert "algebra.group_homomorphism" in ids
         assert len(nodes) == 4
+
+    def test_scan_directory_skips_topics_md(self, tmp_path):
+        node_md = tmp_path / "algebra" / "group.md"
+        node_md.parent.mkdir(parents=True)
+        node_md.write_text(
+            "---\nid: algebra.group\ntitle: Group\nkind: definition\nstatus: admitted\n---\n\n# Group\n"
+        )
+        (tmp_path / "algebra" / "topics.md").write_text(
+            "# algebra Topic Catalog\n\n- `algebra.group` - group theory.\n"
+        )
+        (tmp_path / "topics.md").write_text("# Root Topic Catalog\n")
+
+        nodes = scan_directory(tmp_path)
+        assert [n.id for n in nodes] == ["algebra.group"]
+
+    def test_parse_topics_field(self):
+        node = parse_node(
+            "---\n"
+            "id: algebra.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "topics:\n"
+            "  - algebra\n"
+            "  - linear_algebra\n"
+            "---\n\n"
+            "# Group\n"
+        )
+        assert node.topics == ["algebra", "linear_algebra"]
+
+    def test_parse_primary_topic_field(self):
+        node = parse_node(
+            "---\n"
+            "id: algebra.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "primary_topic: algebra\n"
+            "topics:\n"
+            "  - algebra\n"
+            "  - linear_algebra\n"
+            "---\n\n"
+            "# Group\n"
+        )
+        assert node.primary_topic == "algebra"
+        assert node.topics == ["algebra", "linear_algebra"]
+
+    def test_parse_primary_topic_absent_defaults_to_none(self):
+        node = parse_node(
+            "---\n"
+            "id: algebra.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "---\n\n"
+            "# Group\n"
+        )
+        assert node.primary_topic is None
+
+    def test_parse_topics_field_absent_defaults_to_empty(self):
+        node = parse_node(
+            "---\n"
+            "id: algebra.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "---\n\n"
+            "# Group\n"
+        )
+        assert node.topics == []

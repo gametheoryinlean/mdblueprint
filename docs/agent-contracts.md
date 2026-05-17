@@ -53,6 +53,8 @@ The Markdown body of a report can explain reasons, but the decision must be mach
 | Source-to-MD | Extract staged nodes from sources | `docs/knowledge/staged/`, `docs/knowledge/reviews/` | `docs/knowledge/nodes/` |
 | Definition/Statement Verifier | Review statement correctness and generality | `docs/knowledge/reviews/` | admitted nodes |
 | Proof Verifier | Review proof body or proof sketch | `docs/knowledge/reviews/` | admitted nodes |
+| Proof-Fill Generator | Generate a local proof for one node | candidate proof text (in-memory until verifier accepts) | any file directly |
+| Proof-Fill Verifier | Independently verify the candidate proof | node body + `verification.proof` only on `accepted` | any file if verdict is `gap` or `critical` |
 | MD-to-Lean Generator | Generate Lean proposal from admitted nodes | Lean patch proposal, `docs/knowledge/requests/` | admitted nodes without request |
 | MD-Lean Alignment Verifier | Judge semantic alignment | `docs/knowledge/reviews/` | final status directly |
 | Admission Referee | Decide whether reports justify admission | admission report, optional controlled move | direct mathematical rewriting without record |
@@ -288,6 +290,92 @@ Rules:
 - It must not admit a node if dependencies are missing or cyclic.
 - It must not admit a node without a completed generality gate.
 - If reports disagree, it should request human decision instead of resolving silently.
+
+## 7. Proof-Fill Agents
+
+The proof-fill agents handle a bounded repair loop that fills a single, local
+natural-language proof gap. They are invoked only after the statement verifier
+has accepted the node and the proof verifier has returned `gap` for a step that
+can be completed from the node's existing `uses` list.
+
+### 7.1 Proof-Fill Generator
+
+Purpose: write a short local proof for the target node using only facts already
+listed in the node's `uses` field.
+
+Inputs:
+
+- target node frontmatter and body;
+- body text of every dependency listed in `uses`;
+- optional `repair_hint` from the verifier (on a repair round).
+
+Outputs:
+
+- JSON object with fields `decision`, `proof`, `reason`, `used_node_ids`;
+- proof text is held in memory until the verifier accepts it.
+
+Decision vocabulary:
+
+```text
+filled
+cannot_fill
+```
+
+May propose new nodes: no. It must not add entries to `uses`, change the
+statement, or name facts outside the supplied context.
+
+Rules:
+
+- The target node's statement is authoritative and fixed.
+- Proof text must be valid Markdown with no placeholders or ellipses.
+- If a valid local proof cannot be written from the allowed context, it must
+  return `cannot_fill` with a reason.
+
+### 7.2 Proof-Fill Verifier
+
+Purpose: independently verify the candidate proof without access to the
+generator's reasoning chain.
+
+Inputs:
+
+- target node frontmatter and body (same bundle as given to the generator);
+- allowed dependency bodies;
+- candidate proof text only (no generator context or chain-of-thought).
+
+Outputs:
+
+- JSON object with fields `verdict`, `verification_report`, `gaps`,
+  `critical_errors`, `repair_hint`;
+- on `accepted`: the node body and `verification.proof: accepted` may be
+  written by the invoking workflow.
+
+Decision vocabulary:
+
+```text
+accepted
+gap
+critical
+```
+
+May propose new nodes: no.
+
+Rules:
+
+- It must verify the proof sequentially, step by step.
+- It must reject any use of facts not present in the allowed dependencies.
+- It must not be called with the generator's chain-of-thought visible.
+- `gap` means a fixable missing step; a `repair_hint` must be included.
+- `critical` means a fundamental error requiring human review; no repair loop
+  should continue.
+- The verifier writes to the node body only when `verdict` is `accepted` and
+  is invoked through the skill workflow.
+
+Repair loop:
+
+- The invoking skill passes `repair_hint` back to the generator for at most
+  two repair rounds, then re-verifies.
+- If `verdict` is still not `accepted` after two rounds, a failure report is
+  written under `docs/knowledge/reviews/` and the node is not edited.
 
 ## PDF and Source Extraction
 

@@ -31,8 +31,25 @@
         <span class="toggle-icon" aria-hidden="true">▾</span> Topics
       </button>
       <ul id="topic-list" class="topic-list nav-list">
-      {% for topic in topics %}
-        <li><a href="{{ root }}{{ topic_path(topic) }}/index.html">{{ topic }}</a></li>
+      {%- macro render_topic(node) -%}
+        {%- set is_active = active_topic == node.id or (active_topic and active_topic.startswith(node.id + '.')) -%}
+        {%- if node.children -%}
+        <li class="topic-parent{% if is_active %} topic-active{% endif %}">
+          <details{% if is_active %} open{% endif %} data-topic-root="{{ node.id }}">
+            <summary><a href="{{ root }}{{ topic_path(node.id) }}/index.html">{{ node.label }}</a></summary>
+            <ul class="topic-children">
+              {%- for child in node.children -%}{{ render_topic(child) }}{%- endfor -%}
+            </ul>
+          </details>
+        </li>
+        {%- else -%}
+        <li class="topic-leaf{% if is_active %} topic-active{% endif %}">
+          <a href="{{ root }}{{ topic_path(node.id) }}/index.html">{{ node.label }}</a>
+        </li>
+        {%- endif -%}
+      {%- endmacro -%}
+      {% for root_node in topic_tree %}
+        {{ render_topic(root_node) }}
       {% endfor %}
       </ul>
     </section>
@@ -55,19 +72,37 @@
   <script src="{{ root }}graph.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Global Topics section toggle
       var btn = document.querySelector('.sidebar-toggle');
       var list = document.getElementById('topic-list');
-      if (!btn || !list) return;
-      var stored = localStorage.getItem('sidebar-topics-folded');
-      var folded = stored === 'true';
-      list.hidden = folded;
-      btn.setAttribute('aria-expanded', String(!folded));
-      btn.addEventListener('click', function() {
-        folded = !folded;
+      if (btn && list) {
+        var stored = localStorage.getItem('sidebar-topics-folded');
+        var folded = stored === 'true';
         list.hidden = folded;
         btn.setAttribute('aria-expanded', String(!folded));
-        localStorage.setItem('sidebar-topics-folded', String(folded));
+        btn.addEventListener('click', function() {
+          folded = !folded;
+          list.hidden = folded;
+          btn.setAttribute('aria-expanded', String(!folded));
+          localStorage.setItem('sidebar-topics-folded', String(folded));
+        });
+      }
+
+      // Per-root-topic <details> fold state via localStorage
+      document.querySelectorAll('details[data-topic-root]').forEach(function(details) {
+        var rootId = details.getAttribute('data-topic-root');
+        var key = 'sidebar-topic-open-' + rootId;
+        // Only restore if localStorage has an explicit stored value (don't override active-path open)
+        var stored = localStorage.getItem(key);
+        if (stored !== null) {
+          details.open = stored === 'true';
+        }
+        details.addEventListener('toggle', function() {
+          localStorage.setItem(key, String(details.open));
+        });
       });
+
+      // Keywords section toggle
       var keywordBtn = document.querySelector('.sidebar-toggle-keywords');
       var keywordList = document.getElementById('keyword-list');
       if (keywordBtn && keywordList) {
