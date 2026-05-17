@@ -131,4 +131,15 @@ def validate_node(node: Node, *, is_staged_dir: bool = False) -> list[Diagnostic
         if not node.uses and node.uses != []:
             warn("admitted node missing 'uses' field")
 
+    # Topic membership consistency
+    if node.topics:
+        for t in node.topics:
+            if not isinstance(t, str) or not t.strip():
+                err("topics entries must be non-empty strings")
+        if node.primary_topic and node.primary_topic not in node.topics:
+            err(f"primary_topic {node.primary_topic!r} must be listed in topics")
+    if node.primary_topic:
+        if not isinstance(node.primary_topic, str) or not node.primary_topic.strip():
+            err("primary_topic must be a non-empty string")
+
     return diags

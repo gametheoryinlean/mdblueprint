@@ -161,6 +161,35 @@ class TestParseNode:
         )
         assert node.topics == ["algebra", "linear_algebra"]
 
+    def test_parse_primary_topic_field(self):
+        node = parse_node(
+            "---\n"
+            "id: algebra.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "primary_topic: algebra\n"
+            "topics:\n"
+            "  - algebra\n"
+            "  - linear_algebra\n"
+            "---\n\n"
+            "# Group\n"
+        )
+        assert node.primary_topic == "algebra"
+        assert node.topics == ["algebra", "linear_algebra"]
+
+    def test_parse_primary_topic_absent_defaults_to_none(self):
+        node = parse_node(
+            "---\n"
+            "id: algebra.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "---\n\n"
+            "# Group\n"
+        )
+        assert node.primary_topic is None
+
     def test_parse_topics_field_absent_defaults_to_empty(self):
         node = parse_node(
             "---\n"

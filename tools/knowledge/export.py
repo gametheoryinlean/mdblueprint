@@ -19,15 +19,25 @@ def topic_id_for_node(node: Node) -> str:
     return ".".join(parts[:-1])
 
 
-def leaf_topic_ids_for_node(node: Node) -> list[str]:
-    """Return the leaf topic IDs this node belongs to.
+def home_topic_for_node(node: Node) -> str:
+    """Return the single home/canonical topic for a node.
 
-    Uses the explicit ``topics`` list when present; falls back to the
-    ID-derived topic so existing nodes without the field are unaffected.
+    Uses ``primary_topic`` when set; falls back to the ID-derived topic.
+    """
+    if node.primary_topic:
+        return node.primary_topic
+    return topic_id_for_node(node)
+
+
+def leaf_topic_ids_for_node(node: Node) -> list[str]:
+    """Return all leaf topic IDs this node belongs to (for graph/index views).
+
+    Uses the explicit ``topics`` list when present; falls back to the home
+    topic so existing nodes without the field are unaffected.
     """
     if node.topics:
         return list(node.topics)
-    return [topic_id_for_node(node)]
+    return [home_topic_for_node(node)]
 
 
 def parent_topic_id(topic_id: str) -> str | None:
@@ -133,6 +143,8 @@ def export_graph_json(g: KnowledgeGraph) -> dict:
         }
         if node.tags:
             entry["tags"] = node.tags
+        if node.primary_topic:
+            entry["primary_topic"] = node.primary_topic
         if node.topics:
             entry["topics"] = node.topics
         if node.target:

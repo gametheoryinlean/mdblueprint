@@ -91,6 +91,7 @@ def parse_node(text: str, file_path: Path | None = None) -> Node:
         verification=_parse_verification(fm.get("verification")),
         generality=_parse_generality(fm.get("generality")),
         tags=fm.get("tags") or [],
+        primary_topic=fm.get("primary_topic") or None,
         topics=fm.get("topics") or [],
         body=body.strip(),
         file_path=file_path,

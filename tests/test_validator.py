@@ -176,6 +176,34 @@ class TestDiagnosticStr:
         assert "[WARNING] test.node: test msg" == str(d)
 
 
+class TestTopicMembership:
+    def _node(self, **kwargs):
+        from tools.knowledge.models import Node
+        return Node(id="t.x", title="X", kind="definition", status="admitted", **kwargs)
+
+    def test_primary_topic_not_in_topics_is_error(self):
+        node = self._node(primary_topic="algebra", topics=["linear_programming"])
+        diags = validate_node(node)
+        assert any("primary_topic" in d.message and d.level == "error" for d in diags)
+
+    def test_primary_topic_in_topics_is_valid(self):
+        node = self._node(primary_topic="algebra", topics=["algebra", "linear_programming"])
+        diags = validate_node(node)
+        errors = [d for d in diags if d.level == "error"]
+        assert errors == []
+
+    def test_topics_without_primary_topic_is_valid(self):
+        node = self._node(topics=["algebra", "linear_programming"])
+        diags = validate_node(node)
+        errors = [d for d in diags if d.level == "error"]
+        assert errors == []
+
+    def test_empty_string_in_topics_is_error(self):
+        node = self._node(topics=["algebra", ""])
+        diags = validate_node(node)
+        assert any("topics entries" in d.message and d.level == "error" for d in diags)
+
+
 class TestSourceSpanFormat:
     def test_unknown_locator_format_warns(self):
         text = (
