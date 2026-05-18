@@ -164,6 +164,44 @@ class TestExternalTheorem:
         assert any("external-theorem" in d.message and "lean" in d.message for d in diags)
 
 
+class TestLeanStatusPolicy:
+    def test_admitted_theorem_without_lean_is_valid(self):
+        text = (
+            "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: admitted\nuses: []\n"
+            "verification:\n  statement: accepted\n  proof: accepted\n"
+            "---\n\n# X\n\n*Proof.* Done.\n"
+        )
+        node = parse_node(text)
+        errors = [d for d in validate_node(node) if d.level == "error"]
+        assert errors == []
+
+    def test_formalized_without_lean_is_error(self):
+        node = parse_node("---\nid: t.x\ntitle: X\nkind: theorem\nstatus: formalized\nuses: []\n---\n\n# X\n")
+        assert any("formalized" in d.message and "lean" in d.message for d in validate_node(node))
+
+    def test_proved_without_lean_is_error(self):
+        node = parse_node("---\nid: t.x\ntitle: X\nkind: theorem\nstatus: proved\nuses: []\n---\n\n# X\n")
+        assert any("proved" in d.message and "lean" in d.message for d in validate_node(node))
+
+    def test_alignment_without_lean_is_error(self):
+        node = parse_node(
+            "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: admitted\nuses: []\n"
+            "verification:\n  statement: accepted\n  proof: accepted\n  alignment: aligned\n"
+            "---\n\n# X\n\n*Proof.* Done.\n"
+        )
+        assert any("alignment" in d.message and "lean" in d.message for d in validate_node(node))
+
+    def test_staged_alignment_without_lean_is_warning_not_error(self):
+        node = parse_node(
+            "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: staged\nuses: []\n"
+            "verification:\n  statement: accepted\n  alignment: aligned\n"
+            "---\n\n# X\n"
+        )
+        diags = validate_node(node, is_staged_dir=True)
+        assert not any(d.level == "error" for d in diags)
+        assert any(d.level == "warning" and "alignment" in d.message for d in diags)
+
+
 class TestDiagnosticStr:
     def test_with_file_path(self):
         from tools.knowledge.validator import Diagnostic

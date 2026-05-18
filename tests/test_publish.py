@@ -688,6 +688,14 @@ class TestBuildTopicTree:
         assert "details" in page
         assert "open" in page
 
+    def test_sidebar_child_topic_css_removes_nested_bullets(self):
+        css = (ROOT / "tools" / "knowledge" / "templates" / "style.css").read_text()
+
+        assert ".topic-children" in css
+        assert "list-style: none" in css
+        assert ".topic-children li::marker" in css
+        assert "display: none" in css
+
 
 class TestMultiTopicPublish:
     """Tests for Issue #79: multi-topic publisher views."""

@@ -17,6 +17,17 @@ def _setup_test_knowledge(tmp_path):
     return kb
 
 
+def _mark_mixed_strategy_ready(staged: Path) -> None:
+    text = staged.read_text(encoding="utf-8")
+    text = text.replace(
+        "tags:",
+        "verification:\n  definition: accepted\n"
+        "generality:\n  reviewed: true\n  prompt: test\n  verdict: ok\n"
+        "tags:",
+    )
+    staged.write_text(text, encoding="utf-8")
+
+
 class TestAdmitValid:
     def test_admit_staged_node(self, tmp_path):
         kb = _setup_test_knowledge(tmp_path)
@@ -32,13 +43,7 @@ class TestAdmitValid:
             "decision: accepted\n---\nAccepted.\n"
         )
 
-        # Need generality for definition kind
-        text = staged.read_text()
-        text = text.replace(
-            "tags:",
-            "generality:\n  reviewed: true\n  prompt: test\n  verdict: ok\ntags:",
-        )
-        staged.write_text(text)
+        _mark_mixed_strategy_ready(staged)
 
         result = admit_node(staged, kb)
         assert result.success
@@ -53,12 +58,7 @@ class TestAdmitValid:
         kb = _setup_test_knowledge(tmp_path)
         staged = kb / "staged" / "mixed_strategy.md"
 
-        text = staged.read_text()
-        text = text.replace(
-            "tags:",
-            "generality:\n  reviewed: true\n  prompt: test\n  verdict: ok\ntags:",
-        )
-        staged.write_text(text)
+        _mark_mixed_strategy_ready(staged)
 
         result = admit_node(staged, kb, require_reviews=False)
         assert result.success
@@ -77,12 +77,7 @@ class TestAdmitBlocked:
         kb = _setup_test_knowledge(tmp_path)
         staged = kb / "staged" / "mixed_strategy.md"
 
-        text = staged.read_text()
-        text = text.replace(
-            "tags:",
-            "generality:\n  reviewed: true\n  prompt: test\n  verdict: ok\ntags:",
-        )
-        staged.write_text(text)
+        _mark_mixed_strategy_ready(staged)
 
         result = admit_node(staged, kb, require_reviews=True)
         assert not result.success
@@ -105,18 +100,107 @@ class TestAdmitBlocked:
         msgs = " ".join(d.message for d in result.diagnostics)
         assert "duplicate" in msgs or "cycle" in msgs
 
+    def test_theorem_missing_statement_verification_is_blocked(self, tmp_path):
+        kb = tmp_path / "knowledge"
+        staged = kb / "staged" / "algebra" / "thm.md"
+        staged.parent.mkdir(parents=True)
+        (kb / "nodes").mkdir(parents=True)
+        staged.write_text(
+            "---\n"
+            "id: algebra.identity_unique\n"
+            "title: Identity Is Unique\n"
+            "kind: theorem\n"
+            "status: staged\n"
+            "uses: []\n"
+            "generality:\n  reviewed: true\n"
+            "---\n\n"
+            "# Identity Is Unique\n\n*Proof.* Done.\n",
+            encoding="utf-8",
+        )
+
+        result = admit_node(staged, kb, require_reviews=False)
+
+        assert not result.success
+        assert any("verification.statement" in d.message for d in result.diagnostics)
+
+    def test_definition_missing_definition_verification_is_blocked(self, tmp_path):
+        kb = tmp_path / "knowledge"
+        staged = kb / "staged" / "algebra" / "def.md"
+        staged.parent.mkdir(parents=True)
+        (kb / "nodes").mkdir(parents=True)
+        staged.write_text(
+            "---\n"
+            "id: algebra.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: staged\n"
+            "uses: []\n"
+            "generality:\n  reviewed: true\n"
+            "---\n\n"
+            "# Group\n",
+            encoding="utf-8",
+        )
+
+        result = admit_node(staged, kb, require_reviews=False)
+
+        assert not result.success
+        assert any("verification.definition" in d.message for d in result.diagnostics)
+
+    def test_theorem_with_proof_requires_accepted_proof_verification(self, tmp_path):
+        kb = tmp_path / "knowledge"
+        staged = kb / "staged" / "algebra" / "thm.md"
+        staged.parent.mkdir(parents=True)
+        (kb / "nodes").mkdir(parents=True)
+        staged.write_text(
+            "---\n"
+            "id: algebra.identity_unique\n"
+            "title: Identity Is Unique\n"
+            "kind: theorem\n"
+            "status: staged\n"
+            "uses: []\n"
+            "verification:\n  statement: accepted\n"
+            "generality:\n  reviewed: true\n"
+            "---\n\n"
+            "# Identity Is Unique\n\n*Proof.* Done.\n",
+            encoding="utf-8",
+        )
+
+        result = admit_node(staged, kb, require_reviews=False)
+
+        assert not result.success
+        assert any("verification.proof" in d.message for d in result.diagnostics)
+
+    def test_theorem_without_proof_requires_proof_fill_before_admission(self, tmp_path):
+        kb = tmp_path / "knowledge"
+        staged = kb / "staged" / "algebra" / "thm.md"
+        staged.parent.mkdir(parents=True)
+        (kb / "nodes").mkdir(parents=True)
+        staged.write_text(
+            "---\n"
+            "id: algebra.identity_unique\n"
+            "title: Identity Is Unique\n"
+            "kind: theorem\n"
+            "status: staged\n"
+            "uses: []\n"
+            "verification:\n  statement: accepted\n"
+            "generality:\n  reviewed: true\n"
+            "---\n\n"
+            "# Identity Is Unique\n\nThere is at most one identity element.\n",
+            encoding="utf-8",
+        )
+
+        result = admit_node(staged, kb, require_reviews=False)
+
+        assert not result.success
+        assert any("proof-fill" in d.message for d in result.diagnostics)
+
 
 class TestAdmitPlacement:
     def test_correct_topic_directory(self, tmp_path):
         kb = _setup_test_knowledge(tmp_path)
         staged = kb / "staged" / "mixed_strategy.md"
 
-        text = staged.read_text()
-        text = text.replace(
-            "tags:",
-            "generality:\n  reviewed: true\n  prompt: test\n  verdict: ok\ntags:",
-        )
-        staged.write_text(text)
+        _mark_mixed_strategy_ready(staged)
 
         result = admit_node(staged, kb, require_reviews=False)
         assert result.success
@@ -136,12 +220,7 @@ class TestAdmitCLI:
         kb = _setup_test_knowledge(tmp_path)
         staged = kb / "staged" / "mixed_strategy.md"
 
-        text = staged.read_text()
-        text = text.replace(
-            "tags:",
-            "generality:\n  reviewed: true\n  prompt: test\n  verdict: ok\ntags:",
-        )
-        staged.write_text(text)
+        _mark_mixed_strategy_ready(staged)
 
         reviews_dir = kb / "reviews"
         reviews_dir.mkdir(exist_ok=True)

@@ -16,6 +16,7 @@ The maintained mdblueprint skills live in [`skills/`](../skills/). Each skill ha
 | Generate Lean code from admitted Markdown nodes | `mdblueprint-lean-generation` | Lean proposal, missing-node requests |
 | Check semantic alignment between Markdown and Lean | `mdblueprint-alignment-review` | alignment report |
 | Publish or inspect the static site and dependency graph | `mdblueprint-publish` | generated site, `graph.json`, QA notes |
+| Answer from admitted KB content only | `mdblueprint-kb-reasoning` | cited answer, missing-fact report |
 
 ## How To Use A Skill
 
@@ -25,9 +26,32 @@ Recommended order for building a knowledge base from a book:
 
 1. Use `mdblueprint-source-extraction` to extract candidate definitions, theorems, lemmas, examples, and proof ideas into `docs/knowledge/staged/`.
 2. Use `mdblueprint-node-review` to review staged candidates for correctness, proof validity, and generality.
-3. Use `tools.knowledge.admit` only after review gates pass.
+3. Use `tools.knowledge.admission_pipeline` only after review gates pass.
 4. Use `mdblueprint-publish` to validate and publish the generated site.
 5. Use `mdblueprint-lean-generation` and `mdblueprint-alignment-review` when connecting admitted nodes to Lean.
+
+Admission is deterministic and Python-orchestrated:
+
+```bash
+uv run python -m tools.knowledge.admission_pipeline docs/knowledge/staged/example.md docs/knowledge
+```
+
+The pipeline requires `verification.definition: accepted` for concepts and
+definitions, `verification.statement: accepted` for theorem-like nodes, and
+`verification.proof: accepted` when theorem-like proof content is present.
+Ordinary admitted nodes may omit Lean metadata; `formalized` and `proved` nodes
+must include `lean.modules` and `lean.declarations`.
+
+For KB-only reasoning, use `mdblueprint-kb-reasoning` and a deterministic
+context bundle:
+
+```bash
+uv run python -m tools.knowledge.context_pack docs/knowledge --target <node-id>
+uv run python -m tools.knowledge.context_pack docs/knowledge --topic <topic-id>
+```
+
+Default KB-only mode reads admitted nodes only. Staged/review/source/Lean modes
+are opt-in and must be labeled as non-admitted evidence.
 
 ## Claude Code Compatibility
 

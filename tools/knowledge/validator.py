@@ -104,6 +104,11 @@ def validate_node(node: Node, *, is_staged_dir: bool = False) -> list[Diagnostic
             err(f"invalid verification.proof value: {v.proof!r}")
         if v.alignment is not None and v.alignment not in VALID_ALIGNMENT_VALUES:
             err(f"invalid verification.alignment value: {v.alignment!r}")
+        if v.alignment is not None and node.lean is None:
+            if node.status in ADMITTED_STATUSES:
+                err("verification.alignment requires a lean section")
+            else:
+                warn("verification.alignment requires a lean section before admission")
 
     # Source span artifact binding
     src = node.source
@@ -119,6 +124,10 @@ def validate_node(node: Node, *, is_staged_dir: bool = False) -> list[Diagnostic
     if node.kind == "external-theorem":
         if node.lean is None or not node.lean.modules or not node.lean.declarations:
             err("external-theorem must have lean.modules and lean.declarations filled")
+
+    if node.status in {"formalized", "proved"}:
+        if node.lean is None or not node.lean.modules or not node.lean.declarations:
+            err(f"{node.status} node must have lean.modules and lean.declarations filled")
 
     # Forbidden headings in body
     for m in _heading_re().finditer(node.body):

@@ -61,6 +61,31 @@ body {
 .nav-list a:hover, .nav-link:hover { color: var(--accent); }
 .nav-link { display: block; font-weight: 600; }
 
+.topic-children {
+  border-left: 1px solid var(--border);
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding-left: 0.9rem;
+}
+
+.topic-children li {
+  list-style: none;
+}
+
+.topic-children li::marker {
+  display: none;
+}
+
+.topic-parent summary {
+  cursor: pointer;
+}
+
+.topic-active > a,
+.topic-active > details > summary a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .sidebar-toggle {
   background: none;
   border: none;

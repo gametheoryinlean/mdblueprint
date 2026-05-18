@@ -28,6 +28,38 @@ Python or human workflow
 
 Later versions may run agents through a queue or orchestrator, but that should not change the contracts below.
 
+## KB-Only Reasoning Mode
+
+KB-only reasoning is for answering from admitted mdblueprint knowledge, not from
+the whole repository.
+
+Allowed default inputs:
+
+- `docs/knowledge/nodes/**/*.md`;
+- `docs/knowledge/mdblueprint.yml`;
+- exact `topics.md` catalogs when they affect retrieval or display;
+- deterministic graph/index data generated from admitted nodes.
+
+Forbidden by default:
+
+- staged candidates, reviews, and requests;
+- Lean source files;
+- source PDFs, books, and TeX files;
+- implementation files;
+- internet access;
+- uncited model memory.
+
+Use the deterministic context packer to construct the bundle:
+
+```bash
+uv run python -m tools.knowledge.context_pack docs/knowledge --target <node-id>
+uv run python -m tools.knowledge.context_pack docs/knowledge --topic <topic-id>
+```
+
+Use `--include-staged` only when the user explicitly asks for provisional
+non-admitted evidence. Answers must cite node ids and state when the bundle does
+not contain the requested fact.
+
 ## Common Report Header
 
 Every report-like output should start with structured metadata:
@@ -289,7 +321,25 @@ Rules:
 - It must not hide uncertainty.
 - It must not admit a node if dependencies are missing or cyclic.
 - It must not admit a node without a completed generality gate.
+- It must not admit a definition or concept without
+  `verification.definition: accepted`.
+- It must not admit a lemma, proposition, theorem, or external-theorem without
+  `verification.statement: accepted`.
+- It must not admit theorem-like proof content without
+  `verification.proof: accepted`.
+- It must not mark a node `formalized` or `proved` unless `lean.modules` and
+  `lean.declarations` identify the corresponding Lean declarations.
 - If reports disagree, it should request human decision instead of resolving silently.
+
+The deterministic path is the Python pipeline:
+
+```bash
+uv run python -m tools.knowledge.admission_pipeline docs/knowledge/staged/example.md docs/knowledge
+```
+
+The pipeline reports `schema`, `generality`, `verification`, `reviews`, `dag`,
+and `write` gates. Agents should cite that report in review or issue comments
+instead of manually copying staged files into `docs/knowledge/nodes/`.
 
 ## 7. Proof-Fill Agents
 

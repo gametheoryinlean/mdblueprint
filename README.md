@@ -187,7 +187,10 @@ uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode sm
 # Index Lean declarations from a Lean project
 uv run python -m tools.knowledge.lean_index path/to/lean/project
 
-# Admit a staged node after review gates pass
+# Run the Python-orchestrated admission pipeline after review gates pass
+uv run python -m tools.knowledge.admission_pipeline docs/knowledge/staged/example.md docs/knowledge
+
+# Legacy direct admission helper
 uv run python -m tools.knowledge.admit docs/knowledge/staged/example.md docs/knowledge
 ```
 
@@ -473,10 +476,17 @@ Use this for extracted, uncertain, or AI-proposed material.
 6. When review gates pass, run:
 
 ```bash
-uv run python -m tools.knowledge.admit docs/knowledge/staged/example.md docs/knowledge
+uv run python -m tools.knowledge.admission_pipeline docs/knowledge/staged/example.md docs/knowledge
 ```
 
-Admission checks staged schema, generality review, review evidence, and DAG validity before moving the node into `docs/knowledge/nodes/`.
+Admission checks staged schema, generality review, verification evidence,
+review evidence, and DAG validity before moving the node into
+`docs/knowledge/nodes/`. Definition and concept nodes require
+`verification.definition: accepted`. Lemma, proposition, theorem, and
+external-theorem nodes require `verification.statement: accepted`. If the body
+contains a proof block, admission also requires `verification.proof: accepted`.
+Ordinary `admitted` nodes may omit Lean metadata. Nodes with status
+`formalized` or `proved` must include `lean.modules` and `lean.declarations`.
 
 ### 3. Connect A Node To Lean
 

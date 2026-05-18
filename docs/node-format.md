@@ -275,6 +275,11 @@ Only files under `docs/knowledge/nodes/` should normally have `admitted`, `forma
 
 Files under `docs/knowledge/staged/` are proposals even if their YAML says the mathematical content looks plausible.
 
+`admitted` means the Markdown node has passed the mathematical admission gates.
+It does not require a Lean link. `formalized` and `proved` are stronger claims
+about Lean coverage and must include both `lean.modules` and
+`lean.declarations`.
+
 ## Staged Node Schema
 
 Staged nodes use the same YAML frontmatter structure as admitted nodes, but with
@@ -304,6 +309,32 @@ lean          — omit if no Lean link exists yet
 Staged nodes must not have `status: admitted`, `status: formalized`, or
 `status: proved`. The schema validator rejects staged files in `docs/knowledge/staged/`
 that carry any of those three status values.
+
+Before a staged node can move into `docs/knowledge/nodes/`, run the deterministic
+admission pipeline:
+
+```bash
+uv run python -m tools.knowledge.admission_pipeline docs/knowledge/staged/example.md docs/knowledge
+```
+
+The pipeline applies these gates in order:
+
+```text
+schema -> generality -> verification -> reviews -> dag -> write
+```
+
+The verification gate is kind-specific:
+
+```text
+concept, definition              require verification.definition: accepted
+lemma, proposition, theorem      require verification.statement: accepted
+external-theorem                 requires verification.statement: accepted and Lean refs
+proof block in any theorem-like  requires verification.proof: accepted
+```
+
+Lean remains optional for ordinary admitted Markdown nodes. Lean evidence becomes
+mandatory only when the node status is `formalized` or `proved`, or when the kind
+is `external-theorem`.
 
 ## Requests Format
 

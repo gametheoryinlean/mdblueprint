@@ -100,6 +100,15 @@ Node contract:
 - The Lean block proves only mechanical linkage. Semantic alignment still requires
   alignment review evidence.
 
+Lean metadata is optional for ordinary `admitted` Markdown nodes. Admission into
+`docs/knowledge/nodes/` is based on mathematical verification evidence, not on
+Lean coverage. Lean metadata is mandatory only for Lean-backed claims:
+
+- `external-theorem` nodes, because their proof source is Lean;
+- nodes with `status: formalized` or `status: proved`;
+- nodes that set `verification.alignment`, because alignment is a semantic claim
+  about a Markdown statement and a Lean declaration.
+
 ## Checks
 
 With project-level repository config, the normal check command indexes configured
