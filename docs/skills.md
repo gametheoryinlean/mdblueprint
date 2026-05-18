@@ -113,12 +113,32 @@ Reads:
 Writes:
 
 - `docs/knowledge/staged/**/*.md`;
-- extraction reports under `docs/knowledge/reviews/`.
+- extraction reports under `docs/knowledge/reviews/`;
+- request files under `docs/knowledge/requests/` when a proof needs a missing
+  reusable dependency.
+
+Proof extraction contract:
+
+- If a theorem-like source item includes proof text, preserve it in the staged
+  node as a natural-language `*Proof.*` block.
+- Lightly normalize the proof to mdblueprint style and supported math syntax,
+  but do not replace the source argument with a new proof.
+- Do not set `verification.proof: accepted`; proof review and admission decide
+  that later.
+- Search admitted + staged nodes for proof dependencies. Add existing node ids to
+  `uses` only when they are actual logical dependencies of the proof.
+- Record `proof_status` in the extraction report as `full`, `partial`, `absent`,
+  or `not_extracted`.
+- Missing proof dependencies become report notes or request files, not invented
+  admitted/staged facts.
+- `proof-fill` is reserved for small local gaps after proof review, not for
+  replacing proofs already present in source material.
 
 Must not:
 
 - write directly to `docs/knowledge/nodes/`;
 - invent dependencies beyond source evidence or existing node ids;
+- drop source proof text and leave admission to proof-fill by default;
 - silently merge distinct statements into one node;
 - admit a broader theorem than the source supports.
 

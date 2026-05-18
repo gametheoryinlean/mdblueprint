@@ -118,7 +118,9 @@ Outputs:
 - candidate Markdown files under `docs/knowledge/staged/`;
 - source span metadata;
 - generality questions;
-- uncertainty notes in a review file if needed.
+- uncertainty notes in a review file if needed;
+- request files under `docs/knowledge/requests/` when a proof relies on a
+  reusable fact that is not yet in the knowledge base.
 
 Decision vocabulary:
 
@@ -136,6 +138,18 @@ Rules:
 - It may extract definitions, theorems, examples, and proof ideas.
 - It must not write admitted nodes directly.
 - It must not invent dependencies beyond what it can justify from the source or existing node index.
+- If a theorem-like source item includes proof text, it must preserve the source
+  proof in the staged node as a `*Proof.*` block unless the extraction report
+  marks `proof_status: not_extracted` with a reason.
+- It must search admitted and staged nodes before adding proof dependencies to
+  `uses`; `uses` may contain only existing logical dependencies of the proof.
+- It must record proof extraction status as `proof_status: full`, `partial`,
+  `absent`, or `not_extracted` in the extraction report.
+- It must not set `verification.proof: accepted`; proof verification is a later
+  role.
+- It must not use proof-fill as the default substitute for a proof already
+  present in the source. `proof-fill` is reserved for small local gaps after
+  proof review.
 - If the source statement is narrower than the likely reusable mathematical form, it should propose the broader form as a question, not as admitted truth.
 - Before creating a staged candidate, it must search the existing node index (admitted and staged) for a node covering the same content. If a near-duplicate exists, it should write a review or request noting the overlap instead of creating a second staged file.
 
