@@ -158,6 +158,13 @@ a { color: var(--accent); }
 .lean-info code { font-family: var(--mono); background: var(--badge-bg); padding: 0.1rem 0.3rem; border-radius: 2px; }
 .lean-modules { font-size: 0.85rem; color: #666; margin-top: 0.3rem; }
 .lean-source-meta { color: #666; font-size: 0.82rem; margin-left: 0.35rem; }
+
+/* Node cross-references rendered from [[node:id]] shortcodes */
+a.node-ref { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+a.node-ref:hover { text-decoration: none; }
+span.node-ref.unresolved { color: #b00020; font-style: italic; cursor: not-allowed; }
+span.node-ref.unresolved::before { content: "?"; font-size: 0.75em; vertical-align: super; margin-right: 1px; }
+
 .body { line-height: 1.7; margin-top: 1.5rem; }
 .tags { margin-top: 2rem; }
 .tag {

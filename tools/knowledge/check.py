@@ -13,6 +13,7 @@ from tools.knowledge.latex_check import check_node_math
 from tools.knowledge.lean_check import check_configured_lean_references, check_lean_references
 from tools.knowledge.lean_index import index_lean_project
 from tools.knowledge.models import Node
+from tools.knowledge.node_refs import check_node_body_refs
 from tools.knowledge.parser import scan_directory
 from tools.knowledge.validator import Diagnostic, validate_node
 
@@ -46,6 +47,10 @@ def check_knowledge_base(
             all_nodes.append(node)
 
     diags.extend(_check_duplicate_topic_ids(all_nodes, config))
+
+    all_nodes_index: dict[str, Node] = {n.id: n for n in all_nodes}
+    for node in all_nodes:
+        diags.extend(check_node_body_refs(node, all_nodes_index))
 
     _, graph_diags = build_graph(all_nodes)
     diags.extend(graph_diags)

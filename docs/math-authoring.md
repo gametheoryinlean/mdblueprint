@@ -185,3 +185,22 @@ but not sufficient before publishing a site for readers.
 : The browser parsed the math but KaTeX rejected the expression. Reduce the formula
   to a smaller example, check KaTeX support, and move reusable notation into
   `math.macros` when appropriate.
+
+## Node Cross-References
+
+Use `[[node:id]]` or `[[node:id|label]]` to link to another node from within
+any body text (statement, proof, example). These shortcodes are resolved by the
+publisher and must not appear inside TeX math delimiters.
+
+```markdown
+By [[node:algebra.group_identity_unique]], the identity is unique.
+Apply [[node:algebra.group_identity_unique|the uniqueness theorem]] here.
+```
+
+Math preservation is unaffected: `[[node:...]]` shortcodes are resolved after
+Markdown conversion, after TeX math tokens are already restored. A reference
+inside a `$...$` or `\(...\)` block will not be resolved and should not be
+written there.
+
+See `docs/node-format.md` § "Node References in Body Text" for the full
+contract, checker diagnostics, and relationship to `uses`.

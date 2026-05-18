@@ -363,6 +363,37 @@ source_justification: |
 A request file must not contain admitted mathematical truth. It is a proposal awaiting
 human or referee decision.
 
+## Node References in Body Text
+
+Use the `[[node:id]]` shortcode to create a cross-link to another node from
+within a statement, proof, example, or topic catalog:
+
+```markdown
+By [[node:algebra.group_identity_unique]], the identity is unique.
+By [[node:algebra.group_identity_unique|the uniqueness theorem]], the identity is unique.
+```
+
+Rules:
+
+- The canonical target is always the stable node id after `node:`.
+- Optional display text after `|` overrides the rendered label; without it,
+  the target node's `title` is used.
+- References may appear in statements, proofs, examples, and topic catalogs.
+- References are **semantic cross-links**, not logical dependencies. If the
+  proof logically depends on the referenced node, the id must also appear in
+  `uses`. The checker warns when a proof reference is missing from `uses` for
+  theorem-like nodes (`theorem`, `proposition`, `lemma`, `corollary`).
+- References to staged nodes are allowed and render as clickable links.
+- References to unknown ids produce a checker error and render as a
+  non-clickable `<span class="node-ref unresolved">` in the published site.
+- Do not use fuzzy title matching or bare words. Ambiguous prose like
+  "by the uniqueness theorem" should remain plain text.
+
+Source-local references such as `Lemma 6.2` or `Theorem 8.1.2` that are not
+wrapped in a `[[node:id]]` shortcode and are not scoped to a source locator
+trigger a checker warning. Prefer `[[node:id]]` when the referenced result
+exists in the node index, or use a `source.spans` locator when it does not.
+
 ## Required Structural Checks
 
 Deterministic Python tools should fail with clear diagnostics for:
@@ -378,4 +409,7 @@ Deterministic Python tools should fail with clear diagnostics for:
 - node body containing forbidden operational headings;
 - staged nodes in `docs/knowledge/nodes/` (wrong directory);
 - admitted nodes in `docs/knowledge/staged/` (wrong status);
-- generated graph output not matching parsed nodes.
+- generated graph output not matching parsed nodes;
+- unknown node ids in `[[node:id]]` shortcodes;
+- naked source-local references (`Lemma N.N`, `Theorem N.N`) without a source locator or `[[node:id]]` wrapper;
+- proof `[[node:id]]` references not listed in `uses` for theorem-like nodes (warning).

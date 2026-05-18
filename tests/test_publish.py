@@ -917,3 +917,58 @@ class TestTopicCatalogPages:
         # No topics.md — should publish cleanly
         publish(knowledge, tmp_path / "site")
         assert (tmp_path / "site" / "algebra" / "index.html").exists()
+
+
+NODE_REFS_ROOT = Path(__file__).parent / "fixtures" / "node_refs_knowledge"
+
+
+class TestNodeReferenceRendering:
+    """HTML-level tests for [[node:id]] rendering in published pages."""
+
+    def test_resolved_ref_renders_as_link_in_statement(self, tmp_path):
+        publish(NODE_REFS_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "refs_a" / "refs_a_statement_ref.html").read_text()
+        assert 'class="node-ref"' in page
+        assert 'data-node-id="refs_a.target"' in page
+        assert "<a " in page
+
+    def test_resolved_ref_link_is_clickable_not_span(self, tmp_path):
+        publish(NODE_REFS_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "refs_a" / "refs_a_statement_ref.html").read_text()
+        assert '<a class="node-ref"' in page
+
+    def test_resolved_ref_custom_label(self, tmp_path):
+        publish(NODE_REFS_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "refs_a" / "refs_a_statement_ref.html").read_text()
+        assert "the target lemma" in page
+
+    def test_resolved_ref_in_proof_section(self, tmp_path):
+        publish(NODE_REFS_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "refs_a" / "refs_a_statement_ref.html").read_text()
+        proof_start = page.find("proof-details")
+        assert proof_start != -1
+        proof_section = page[proof_start:]
+        assert 'class="node-ref"' in proof_section
+
+    def test_unresolved_ref_renders_as_span(self, tmp_path):
+        publish(NODE_REFS_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "refs_a" / "refs_a_unresolved_ref.html").read_text()
+        assert 'class="node-ref unresolved"' in page
+        assert 'data-node-id="refs_a.does_not_exist"' in page
+
+    def test_nested_topic_href_is_relative_and_correct(self, tmp_path):
+        publish(NODE_REFS_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "refs_b" / "sub" / "refs_b_sub_theorem.html").read_text()
+        # From refs_b/sub/ to refs_a/refs_a_target.html: go up 2 dirs then into refs_a/
+        assert 'href="../../refs_a/refs_a_target.html"' in page
+
+    def test_node_ref_title_is_target_title(self, tmp_path):
+        publish(NODE_REFS_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "refs_a" / "refs_a_statement_ref.html").read_text()
+        assert "Target Lemma" in page
+
+    def test_no_raw_shortcode_in_output(self, tmp_path):
+        publish(NODE_REFS_ROOT, tmp_path / "site")
+        for html_file in (tmp_path / "site").rglob("*.html"):
+            content = html_file.read_text()
+            assert "[[node:" not in content, f"Raw shortcode found in {html_file}"

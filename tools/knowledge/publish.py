@@ -30,6 +30,7 @@ from tools.knowledge.export import (
 from tools.knowledge.graph import build_graph
 from tools.knowledge.lean_index import LeanDeclaration, LeanIndex, index_lean_project
 from tools.knowledge.models import Node
+from tools.knowledge.node_refs import NODE_REF_RE
 from tools.knowledge.parser import scan_directory
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -139,7 +140,45 @@ def _convert_markdown_preserving_tex(md: markdown.Markdown, source: str) -> str:
     return rendered
 
 
-def _render_body(md: markdown.Markdown, body: str) -> dict[str, str | None]:
+def _resolve_node_refs_in_html(
+    html: str,
+    all_nodes: dict[str, Node],
+    from_topic: str | None = None,
+) -> tuple[str, list[str]]:
+    """Replace [[node:id]] shortcodes in already-rendered HTML with links or unresolved spans.
+
+    Returns (resolved_html, list_of_unresolved_ids).
+    """
+    unresolved: list[str] = []
+
+    def _replace(m: re.Match) -> str:
+        node_id = m.group(1)
+        label_raw = m.group(2)
+        node = all_nodes.get(node_id)
+        if node is None:
+            unresolved.append(node_id)
+            display = escape(label_raw or node_id)
+            return (
+                f'<span class="node-ref unresolved" data-node-id="{escape(node_id)}">'
+                f"{display}</span>"
+            )
+        display = escape(label_raw or node.title)
+        href = escape(_node_href(node_id, from_topic=from_topic))
+        return (
+            f'<a class="node-ref" data-node-id="{escape(node_id)}" href="{href}">'
+            f"{display}</a>"
+        )
+
+    resolved = NODE_REF_RE.sub(_replace, html)
+    return resolved, unresolved
+
+
+def _render_body(
+    md: markdown.Markdown,
+    body: str,
+    all_nodes: dict[str, Node] | None = None,
+    from_topic: str | None = None,
+) -> dict[str, str | None]:
     statement_md, proof_md = _split_proof_markdown(body)
     md.reset()
     statement_html = _convert_markdown_preserving_tex(md, statement_md)
@@ -147,6 +186,10 @@ def _render_body(md: markdown.Markdown, body: str) -> dict[str, str | None]:
     if proof_md is not None:
         md.reset()
         proof_html = _convert_markdown_preserving_tex(md, proof_md)
+    if all_nodes is not None:
+        statement_html, _ = _resolve_node_refs_in_html(statement_html, all_nodes, from_topic)
+        if proof_html is not None:
+            proof_html, _ = _resolve_node_refs_in_html(proof_html, all_nodes, from_topic)
     return {
         "body_html": statement_html,
         "proof_html": proof_html,
@@ -337,6 +380,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         all_nodes.extend(scan_directory(nodes_dir))
     if staged_dir.exists():
         all_nodes.extend(scan_directory(staged_dir))
+    all_nodes_index: dict[str, Node] = {n.id: n for n in all_nodes}
     lean_indexes = _index_configured_lean_repositories(all_nodes, config.lean)
 
     g, _ = build_graph(all_nodes)
@@ -431,7 +475,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                 })
 
         md.reset()
-        rendered = _render_body(md, node.body)
+        rendered = _render_body(md, node.body, all_nodes=all_nodes_index, from_topic=topic)
         node_payloads[node.id] = {
             "node": node,
             "view": blueprint_nodes[node.id],
@@ -530,6 +574,8 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
 
         # Topic catalog and metadata
         catalog_html = _load_topic_catalog(knowledge_root, topic, md)
+        if catalog_html:
+            catalog_html, _ = _resolve_node_refs_in_html(catalog_html, all_nodes_index, from_topic=topic)
         status_counts: dict[str, int] = {}
         for n in topic_nodes:
             status_counts[n.status] = status_counts.get(n.status, 0) + 1
