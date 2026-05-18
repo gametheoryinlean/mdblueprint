@@ -188,16 +188,24 @@ def export_topic_overview_json(g: KnowledgeGraph) -> dict:
     for dependent_id in sorted(g.edges):
         if g.nodes[dependent_id].kind == "proof-plan":
             continue
-        dependent_topic = root_topic_id(topic_id_for_node(g.nodes[dependent_id]))
+        dependent_topics = {
+            root_topic_id(topic)
+            for topic in leaf_topic_ids_for_node(g.nodes[dependent_id])
+        }
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes:
                 continue
             if g.nodes[dependency_id].kind == "proof-plan":
                 continue
-            dependency_topic = root_topic_id(topic_id_for_node(g.nodes[dependency_id]))
-            if dependency_topic == dependent_topic:
-                continue
-            edge_counts[(dependency_topic, dependent_topic)] += 1
+            dependency_topics = {
+                root_topic_id(topic)
+                for topic in leaf_topic_ids_for_node(g.nodes[dependency_id])
+            }
+            for dependent_topic in dependent_topics:
+                for dependency_topic in dependency_topics:
+                    if dependency_topic == dependent_topic:
+                        continue
+                    edge_counts[(dependency_topic, dependent_topic)] += 1
 
     edges = [
         {
@@ -250,7 +258,7 @@ def _subgraph_node_entry(node: Node) -> dict:
         "title": node.title,
         "kind": node.kind,
         "status": node.status,
-        "href": f"{topic_id_for_node(node)}/{node.id.replace('.', '_')}.html",
+        "href": f"{topic_path(home_topic_for_node(node))}/{node.id.replace('.', '_')}.html",
         "payload": f"node_payloads/{node.id.replace('.', '_')}.json",
     }
     if node.target:
@@ -275,16 +283,24 @@ def _child_topic_edges(g: KnowledgeGraph, topic_id: str) -> list[dict]:
     for dependent_id in sorted(g.edges):
         if dependent_id not in g.nodes or g.nodes[dependent_id].kind == "proof-plan":
             continue
-        dependent_child = child_topic_id(topic_id, topic_id_for_node(g.nodes[dependent_id]))
-        if dependent_child is None:
-            continue
+        dependent_children = {
+            child
+            for leaf_topic in leaf_topic_ids_for_node(g.nodes[dependent_id])
+            if (child := child_topic_id(topic_id, leaf_topic)) is not None
+        }
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes or g.nodes[dependency_id].kind == "proof-plan":
                 continue
-            dependency_child = child_topic_id(topic_id, topic_id_for_node(g.nodes[dependency_id]))
-            if dependency_child is None or dependency_child == dependent_child:
-                continue
-            edge_counts[(dependency_child, dependent_child)] += 1
+            dependency_children = {
+                child
+                for leaf_topic in leaf_topic_ids_for_node(g.nodes[dependency_id])
+                if (child := child_topic_id(topic_id, leaf_topic)) is not None
+            }
+            for dependent_child in dependent_children:
+                for dependency_child in dependency_children:
+                    if dependency_child == dependent_child:
+                        continue
+                    edge_counts[(dependency_child, dependent_child)] += 1
 
     return [
         {
@@ -307,33 +323,45 @@ def _topic_layer_boundary(g: KnowledgeGraph, topic_id: str, topic_counts: dict[s
     for dependent_id in sorted(g.edges):
         if dependent_id not in g.nodes or g.nodes[dependent_id].kind == "proof-plan":
             continue
-        dependent_topic = topic_id_for_node(g.nodes[dependent_id])
-        dependent_inside = inside_current(dependent_topic)
-        dependent_child = child_topic_id(topic_id, dependent_topic)
+        dependent_topics = leaf_topic_ids_for_node(g.nodes[dependent_id])
+        dependent_inside_topics = [topic for topic in dependent_topics if inside_current(topic)]
+        dependent_children = {
+            child
+            for topic in dependent_inside_topics
+            if (child := child_topic_id(topic_id, topic)) is not None
+        }
 
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes or g.nodes[dependency_id].kind == "proof-plan":
                 continue
-            dependency_topic = topic_id_for_node(g.nodes[dependency_id])
-            dependency_inside = inside_current(dependency_topic)
-            dependency_child = child_topic_id(topic_id, dependency_topic)
+            dependency_topics = leaf_topic_ids_for_node(g.nodes[dependency_id])
+            dependency_inside_topics = [topic for topic in dependency_topics if inside_current(topic)]
+            dependency_children = {
+                child
+                for topic in dependency_inside_topics
+                if (child := child_topic_id(topic_id, topic)) is not None
+            }
 
-            if dependent_inside and not dependency_inside and dependent_child is not None:
-                boundary_roles[dependency_topic].add("dependency")
-                edge_counts[(
-                    f"topic:{dependency_topic}",
-                    f"topic:{dependent_child}",
-                    "boundary_dependency",
-                    dependency_topic,
-                )] += 1
-            elif dependency_inside and not dependent_inside and dependency_child is not None:
-                boundary_roles[dependent_topic].add("dependent")
-                edge_counts[(
-                    f"topic:{dependency_child}",
-                    f"topic:{dependent_topic}",
-                    "boundary_dependent",
-                    dependent_topic,
-                )] += 1
+            for dependency_topic in dependency_topics:
+                if dependent_children and not inside_current(dependency_topic):
+                    for dependent_child in dependent_children:
+                        boundary_roles[dependency_topic].add("dependency")
+                        edge_counts[(
+                            f"topic:{dependency_topic}",
+                            f"topic:{dependent_child}",
+                            "boundary_dependency",
+                            dependency_topic,
+                        )] += 1
+            for dependent_topic in dependent_topics:
+                if dependency_children and not inside_current(dependent_topic):
+                    for dependency_child in dependency_children:
+                        boundary_roles[dependent_topic].add("dependent")
+                        edge_counts[(
+                            f"topic:{dependency_child}",
+                            f"topic:{dependent_topic}",
+                            "boundary_dependent",
+                            dependent_topic,
+                        )] += 1
 
     boundary_topics = []
     for boundary_topic in sorted(boundary_roles):
@@ -418,7 +446,7 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
                 continue
 
             if dependent_internal and not dependency_internal:
-                boundary_topic = topic_id_for_node(g.nodes[dependency_id])
+                boundary_topic = home_topic_for_node(g.nodes[dependency_id])
                 boundary_roles[boundary_topic].add("dependency")
                 boundary_kind = (
                     "boundary_proof_plan_dependency"
@@ -434,7 +462,7 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
                 continue
 
             if dependency_internal and not dependent_internal:
-                boundary_topic = topic_id_for_node(g.nodes[dependent_id])
+                boundary_topic = home_topic_for_node(g.nodes[dependent_id])
                 boundary_roles[boundary_topic].add("dependent")
                 boundary_kind = (
                     "boundary_proof_plan_dependent"

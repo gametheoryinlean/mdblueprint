@@ -10,6 +10,9 @@ id: topology.metric_space.complete
 title: Complete Metric Space
 kind: definition
 status: admitted
+primary_topic: topology.metric_spaces
+topics:
+  - topology.metric_spaces
 uses:
   - topology.metric_space.cauchy_sequence
 lean:
@@ -45,6 +48,34 @@ tags:
 A metric space $(X, d)$ is complete if every Cauchy sequence in $X$ converges
 to a point of $X$.
 ```
+
+## Topic Fields
+
+Topic fields separate file ownership from graph browsing views. See
+[topic-model.md](topic-model.md) for the full contract.
+
+```yaml
+primary_topic: topology.metric_spaces
+topics:
+  - topology.metric_spaces
+  - analysis.cauchy_sequences
+```
+
+Field contract:
+
+- `primary_topic` is the node's home topic. It is a canonical topic id, not an
+  alias, and determines the default owner and ordinary file placement.
+- `topics` lists every topic view that should include the node in topic pages
+  and topic DAG projections.
+- `primary_topic` must appear in `topics`.
+- A node may have several `topics`, but it has only one `primary_topic`.
+- `uses` remains only the logical dependency list. Do not add a dependency just
+  because two nodes share a topic.
+- `tags` remain keyword/search metadata. Do not use tags as a substitute for
+  topic membership.
+
+Older nodes may omit these fields while tooling falls back to deriving a topic
+from the node id. New or edited nodes should use explicit topic fields.
 
 ## Source Format
 
@@ -253,7 +284,7 @@ a relaxed required-field set. The Python validator applies a staged profile when
 Required fields for staged nodes:
 
 ```text
-id        — must be unique; use a provisional topic prefix
+id        — must be unique; keep stable even when topic memberships change
 title
 kind
 status    — must be staged or needs_statement_review / needs_definition_review /

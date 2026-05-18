@@ -2,10 +2,14 @@
 
 ```markdown
 ---
-id: <topic>.<name>
+id: <stable.node.id>
 title: <Title>
 kind: <definition | lemma | theorem | example | ...>
 status: <staged | admitted>
+primary_topic: <canonical.home.topic>
+topics:
+  - <canonical.home.topic>
+  - <optional.additional.topic>
 uses:
   - <dependency.node.id>
 lean:

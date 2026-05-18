@@ -19,7 +19,6 @@ from tools.knowledge.config import LeanConfig, katex_auto_render_options, load_p
 from tools.knowledge.export import (
     topic_path,
     topic_prefixes,
-    topic_id_for_node,
     home_topic_for_node,
     leaf_topic_ids_for_node,
     titleize_topic,
@@ -51,10 +50,23 @@ def _node_href(node_id: str, from_topic: str | None = None) -> str:
     return posixpath.relpath(target, start=source_dir)
 
 
+def _node_href_for_node(node: Node, from_topic: str | None = None) -> str:
+    target = _node_href_from_root_for_node(node)
+    if from_topic is None:
+        return target
+    source_dir = topic_path(from_topic)
+    return posixpath.relpath(target, start=source_dir)
+
+
 def _node_href_from_root(node_id: str) -> str:
     topic = ".".join(node_id.split(".")[:-1]) if "." in node_id else "misc"
     filename = node_id.replace(".", "_") + ".html"
     return f"{topic_path(topic)}/{filename}"
+
+
+def _node_href_from_root_for_node(node: Node) -> str:
+    filename = node.id.replace(".", "_") + ".html"
+    return f"{topic_path(home_topic_for_node(node))}/{filename}"
 
 
 def _root_prefix_for_topic(topic: str) -> str:
@@ -159,7 +171,7 @@ def _root_dependency_payload(dep_id: str, g) -> dict | None:
     return {
         "id": dep_id,
         "title": node.title,
-        "href": _node_href_from_root(dep_id),
+        "href": _node_href_from_root_for_node(node),
     }
 
 
@@ -184,7 +196,9 @@ def _write_node_detail_payloads(output_dir: Path, node_payloads: dict[str, dict]
             "title": node.title,
             "kind": node.kind,
             "status": node.status,
-            "href": _node_href_from_root(node.id),
+            "href": _node_href_from_root_for_node(node),
+            "primary_topic": home_topic_for_node(node),
+            "topics": leaf_topic_ids_for_node(node),
             "body_html": payload["body_html"],
             "proof_html": payload["proof_html"],
             "deps": deps,
@@ -394,7 +408,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
 
     node_payloads = {}
     for node in all_nodes:
-        topic = topic_id_for_node(node)
+        topic = home_topic_for_node(node)
 
         deps = []
         for dep_id in node.uses:
@@ -403,7 +417,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                 deps.append({
                     "id": dep_id,
                     "title": dep_node.title,
-                    "href": _node_href(dep_id, from_topic=topic),
+                    "href": _node_href_for_node(dep_node, from_topic=topic),
                 })
 
         dependents = []
@@ -413,7 +427,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                 dependents.append({
                     "id": rev_id,
                     "title": rev_node.title,
-                    "href": _node_href(rev_id, from_topic=topic),
+                    "href": _node_href_for_node(rev_node, from_topic=topic),
                 })
 
         md.reset()
@@ -438,7 +452,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
             "title": _titleize(topic),
             "href": f"{topic_path(topic)}/index.html",
             "nodes": [
-                _summary_payload(node, blueprint_nodes, _node_href(node.id))
+                _summary_payload(node, blueprint_nodes, _node_href_for_node(node))
                 for node in sorted(topics[topic], key=lambda n: n.title)
             ],
         })
@@ -501,7 +515,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                 keywords=keyword_names,
                 keyword=keyword,
                 nodes=[
-                    _summary_payload(node, blueprint_nodes, f"../{_node_href(node.id)}")
+                    _summary_payload(node, blueprint_nodes, f"../{_node_href_for_node(node)}")
                     for node in keyword_nodes
                 ],
             ),
@@ -536,17 +550,17 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
                 catalog_html=catalog_html,
                 status_counts=status_counts,
                 nodes=[
-                    _summary_payload(node, blueprint_nodes, _node_href(node.id, from_topic=topic))
+                    _summary_payload(node, blueprint_nodes, _node_href_for_node(node, from_topic=topic))
                     for node in sorted(topic_nodes, key=lambda n: n.title)
                 ],
             ),
             encoding="utf-8",
         )
 
-        # Node pages — write once, at the node's canonical (ID-derived) topic directory
+        # Node pages are written once, under the node's home topic.
         tmpl = env.get_template("node.html")
         for node in topic_nodes:
-            if topic_id_for_node(node) != topic:
+            if home_topic_for_node(node) != topic:
                 continue
             payload = node_payloads[node.id]
             topic_memberships = leaf_topic_ids_for_node(node)

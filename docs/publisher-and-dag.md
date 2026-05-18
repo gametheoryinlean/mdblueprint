@@ -113,6 +113,11 @@ The generated site intentionally follows leanblueprint's presentation style with
 
 ## Topic-First DAG Navigation
 
+The topic model is defined in [topic-model.md](topic-model.md). The key rule is
+that a node has one home topic, but it may belong to several graph topic views.
+The node id is stable machine identity; it is not the complete source of topic
+membership.
+
 The graph page uses browsing artifacts derived from the full graph:
 
 - `graph.json` remains the full machine graph. It preserves every parsed node and every `uses` edge in the deterministic export contract.
@@ -121,10 +126,16 @@ The graph page uses browsing artifacts derived from the full graph:
 - `subgraphs/topics/<topic>.json` is a per-topic expandable browsing subgraph. For non-leaf topics it includes child topic nodes and child-topic dependency edges; for leaf topics it includes node-level DAG data.
 - `node_payloads/<node>.json` is a lazy node detail payload used by graph modals after a rendered graph node is clicked.
 
-Topic ids are hierarchical. For a node id `algebra.groups.group`, the topic id
-is `algebra.groups` and the node slug is `group`. Parent topics are prefixes:
-`algebra` is the parent of `algebra.groups`. Existing two-part ids such as
-`algebra.group` remain in topic `algebra`.
+Topic ids are hierarchical. `algebra` is the parent of `algebra.groups`, and
+`algebra.groups` is the parent of `algebra.groups.subgroups`. A node's
+`primary_topic` is its home topic. Its `topics` list gives every topic view that
+should include it. For compatibility with older nodes, tooling may derive a
+fallback topic from an id such as `algebra.groups.group`, but that fallback is
+not the long-term membership model.
+
+A node may appear in more than one topic view. Per-topic node counts count nodes
+visible in that topic view; global counts count unique node ids. The sum of
+per-topic counts can therefore exceed the number of nodes in `graph.json`.
 
 A topic overview edge is displayed from a dependency topic to a dependent topic.
 If any node in topic `B` uses a node in topic `A`, the topic overview displays

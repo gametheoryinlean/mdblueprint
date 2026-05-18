@@ -7,12 +7,13 @@ import sys
 from pathlib import Path
 
 from tools.knowledge.config import ProjectConfig, load_project_config
+from tools.knowledge.export import home_topic_for_node, leaf_topic_ids_for_node
 from tools.knowledge.graph import build_graph
 from tools.knowledge.latex_check import check_node_math
 from tools.knowledge.lean_check import check_configured_lean_references, check_lean_references
 from tools.knowledge.lean_index import index_lean_project
 from tools.knowledge.models import Node
-from tools.knowledge.parser import parse_node_id, scan_directory
+from tools.knowledge.parser import scan_directory
 from tools.knowledge.validator import Diagnostic, validate_node
 
 
@@ -90,28 +91,29 @@ def _check_topic_registry(node: Node, config: ProjectConfig) -> list[Diagnostic]
     diags: list[Diagnostic] = []
     if not config.topics:
         return diags
-    topic_prefix = parse_node_id(node.id)[0] if node.id else None
-    if not topic_prefix:
-        return diags
     canonical_ids = {t.id for t in config.topics}
-    all_aliases = {alias for t in config.topics for alias in t.aliases}
-    if topic_prefix in all_aliases:
-        for t in config.topics:
-            if topic_prefix in t.aliases:
-                diags.append(Diagnostic(
-                    "error",
-                    node.id,
-                    f"node topic prefix {topic_prefix!r} is an alias of canonical topic {t.id!r}; use {t.id!r} instead",
-                    node.file_path,
-                ))
-                break
-    elif topic_prefix not in canonical_ids:
-        diags.append(Diagnostic(
-            "warning",
-            node.id,
-            f"node topic prefix {topic_prefix!r} is not in the canonical topic registry; add it to mdblueprint.yml topics or use an existing topic",
-            node.file_path,
-        ))
+    alias_to_canonical = {alias: t.id for t in config.topics for alias in t.aliases}
+
+    def check_topic(topic: str, field: str) -> None:
+        if topic in alias_to_canonical:
+            canonical = alias_to_canonical[topic]
+            diags.append(Diagnostic(
+                "error",
+                node.id,
+                f"{field} {topic!r} is an alias of canonical topic {canonical!r}; use {canonical!r} instead",
+                node.file_path,
+            ))
+        elif topic not in canonical_ids:
+            diags.append(Diagnostic(
+                "warning",
+                node.id,
+                f"{field} {topic!r} is not in the canonical topic registry; add it to mdblueprint.yml topics or use an existing topic",
+                node.file_path,
+            ))
+
+    check_topic(home_topic_for_node(node), "primary_topic")
+    for topic in leaf_topic_ids_for_node(node):
+        check_topic(topic, "topics entry")
     return diags
 
 
@@ -125,8 +127,8 @@ def _check_duplicate_topic_ids(nodes: list[Node], config: ProjectConfig) -> list
     for node in nodes:
         if not node.id or not node.file_path:
             continue
-        prefix = parse_node_id(node.id)[0]
-        canonical = alias_to_canonical.get(prefix, prefix)
+        home_topic = home_topic_for_node(node)
+        canonical = alias_to_canonical.get(home_topic, home_topic)
         if canonical not in canonical_ids:
             continue
         parts = node.file_path.parts
@@ -148,28 +150,6 @@ def _check_duplicate_topic_ids(nodes: list[Node], config: ProjectConfig) -> list
                 ))
         else:
             dir_to_canonical[topic_dir] = canonical
-    return diags
-    canonical_ids = {t.id for t in config.topics}
-    alias_to_canonical = {alias: t.id for t in config.topics for alias in t.aliases}
-    topic_dir_to_canonical: dict[str, str] = {}
-    for node in nodes:
-        prefix = parse_node_id(node.id)[0] if node.id else None
-        if not prefix:
-            continue
-        canonical = alias_to_canonical.get(prefix, prefix)
-        if canonical not in canonical_ids:
-            continue
-        node_dir = str(node.file_path.parent.relative_to(node.file_path.parents[len(node.file_path.parts) - 2])) if node.file_path else ""
-        if node_dir in topic_dir_to_canonical:
-            if topic_dir_to_canonical[node_dir] != canonical:
-                diags.append(Diagnostic(
-                    "error",
-                    "<top-level>",
-                    f"topic directory {node_dir!r} maps to canonical {canonical!r} but also to {topic_dir_to_canonical[node_dir]!r}; cannot have two canonical topic directories",
-                    None,
-                ))
-        else:
-            topic_dir_to_canonical[node_dir] = canonical
     return diags
 
 

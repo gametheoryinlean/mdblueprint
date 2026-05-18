@@ -45,6 +45,44 @@ class TestCheckKnowledgeBase:
         errors = [d for d in diags if d.level == "error"]
         assert len(errors) > 0
 
+    def test_topic_registry_checks_primary_and_membership_topics(self, tmp_path: Path) -> None:
+        nodes_dir = tmp_path / "nodes" / "legacy"
+        nodes_dir.mkdir(parents=True)
+        (tmp_path / "mdblueprint.yml").write_text(
+            "site:\n"
+            "  title: Topic Registry Fixture\n"
+            "topics:\n"
+            "  - id: algebra.groups\n"
+            "    title: Groups\n"
+            "    aliases: [groups]\n"
+            "  - id: algebra.monoids\n"
+            "    title: Monoids\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "bad.md").write_text(
+            "---\n"
+            "id: legacy.group\n"
+            "title: Group\n"
+            "kind: definition\n"
+            "status: admitted\n"
+            "primary_topic: groups\n"
+            "topics:\n"
+            "  - groups\n"
+            "  - algebra.rings\n"
+            "uses: []\n"
+            "---\n\n"
+            "# Group\n",
+            encoding="utf-8",
+        )
+
+        diags = check_knowledge_base(tmp_path)
+        errors = [d.message for d in diags if d.level == "error"]
+        warnings = [d.message for d in diags if d.level == "warning"]
+
+        assert any("primary_topic 'groups' is an alias" in msg for msg in errors)
+        assert any("topics entry 'groups' is an alias" in msg for msg in errors)
+        assert any("topics entry 'algebra.rings' is not in the canonical topic registry" in msg for msg in warnings)
+
 
 class TestCheckCLI:
     def test_cli_exit_zero_on_valid(self) -> None:

@@ -14,10 +14,10 @@ When converting source material into staged Markdown knowledge nodes.
 ## Workflow
 
 1. Identify the source artifact and create a manifest entry.
-2. Read `docs/knowledge/mdblueprint.yml`. If `topics` is configured, select a canonical topic id from the registry. Do NOT invent new top-level topic prefixes; if no existing topic fits, record the gap in the extraction report.
+2. Read `docs/knowledge/mdblueprint.yml`, `docs/topic-model.md`, and the nearest folder-level `topics.md` catalog when present. Select canonical topic ids from the registry and catalog. Do not invent new topic names; if no existing topic fits, record the gap in the extraction report.
 3. Read the source material and identify mathematical content: definitions, theorems, lemmas, examples, proof ideas.
 4. For each item, search the existing node index (admitted + staged) for duplicates.
-5. If no duplicate, create a staged node under `docs/knowledge/staged/` following the node format, using the canonical topic prefix from the registry. If the intended prefix is an alias, use the canonical id and note the alias in the report.
+5. If no duplicate, create a staged node under `docs/knowledge/staged/` following the node format. Choose one `primary_topic` home topic and add any additional `topics` memberships needed for graph views. If a source uses an alias, use the canonical topic id and note the alias in the report.
 6. Record source spans with artifact binding and locator format.
 7. Convert formulas to the supported node math syntax in `docs/math-authoring.md`; declare reusable macros in project config instead of writing TeX preamble commands.
 8. If the source statement appears narrower than the reusable mathematical form, note a generality question — do not assert the broader form as truth.

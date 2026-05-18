@@ -332,6 +332,7 @@ docs/
   lean-repositories.md
   math-authoring.md
   node-format.md
+  topic-model.md
   agent-contracts.md
   publisher-and-dag.md
   reference-repos.md
@@ -370,6 +371,9 @@ id: algebra.groups.group
 title: Group
 kind: definition
 status: admitted
+primary_topic: algebra.groups
+topics:
+  - algebra.groups
 uses:
   - algebra.sets.binary_operation
 tags:
@@ -389,7 +393,9 @@ $e$, and inverses, such that the operation is associative.
 
 Important rules:
 
-- `id` is stable machine identity. It determines topic grouping and generated filenames.
+- `id` is stable machine identity. It should not change just because topic views change.
+- `primary_topic` is the node's home topic and default owner.
+- `topics` lists the topic views where the node appears; one node may appear in several topic views.
 - `title` is the human-facing label used in the generated site.
 - `kind` controls theorem/definition styling and validation.
 - `status` records the workflow state.
@@ -397,7 +403,8 @@ Important rules:
 - `tags` generate keyword pages.
 - The Markdown body should contain mathematics only, not process notes.
 
-Read [docs/node-format.md](docs/node-format.md) before creating or editing nodes.
+Read [docs/node-format.md](docs/node-format.md) and
+[docs/topic-model.md](docs/topic-model.md) before creating or editing nodes.
 
 ## Valid Kinds And Statuses
 
@@ -443,10 +450,11 @@ Files under `docs/knowledge/nodes/` should normally use `admitted`, `formalized`
 Use this only when you are directly maintaining trusted source files.
 
 1. Pick a stable id such as `algebra.groups.group_homomorphism`.
-2. Put the file under `docs/knowledge/nodes/<topic>/`.
-3. Write YAML frontmatter according to [docs/node-format.md](docs/node-format.md).
-4. Keep the body mathematical. Write TeX according to [docs/math-authoring.md](docs/math-authoring.md), and do not add operational headings like "Status", "Implementation notes", or "Agent discussion".
-5. Run:
+2. Check the nearest `topics.md` catalog and choose one `primary_topic` plus any additional `topics` memberships.
+3. Put the file under `docs/knowledge/nodes/<home-topic>/`.
+4. Write YAML frontmatter according to [docs/node-format.md](docs/node-format.md).
+5. Keep the body mathematical. Write TeX according to [docs/math-authoring.md](docs/math-authoring.md), and do not add operational headings like "Status", "Implementation notes", or "Agent discussion".
+6. Run:
 
 ```bash
 uv run python -m tools.knowledge.check docs/knowledge
@@ -520,8 +528,8 @@ Graph navigation contract:
 
 - The default graph is topic-first so large knowledge bases open at a readable scale.
 - `graph.json` remains the full machine graph. Browser UI artifacts are derived browsing projections, not replacements for the machine export.
-- Topic ids are hierarchical. A node id such as `algebra.groups.group` belongs
-  to topic `algebra.groups`; `algebra` is its parent topic.
+- Topic ids are hierarchical. A node has one `primary_topic` home topic and may
+  list several `topics` memberships for graph views.
 - Topic overview edges display `dependency topic -> dependent topic`.
 - Topic overview edges summarize ordinary mathematical dependencies. Proof-plan
   route edges stay out of the overview so candidate proof routes do not look

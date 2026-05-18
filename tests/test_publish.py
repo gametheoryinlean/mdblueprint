@@ -778,6 +778,59 @@ class TestMultiTopicPublish:
         page = (tmp_path / "site" / "algebra" / "monoids" / "algebra_monoids_identity.html").read_text()
         assert "Also in" not in page
 
+    def test_primary_topic_controls_canonical_page_and_payload_links(self, tmp_path):
+        knowledge = tmp_path / "knowledge"
+        nodes_dir = knowledge / "nodes" / "legacy"
+        nodes_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text("site:\n  title: Primary Topic Test\n")
+        (nodes_dir / "duality.md").write_text(
+            "---\n"
+            "id: legacy.duality\n"
+            "title: Duality\n"
+            "kind: theorem\n"
+            "status: admitted\n"
+            "primary_topic: linear_programming.duality\n"
+            "topics:\n"
+            "  - linear_programming.duality\n"
+            "---\n\n"
+            "# Duality\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "minimax.md").write_text(
+            "---\n"
+            "id: legacy.minimax\n"
+            "title: Minimax\n"
+            "kind: theorem\n"
+            "status: admitted\n"
+            "primary_topic: game_theory.zero_sum\n"
+            "topics:\n"
+            "  - game_theory.zero_sum\n"
+            "uses:\n"
+            "  - legacy.duality\n"
+            "---\n\n"
+            "# Minimax\n",
+            encoding="utf-8",
+        )
+
+        publish(knowledge, tmp_path / "site")
+        site = tmp_path / "site"
+
+        assert (site / "game_theory" / "zero_sum" / "legacy_minimax.html").exists()
+        assert not (site / "legacy" / "legacy_minimax.html").exists()
+
+        zero_sum_page = (site / "game_theory" / "zero_sum" / "index.html").read_text()
+        assert "legacy_minimax.html" in zero_sum_page
+
+        payload = json.loads((site / "node_payloads" / "legacy_minimax.json").read_text())
+        assert payload["href"] == "game_theory/zero_sum/legacy_minimax.html"
+        assert payload["deps"] == [
+            {
+                "id": "legacy.duality",
+                "title": "Duality",
+                "href": "linear_programming/duality/legacy_duality.html",
+            }
+        ]
+
 
 class TestTopicCatalogPages:
     """Tests for Issue #82: topic catalog content on topic index pages."""

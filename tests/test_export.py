@@ -678,6 +678,78 @@ class TestMultiTopicMembership:
         assert zs["node_count"] == 1
         assert lp["node_count"] == 1
 
+    def test_topic_overview_edges_use_all_explicit_memberships(self):
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.export import export_topic_overview_json
+
+        dependency = self._make_node(
+            "legacy.duality",
+            topics=["linear_programming.duality"],
+        )
+        dependent = self._make_node(
+            "zero_sum.minimax",
+            topics=["zero_sum", "game_theory.zero_sum"],
+        )
+        dependent.uses = ["legacy.duality"]
+
+        graph, diags = build_graph([dependency, dependent])
+        assert diags == []
+
+        data = export_topic_overview_json(graph)
+
+        assert data["edges"] == [
+            {"from": "linear_programming", "to": "game_theory", "count": 1},
+            {"from": "linear_programming", "to": "zero_sum", "count": 1},
+        ]
+
+    def test_subgraph_links_and_boundary_topics_use_home_topic(self):
+        from tools.knowledge.graph import build_graph
+        from tools.knowledge.export import export_topic_subgraph_json
+        from tools.knowledge.models import Node
+
+        dependency = Node(
+            id="legacy.duality",
+            title="Duality",
+            kind="theorem",
+            status="admitted",
+            primary_topic="linear_programming.duality",
+            topics=["linear_programming.duality"],
+        )
+        dependent = Node(
+            id="legacy.minimax",
+            title="Minimax",
+            kind="theorem",
+            status="admitted",
+            primary_topic="game_theory.zero_sum",
+            topics=["game_theory.zero_sum"],
+            uses=["legacy.duality"],
+        )
+
+        graph, diags = build_graph([dependency, dependent])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "game_theory.zero_sum")
+
+        assert data["nodes"] == [
+            {
+                "id": "legacy.minimax",
+                "title": "Minimax",
+                "kind": "theorem",
+                "status": "admitted",
+                "href": "game_theory/zero_sum/legacy_minimax.html",
+                "payload": "node_payloads/legacy_minimax.json",
+            }
+        ]
+        assert data["boundary_topics"] == [
+            {
+                "id": "linear_programming.duality",
+                "title": "Linear Programming.Duality",
+                "href": "linear_programming/duality/index.html",
+                "role": "dependency",
+                "node_count": 1,
+            }
+        ]
+
     def test_graph_json_includes_topics_field_when_set(self):
         from tools.knowledge.graph import build_graph
         from tools.knowledge.export import export_graph_json
