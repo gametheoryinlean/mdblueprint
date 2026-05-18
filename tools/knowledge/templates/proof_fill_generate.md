@@ -9,6 +9,9 @@ discover new mathematics, invent new lemmas, or change the target statement.
 - The target node's statement is **authoritative and fixed**. Do not modify it.
 - You may only use facts explicitly listed under **Allowed Dependencies**.
   Do not introduce external results, cite unlisted nodes, or search the web.
+- You must not read source files. If the orchestrator provides a source hint
+  below, treat it only as an explicit hint and still prove using allowed
+  dependencies.
 - Output must be **JSON only** — no prose outside the JSON object.
 - Proof text must be valid Markdown suitable for direct insertion into a node body.
 - Do not leave placeholders, ellipses, or operational notes in the proof text.
@@ -36,6 +39,16 @@ discover new mathematics, invent new lemmas, or change the target statement.
 ```
 
 {% endfor %}
+
+## Explicit Source Hint (if provided by orchestrator)
+
+{% if source_hint %}
+```
+{{ source_hint }}
+```
+{% else %}
+No source hint was provided.
+{% endif %}
 
 ## Output Schema
 

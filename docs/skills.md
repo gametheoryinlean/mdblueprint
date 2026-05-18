@@ -11,6 +11,7 @@ The maintained mdblueprint skills live in [`skills/`](../skills/). Each skill ha
 | Task | Use this skill | Main outputs |
 | --- | --- | --- |
 | Extract theorems, definitions, examples, or proof ideas from a book, PDF, paper, TeX source, or notes | `mdblueprint-source-extraction` | staged nodes, extraction report |
+| Recover a proof, proof sketch, or hint for an existing node from cited source spans | `mdblueprint-source-proof-recovery` | proposed proof block, recovery report, missing-dependency requests |
 | Create or edit a Markdown knowledge node by hand | `mdblueprint-node-author` | node file |
 | Review staged content before admission | `mdblueprint-node-review` | statement/definition review, proof review, admission report |
 | Generate Lean code from admitted Markdown nodes | `mdblueprint-lean-generation` | Lean proposal, missing-node requests |
@@ -26,9 +27,10 @@ Recommended order for building a knowledge base from a book:
 
 1. Use `mdblueprint-source-extraction` to extract candidate definitions, theorems, lemmas, examples, and proof ideas into `docs/knowledge/staged/`.
 2. Use `mdblueprint-node-review` to review staged candidates for correctness, proof validity, and generality.
-3. Use `tools.knowledge.admission_pipeline` only after review gates pass.
-4. Use `mdblueprint-publish` to validate and publish the generated site.
-5. Use `mdblueprint-lean-generation` and `mdblueprint-alignment-review` when connecting admitted nodes to Lean.
+3. For existing theorem-like nodes with missing or incomplete proofs, use `mdblueprint-source-proof-recovery` before bounded `mdblueprint-proof-fill` when `source.spans` or source hints exist.
+4. Use `tools.knowledge.admission_pipeline` only after review gates pass.
+5. Use `mdblueprint-publish` to validate and publish the generated site.
+6. Use `mdblueprint-lean-generation` and `mdblueprint-alignment-review` when connecting admitted nodes to Lean.
 
 Admission is deterministic and Python-orchestrated:
 
@@ -143,6 +145,35 @@ Must not:
 - admit a broader theorem than the source supports.
 
 Use this skill for “从书里面抓出定理”, theorem mining from PDFs, source-to-node extraction, and first-pass knowledge-base formation.
+
+### `mdblueprint-source-proof-recovery`
+
+Use when repairing an existing theorem-like node that has missing/incomplete
+proof content and cited source spans or source hints.
+
+Reads:
+
+- target node and its `uses` dependencies;
+- admitted and staged node index;
+- cited source spans only.
+
+Writes:
+
+- source-proof-recovery reports under `docs/knowledge/reviews/`;
+- missing-dependency requests under `docs/knowledge/requests/`;
+- proposed `*Proof.*` block for staged nodes when the Python orchestrator grants
+  a write path.
+
+Must not:
+
+- set `verification.proof: accepted`;
+- invoke proof-fill, proof review, or admission by itself;
+- read unrelated source material;
+- invent dependencies or change the statement.
+
+This skill is the source proof recovery branch of proof repair. If it finds only
+a hint, the Python orchestrator may pass that explicit source hint to
+`mdblueprint-proof-fill`; proof-fill must not read source files directly.
 
 ### `mdblueprint-node-author`
 

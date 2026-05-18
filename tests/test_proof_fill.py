@@ -226,6 +226,20 @@ class TestBuildContextBundle:
         bundle = build_context_bundle(node, {})
         assert bundle["target_body"] == "The statement is P."
 
+    def test_bundle_has_no_source_material_by_default(self):
+        from tools.knowledge.models import Source, SourceArtifact, SourceSpan
+
+        node = _make_node(body="The statement is P.")
+        node.source = Source(
+            artifacts=[SourceArtifact(id="book", path="references/book.pdf")],
+            spans=[SourceSpan(artifact="book", locator="Section 1.2")],
+        )
+        bundle = build_context_bundle(node, {})
+        rendered = json.dumps(bundle)
+        assert "references/book.pdf" not in rendered
+        assert "Section 1.2" not in rendered
+        assert bundle["source_hint"] is None
+
 
 # ── validate_generator_result ─────────────────────────────────────────────────
 

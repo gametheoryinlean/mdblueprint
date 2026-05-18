@@ -9,6 +9,7 @@ Each skill is a directory with a `SKILL.md` file and optional `references/` file
 | Task | Skill |
 | --- | --- |
 | Extract definitions, theorems, lemmas, examples, or proof ideas from a book, PDF, paper, TeX source, or notes | `mdblueprint-source-extraction` |
+| Recover a proof, proof sketch, or hint for an existing node from cited source spans | `mdblueprint-source-proof-recovery` |
 | Create or edit Markdown knowledge nodes by hand | `mdblueprint-node-author` |
 | Review staged nodes before admission | `mdblueprint-node-review` |
 | Generate Lean declarations, proof skeletons, or Lean patch proposals | `mdblueprint-lean-generation` |

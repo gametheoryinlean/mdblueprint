@@ -356,6 +356,7 @@ The repo includes workflow skills under [`skills/`](skills/) for humans and AI a
 | Task | Skill |
 | --- | --- |
 | Extract theorems, definitions, examples, or proof ideas from a book, PDF, paper, TeX source, or notes | `mdblueprint-source-extraction` |
+| Recover a proof, proof sketch, or hint for an existing theorem-like node from cited source spans | `mdblueprint-source-proof-recovery` |
 | Create or edit a Markdown knowledge node by hand | `mdblueprint-node-author` |
 | Review staged nodes before admission | `mdblueprint-node-review` |
 | Generate Lean declarations or proof skeletons from admitted nodes | `mdblueprint-lean-generation` |
@@ -363,6 +364,11 @@ The repo includes workflow skills under [`skills/`](skills/) for humans and AI a
 | Publish or inspect the generated site and dependency graph | `mdblueprint-publish` |
 
 If your assistant does not auto-discover repo-local skills, open the relevant `skills/<name>/SKILL.md` and follow it manually. See [skills/README.md](skills/README.md) and [docs/skills.md](docs/skills.md) for Claude Code and Codex installation notes.
+
+Proof repair is source-first: if a theorem-like node has `source.spans`, the
+Python workflow should try source proof recovery before bounded proof-fill.
+Proof-fill may use an explicit source hint supplied by the orchestrator, but it
+must not read source files directly.
 
 ## The Node Model
 

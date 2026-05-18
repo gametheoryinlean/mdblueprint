@@ -86,6 +86,7 @@ def build_context_bundle(node: Node, all_nodes: dict[str, Node]) -> dict[str, An
         "target_frontmatter": _frontmatter_text(node),
         "target_body": node.body,
         "dependencies": deps,
+        "source_hint": None,
     }
 
 
@@ -249,6 +250,7 @@ def run_proof_fill(
     max_rounds: int = 2,
     dry_run: bool = False,
     template_dir: Path | None = None,
+    source_hint: str | None = None,
 ) -> ProofFillReport:
     """Run the proof-fill workflow for a single node.
 
@@ -261,6 +263,7 @@ def run_proof_fill(
     ver_tmpl = env.get_template("proof_fill_verify.md")
 
     bundle = build_context_bundle(node, all_nodes)
+    bundle["source_hint"] = source_hint
     repair_hints: list[str] = []
     repair_hint = ""
 

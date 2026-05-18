@@ -83,6 +83,7 @@ The Markdown body of a report can explain reasons, but the decision must be mach
 | Agent | Main job | Writes | Cannot write |
 | --- | --- | --- | --- |
 | Source-to-MD | Extract staged nodes from sources | `docs/knowledge/staged/`, `docs/knowledge/reviews/` | `docs/knowledge/nodes/` |
+| Source Proof Recovery | Recover proof text, sketch, or hint from cited source spans for an existing node | recovery report, missing-dependency requests, controlled staged proof proposal | `verification.proof: accepted`, admission, unrelated source reads |
 | Definition/Statement Verifier | Review statement correctness and generality | `docs/knowledge/reviews/` | admitted nodes |
 | Proof Verifier | Review proof body or proof sketch | `docs/knowledge/reviews/` | admitted nodes |
 | Proof-Fill Generator | Generate a local proof for one node | candidate proof text (in-memory until verifier accepts) | any file directly |
@@ -153,7 +154,45 @@ Rules:
 - If the source statement is narrower than the likely reusable mathematical form, it should propose the broader form as a question, not as admitted truth.
 - Before creating a staged candidate, it must search the existing node index (admitted and staged) for a node covering the same content. If a near-duplicate exists, it should write a review or request noting the overlap instead of creating a second staged file.
 
-## 2. MD Node Verifiers
+## 2. Source Proof Recovery Agent
+
+Purpose: recover a proof, proof sketch, or source hint for an existing
+theorem-like node before bounded proof-fill is attempted.
+
+Inputs:
+
+- target node;
+- dependencies named by `uses`;
+- admitted and staged node index;
+- cited source spans supplied by the Python orchestrator.
+
+Outputs:
+
+- source-proof-recovery report under `docs/knowledge/reviews/`;
+- optional proposed `*Proof.*` block for staged nodes;
+- missing dependency requests under `docs/knowledge/requests/`;
+- explicit source hint for the Python orchestrator to pass to proof-fill.
+
+Decision vocabulary:
+
+```text
+recovered
+partial
+hint_only
+not_found
+blocked
+```
+
+Rules:
+
+- It must read only cited source spans, not unrelated source files.
+- It must preserve the source argument when recovering proof text.
+- It must not set `verification.proof: accepted`; proof review remains separate.
+- It must not invoke proof-fill, proof review, or admission. The Python
+  orchestrator decides the next gate.
+- It must not invent dependencies or change the statement.
+
+## 3. MD Node Verifiers
 
 There should be two verifier types, because definition checking and proof checking fail in different ways.
 
@@ -201,7 +240,7 @@ May propose new nodes: only as a request for a missing lemma that is mathematica
 
 Both verifiers write reports. They do not directly edit admitted truth unless a later implementation grants a controlled fixer role.
 
-## 3. MD-to-Lean Generator
+## 4. MD-to-Lean Generator
 
 Purpose: produce Lean declarations, proof skeletons, or implementation plans from admitted Markdown nodes.
 
@@ -242,7 +281,7 @@ Rules:
   - source or mathematical justification;
   - whether the node is a definition, lemma, theorem, example, or task.
 
-## 4. External-Theorem Admission Path
+## 5. External-Theorem Admission Path
 
 `external-theorem` nodes reference results that are already proved in Lean (Mathlib or
 another library). They do not go through the staged extraction flow. Instead:
@@ -266,7 +305,7 @@ Required for external-theorem admission (no staged phase):
   acceptable discrepancy;
 - generality gate: required (same as for theorem kind).
 
-## 5. MD-Lean Alignment Verifier
+## 6. MD-Lean Alignment Verifier
 
 Purpose: decide whether a Lean declaration semantically matches the Markdown node.
 
@@ -302,7 +341,7 @@ uncertain
 
 May propose new nodes: no. It may request a review if the mismatch reveals a missing concept.
 
-## 6. Admission Referee
+## 7. Admission Referee
 
 Purpose: decide whether staged nodes and review reports are sufficient to admit a node.
 
@@ -355,14 +394,29 @@ The pipeline reports `schema`, `generality`, `verification`, `reviews`, `dag`,
 and `write` gates. Agents should cite that report in review or issue comments
 instead of manually copying staged files into `docs/knowledge/nodes/`.
 
-## 7. Proof-Fill Agents
+## 8. Proof Repair Order
+
+For theorem-like nodes with missing or incomplete proof content, the Python
+orchestrator owns the repair sequence:
+
+```text
+source proof recovery -> proof verification -> bounded proof-fill fallback -> failure report/request
+```
+
+If the node has `source.spans`, source-proof-recovery runs before proof-fill. If
+source recovery returns `hint_only`, the orchestrator may pass that explicit
+source hint to proof-fill. Proof-fill must not read source files directly.
+
+## 9. Proof-Fill Agents
 
 The proof-fill agents handle a bounded repair loop that fills a single, local
 natural-language proof gap. They are invoked only after the statement verifier
 has accepted the node and the proof verifier has returned `gap` for a step that
-can be completed from the node's existing `uses` list.
+can be completed from the node's existing `uses` list. If source spans exist,
+they are invoked only after source-proof-recovery has failed or produced an
+explicit source hint.
 
-### 7.1 Proof-Fill Generator
+### 9.1 Proof-Fill Generator
 
 Purpose: write a short local proof for the target node using only facts already
 listed in the node's `uses` field.
@@ -371,7 +425,8 @@ Inputs:
 
 - target node frontmatter and body;
 - body text of every dependency listed in `uses`;
-- optional `repair_hint` from the verifier (on a repair round).
+- optional `repair_hint` from the verifier (on a repair round);
+- optional explicit source hint supplied by the Python orchestrator.
 
 Outputs:
 
@@ -386,7 +441,8 @@ cannot_fill
 ```
 
 May propose new nodes: no. It must not add entries to `uses`, change the
-statement, or name facts outside the supplied context.
+statement, read source files directly, or name facts outside the supplied
+context.
 
 Rules:
 
@@ -395,7 +451,7 @@ Rules:
 - If a valid local proof cannot be written from the allowed context, it must
   return `cannot_fill` with a reason.
 
-### 7.2 Proof-Fill Verifier
+### 9.2 Proof-Fill Verifier
 
 Purpose: independently verify the candidate proof without access to the
 generator's reasoning chain.
