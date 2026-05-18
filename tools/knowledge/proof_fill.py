@@ -107,11 +107,19 @@ _PLACEHOLDER_RE = re.compile(
     r"\.\.\.|TODO|FIXME|PLACEHOLDER|\[insert\]|\[fill\]", re.IGNORECASE
 )
 
+_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*\n(.*?)\n```\s*$", re.DOTALL)
+
+
+def _strip_code_fence(raw: str) -> str:
+    """Strip a markdown code fence wrapper if present, else return as-is."""
+    m = _CODE_FENCE_RE.match(raw.strip())
+    return m.group(1) if m else raw.strip()
+
 
 def decode_generator_output(raw: str) -> GeneratorResult:
     """Parse and validate generator JSON. Raises ValueError on any violation."""
     try:
-        data = json.loads(raw)
+        data = json.loads(_strip_code_fence(raw))
     except json.JSONDecodeError as exc:
         raise ValueError(f"Generator output is not valid JSON: {exc}") from exc
 
@@ -152,7 +160,7 @@ def decode_generator_output(raw: str) -> GeneratorResult:
 def decode_verifier_output(raw: str) -> VerifierResult:
     """Parse and validate verifier JSON. Raises ValueError on any violation."""
     try:
-        data = json.loads(raw)
+        data = json.loads(_strip_code_fence(raw))
     except json.JSONDecodeError as exc:
         raise ValueError(f"Verifier output is not valid JSON: {exc}") from exc
 
