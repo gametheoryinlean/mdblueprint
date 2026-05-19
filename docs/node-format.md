@@ -85,7 +85,7 @@ The `source` field records where the mathematical content came from.
 source:
   artifacts:
     - id: <short-identifier>
-      path: <relative path under docs/knowledge/sources/ or references/>
+      path: <relative path under docs/knowledge/sources/ or references/>  # optional
   spans:
     - artifact: <artifact id>
       locator: <locator string>
@@ -95,6 +95,42 @@ source:
 
 Each span must name the `artifact` it comes from. When there is only one artifact,
 the `artifact` field may be omitted and the span is bound to that artifact implicitly.
+
+### Project-level source library
+
+Shared reference books can be declared once in `mdblueprint.yml` under
+`sources.library`. Nodes may then reference them by `id` in spans without
+repeating the artifact in each node's `source.artifacts`.
+
+```yaml
+# in mdblueprint.yml
+sources:
+  library:
+    - id: topology-text
+      title: "Introduction to Topology"
+      short: ITop
+      authors: "Smith and Jones"
+      path: references/topology-text.pdf   # optional; omit when no local PDF
+    - id: algebra-text
+      title: "Abstract Algebra"
+      short: AlgText
+      authors: "Brown"
+```
+
+A node that cites a library book only needs the spans:
+
+```yaml
+source:
+  spans:
+    - artifact: topology-text
+      locator: "Chapter 2, Section 2.4"
+      format: section
+      note: "Definition of complete metric space"
+```
+
+The validator resolves the artifact id against both the node's own
+`source.artifacts` list and the project library. If the id is not found in
+either, it reports an error.
 
 Valid `format` values:
 

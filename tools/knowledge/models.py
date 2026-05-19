@@ -6,9 +6,18 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class SourceLibraryEntry:
+    id: str
+    title: str
+    short: str | None = None
+    authors: str | None = None
+    path: str | None = None
+
+
+@dataclass(frozen=True)
 class SourceArtifact:
     id: str
-    path: str
+    path: str | None = None
 
 
 @dataclass(frozen=True)

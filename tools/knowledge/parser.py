@@ -25,9 +25,9 @@ def _parse_source(raw: dict | None) -> Source | None:
     artifacts = []
     for a in raw.get("artifacts") or []:
         if isinstance(a, dict):
-            artifacts.append(SourceArtifact(id=a["id"], path=a["path"]))
+            artifacts.append(SourceArtifact(id=a["id"], path=a.get("path")))
         else:
-            artifacts.append(SourceArtifact(id=str(a), path=str(a)))
+            artifacts.append(SourceArtifact(id=str(a), path=None))
     spans = []
     for s in raw.get("spans") or []:
         spans.append(SourceSpan(

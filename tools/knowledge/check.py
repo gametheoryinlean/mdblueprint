@@ -32,16 +32,18 @@ def check_knowledge_base(
     all_nodes = []
     config = load_project_config(root, config_path)
 
+    project_library = config.sources.library
+
     if nodes_dir.exists():
         for node in scan_directory(nodes_dir):
-            diags.extend(validate_node(node, is_staged_dir=False))
+            diags.extend(validate_node(node, is_staged_dir=False, project_library=project_library))
             diags.extend(check_node_math(node, declared_macros=set(config.math.macros)))
             diags.extend(_check_topic_registry(node, config))
             all_nodes.append(node)
 
     if staged_dir.exists():
         for node in scan_directory(staged_dir):
-            diags.extend(validate_node(node, is_staged_dir=True))
+            diags.extend(validate_node(node, is_staged_dir=True, project_library=project_library))
             diags.extend(check_node_math(node, declared_macros=set(config.math.macros)))
             diags.extend(_check_topic_registry(node, config))
             all_nodes.append(node)

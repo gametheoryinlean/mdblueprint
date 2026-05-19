@@ -21,6 +21,7 @@ from tools.knowledge.models import (
     VALID_STATEMENT_VALUES,
     VALID_STATUSES,
     Node,
+    SourceLibraryEntry,
 )
 
 
@@ -40,7 +41,12 @@ def _heading_re():
     return re.compile(r"^##\s+(.+)$", re.MULTILINE)
 
 
-def validate_node(node: Node, *, is_staged_dir: bool = False) -> list[Diagnostic]:
+def validate_node(
+    node: Node,
+    *,
+    is_staged_dir: bool = False,
+    project_library: dict[str, SourceLibraryEntry] | None = None,
+) -> list[Diagnostic]:
     diags: list[Diagnostic] = []
     nid = node.id or "<no-id>"
     fp = node.file_path
@@ -114,8 +120,10 @@ def validate_node(node: Node, *, is_staged_dir: bool = False) -> list[Diagnostic
     src = node.source
     if src is not None:
         artifact_ids = {a.id for a in src.artifacts}
+        library_ids = set(project_library.keys()) if project_library else set()
+        known_ids = artifact_ids | library_ids
         for span in src.spans:
-            if span.artifact is not None and span.artifact not in artifact_ids:
+            if span.artifact is not None and span.artifact not in known_ids:
                 err(f"source span references unknown artifact: {span.artifact!r}")
             if span.format is not None and span.format not in VALID_LOCATOR_FORMATS:
                 warn(f"unknown source span format: {span.format!r}")

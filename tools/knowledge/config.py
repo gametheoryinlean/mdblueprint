@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 
 from tools.knowledge.latex_check import KNOWN_MACROS
+from tools.knowledge.models import SourceLibraryEntry
 
 
 DEFAULT_CONFIG_NAME = "mdblueprint.yml"
@@ -58,6 +59,11 @@ class GraphDisplayConfig:
 
 
 @dataclass(frozen=True)
+class SourcesConfig:
+    library: dict[str, SourceLibraryEntry] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class TopicConfig:
     id: str
     title: str
@@ -71,6 +77,7 @@ class ProjectConfig:
     lean: LeanConfig
     graph: GraphDisplayConfig
     topics: tuple[TopicConfig, ...] = field(default_factory=())
+    sources: SourcesConfig = field(default_factory=SourcesConfig)
 
 
 def _titleize_path_name(name: str) -> str:
@@ -336,6 +343,45 @@ def _parse_topics_config(raw: Any, *, path: Path) -> tuple[TopicConfig, ...]:
     return tuple(topics)
 
 
+def _parse_sources_config(raw: Any, *, path: Path) -> SourcesConfig:
+    if raw is None:
+        return SourcesConfig()
+    if not isinstance(raw, dict):
+        raise ValueError(f"Project config sources must be a mapping: {path}")
+
+    library_raw = raw.get("library", [])
+    if not isinstance(library_raw, list):
+        raise ValueError(f"Project config sources.library must be a list: {path}")
+
+    library: dict[str, SourceLibraryEntry] = {}
+    for index, item in enumerate(library_raw):
+        prefix = f"sources.library[{index}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"Project config {prefix} must be a mapping: {path}")
+        entry_id = _required_str(item, "id", path=path, prefix=prefix)
+        if entry_id in library:
+            raise ValueError(f"Project config duplicate source library id {entry_id!r}: {path}")
+        entry_title = _required_str(item, "title", path=path, prefix=prefix)
+        short = item.get("short")
+        if short is not None and (not isinstance(short, str) or not short.strip()):
+            raise ValueError(f"Project config {prefix}.short must be a non-empty string: {path}")
+        authors = item.get("authors")
+        if authors is not None and (not isinstance(authors, str) or not authors.strip()):
+            raise ValueError(f"Project config {prefix}.authors must be a non-empty string: {path}")
+        entry_path = item.get("path")
+        if entry_path is not None and (not isinstance(entry_path, str) or not entry_path.strip()):
+            raise ValueError(f"Project config {prefix}.path must be a non-empty string: {path}")
+        library[entry_id] = SourceLibraryEntry(
+            id=entry_id,
+            title=entry_title,
+            short=short.strip() if short else None,
+            authors=authors.strip() if authors else None,
+            path=entry_path.strip() if entry_path else None,
+        )
+
+    return SourcesConfig(library=library)
+
+
 def load_project_config(knowledge_root: Path, config_path: Path | None = None) -> ProjectConfig:
     path = config_path if config_path is not None else knowledge_root / DEFAULT_CONFIG_NAME
     if not path.exists():
@@ -367,4 +413,5 @@ def load_project_config(knowledge_root: Path, config_path: Path | None = None) -
         lean=_parse_lean_config(raw.get("lean"), path=path),
         graph=_parse_graph_config(raw.get("graph"), path=path),
         topics=_parse_topics_config(raw.get("topics"), path=path),
+        sources=_parse_sources_config(raw.get("sources"), path=path),
     )
