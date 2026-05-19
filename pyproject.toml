@@ -17,6 +17,10 @@ dev = [
 browser = [
     "playwright>=1.48",
 ]
+serve = [
+    "flask>=3.0",
+    "watchdog>=4.0",
+]
 
 [project.scripts]
 mdblueprint-check = "tools.knowledge.check:main"
@@ -24,6 +28,7 @@ mdblueprint-publish = "tools.knowledge.publish:main"
 mdblueprint-render-check = "tools.knowledge.render_check:main"
 mdblueprint-econcslib-gate = "tools.knowledge.econcslib_gate:main"
 mdblueprint-proof-fill = "tools.knowledge.proof_fill:main"
+mdblueprint-serve = "tools.knowledge.serve:main"
 
 [tool.setuptools.packages.find]
 include = ["tools*"]
@@ -31,6 +36,9 @@ include = ["tools*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "integration: end-to-end tests that drive real I/O (file watcher, HTTP, SSE)",
+]
 
 [build-system]
 requires = ["setuptools>=68.0"]
