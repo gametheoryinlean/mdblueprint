@@ -119,5 +119,14 @@
       }
     });
   </script>
+{% if dev_mode %}
+<script>
+  (function () {
+    var es = new EventSource('/_dev/events');
+    es.addEventListener('reload', function () { location.reload(); });
+    es.onerror = function () { es.close(); };
+  })();
+</script>
+{% endif %}
 </body>
 </html>

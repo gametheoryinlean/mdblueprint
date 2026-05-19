@@ -3,429 +3,55 @@ from __future__ import annotations
 
 import argparse
 import json
-import posixpath
-import re
 import shutil
 import sys
-from collections import defaultdict
-from html import escape
 from pathlib import Path
 
-import markdown
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-from tools.knowledge.blueprint_view import build_blueprint_graph
-from tools.knowledge.config import LeanConfig, katex_auto_render_options, load_project_config
+from tools.knowledge.context import KnowledgeContext
 from tools.knowledge.export import (
-    topic_path,
-    topic_prefixes,
     home_topic_for_node,
-    leaf_topic_ids_for_node,
-    titleize_topic,
+    topic_path,
     write_graph_json,
     write_topic_overview_json,
     write_topic_hierarchy_json,
     write_topic_subgraph_jsons,
 )
-from tools.knowledge.graph import build_graph
-from tools.knowledge.lean_index import LeanDeclaration, LeanIndex, index_lean_project
-from tools.knowledge.models import Node
-from tools.knowledge.node_refs import NODE_REF_RE
-from tools.knowledge.parser import scan_directory
-
-TEMPLATE_DIR = Path(__file__).parent / "templates"
-PROOF_MARKER_RE = re.compile(r"(?im)(^|\n)(?P<marker>\s*(?:\*{1,2}Proof\.\*{1,2}|Proof\.|##\s+Proof)\s*)")
-TEX_MATH_RE = re.compile(
-    r"\$\$(?:.|\n)*?\$\$"
-    r"|\\\[(?:.|\n)*?\\\]"
-    r"|\\\((?:.|\n)*?\\\)"
-    r"|(?<!\\)\$(?!\$)(?:\\.|[^\n$\\])+(?<!\\)\$"
+from tools.knowledge.renderer import (
+    _build_topic_tree,
+    _convert_markdown_preserving_tex,
+    node_detail_payload,
+    render_graph_page,
+    render_index,
+    render_keyword,
+    render_node,
+    render_topic,
 )
 
-
-def _node_href(node_id: str, from_topic: str | None = None) -> str:
-    target = _node_href_from_root(node_id)
-    if from_topic is None:
-        return target
-    source_dir = topic_path(from_topic)
-    return posixpath.relpath(target, start=source_dir)
-
-
-def _node_href_for_node(node: Node, from_topic: str | None = None) -> str:
-    target = _node_href_from_root_for_node(node)
-    if from_topic is None:
-        return target
-    source_dir = topic_path(from_topic)
-    return posixpath.relpath(target, start=source_dir)
-
-
-def _node_href_from_root(node_id: str) -> str:
-    topic = ".".join(node_id.split(".")[:-1]) if "." in node_id else "misc"
-    filename = node_id.replace(".", "_") + ".html"
-    return f"{topic_path(topic)}/{filename}"
-
-
-def _node_href_from_root_for_node(node: Node) -> str:
-    filename = node.id.replace(".", "_") + ".html"
-    return f"{topic_path(home_topic_for_node(node))}/{filename}"
-
-
-def _root_prefix_for_topic(topic: str) -> str:
-    return "../" * len(topic_path(topic).split("/"))
-
-
-def _titleize(value: str) -> str:
-    return titleize_topic(value)
-
-
-def _build_topic_tree(topic_names: list[str]) -> list[dict]:
-    """Build a nested list of topic dicts from a sorted flat topic list.
-
-    Each dict has ``id``, ``label`` (display name), and ``children`` (list).
-    """
-    tree: dict[str, dict] = {}
-    roots: list[dict] = []
-    for topic_id in topic_names:
-        parts = topic_id.split(".")
-        label = parts[-1].replace("_", " ").title()
-        node: dict = {"id": topic_id, "label": label, "children": []}
-        tree[topic_id] = node
-        if len(parts) == 1:
-            roots.append(node)
-        else:
-            parent_id = ".".join(parts[:-1])
-            if parent_id in tree:
-                tree[parent_id]["children"].append(node)
-    return roots
-
-
-def _load_topic_catalog(
-    knowledge_root: Path, topic_id: str, md: markdown.Markdown
-) -> str | None:
-    """Read and render a topics.md catalog file for a topic, if it exists."""
-    for base in ("nodes", "staged"):
-        catalog = knowledge_root / base / topic_path(topic_id) / "topics.md"
-        if catalog.exists():
-            text = catalog.read_text(encoding="utf-8")
-            if text.startswith("---"):
-                end = text.find("---", 3)
-                if end != -1:
-                    text = text[end + 3:].lstrip()
-            md.reset()
-            return _convert_markdown_preserving_tex(md, text)
-    return None
-
-
-def _split_proof_markdown(body: str) -> tuple[str, str | None]:
-    match = PROOF_MARKER_RE.search(body)
-    if match is None:
-        return body, None
-    statement = body[:match.start()].rstrip()
-    proof = body[match.end():].lstrip()
-    return statement, proof or None
-
-
-def _convert_markdown_preserving_tex(md: markdown.Markdown, source: str) -> str:
-    replacements: list[tuple[str, str]] = []
-
-    def protect(match: re.Match[str]) -> str:
-        token = f"MDBLUEPRINTMATHPLACEHOLDER{len(replacements)}END"
-        replacements.append((token, match.group(0)))
-        return token
-
-    protected = TEX_MATH_RE.sub(protect, source)
-    rendered = md.convert(protected)
-    for token, math_source in replacements:
-        rendered = rendered.replace(token, escape(math_source, quote=False))
-    return rendered
-
-
-def _resolve_node_refs_in_html(
-    html: str,
-    all_nodes: dict[str, Node],
-    from_topic: str | None = None,
-) -> tuple[str, list[str]]:
-    """Replace [[node:id]] shortcodes in already-rendered HTML with links or unresolved spans.
-
-    Returns (resolved_html, list_of_unresolved_ids).
-    """
-    unresolved: list[str] = []
-
-    def _replace(m: re.Match) -> str:
-        node_id = m.group(1)
-        label_raw = m.group(2)
-        node = all_nodes.get(node_id)
-        if node is None:
-            unresolved.append(node_id)
-            display = escape(label_raw or node_id)
-            return (
-                f'<span class="node-ref unresolved" data-node-id="{escape(node_id)}">'
-                f"{display}</span>"
-            )
-        display = escape(label_raw or node.title)
-        href = escape(_node_href(node_id, from_topic=from_topic))
-        return (
-            f'<a class="node-ref" data-node-id="{escape(node_id)}" href="{href}">'
-            f"{display}</a>"
-        )
-
-    resolved = NODE_REF_RE.sub(_replace, html)
-    return resolved, unresolved
-
-
-def _render_body(
-    md: markdown.Markdown,
-    body: str,
-    all_nodes: dict[str, Node] | None = None,
-    from_topic: str | None = None,
-) -> dict[str, str | None]:
-    statement_md, proof_md = _split_proof_markdown(body)
-    md.reset()
-    statement_html = _convert_markdown_preserving_tex(md, statement_md)
-    proof_html = None
-    if proof_md is not None:
-        md.reset()
-        proof_html = _convert_markdown_preserving_tex(md, proof_md)
-    if all_nodes is not None:
-        statement_html, _ = _resolve_node_refs_in_html(statement_html, all_nodes, from_topic)
-        if proof_html is not None:
-            proof_html, _ = _resolve_node_refs_in_html(proof_html, all_nodes, from_topic)
-    return {
-        "body_html": statement_html,
-        "proof_html": proof_html,
-    }
-
-
-def _summary_payload(node, blueprint_nodes: dict, href: str) -> dict:
-    return {
-        "id": node.id,
-        "title": node.title,
-        "kind": node.kind,
-        "status": node.status,
-        "href": href,
-        "view": blueprint_nodes[node.id],
-    }
-
-
-def _root_dependency_payload(dep_id: str, g) -> dict | None:
-    node = g.nodes.get(dep_id)
-    if node is None:
-        return None
-    return {
-        "id": dep_id,
-        "title": node.title,
-        "href": _node_href_from_root_for_node(node),
-    }
-
-
-def _write_node_detail_payloads(output_dir: Path, node_payloads: dict[str, dict], g) -> None:
-    payload_dir = output_dir / "node_payloads"
-    payload_dir.mkdir(parents=True, exist_ok=True)
-    for node_id in sorted(node_payloads):
-        payload = node_payloads[node_id]
-        node = payload["node"]
-        deps = [
-            dep_payload
-            for dep_id in node.uses
-            if (dep_payload := _root_dependency_payload(dep_id, g)) is not None
-        ]
-        dependents = [
-            dep_payload
-            for dep_id in sorted(g.reverse_edges.get(node.id, []))
-            if (dep_payload := _root_dependency_payload(dep_id, g)) is not None
-        ]
-        detail = {
-            "id": node.id,
-            "title": node.title,
-            "kind": node.kind,
-            "status": node.status,
-            "href": _node_href_from_root_for_node(node),
-            "primary_topic": home_topic_for_node(node),
-            "topics": leaf_topic_ids_for_node(node),
-            "body_html": payload["body_html"],
-            "proof_html": payload["proof_html"],
-            "deps": deps,
-            "dependents": dependents,
-            "lean_refs": payload["lean_refs"],
-        }
-        (payload_dir / f"{node.id.replace('.', '_')}.json").write_text(
-            json.dumps(detail, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-
-
-def _matching_declarations(decl: str, idx: LeanIndex) -> list[str]:
-    if decl in idx.declarations:
-        return [decl]
-    return [
-        qualified
-        for qualified in idx.declarations
-        if qualified.endswith(f".{decl}") or qualified == decl
-    ]
-
-
-def _module_for_declaration(decl: LeanDeclaration, idx: LeanIndex) -> str | None:
-    for module, path in idx.modules.items():
-        if path == decl.file:
-            return module
-    return None
-
-
-def _lean_ref_payload(
-    *,
-    name: str,
-    status: str,
-    qualified_name: str | None = None,
-    module: str | None = None,
-    repository_title: str | None = None,
-    revision: str | None = None,
-    source_url: str | None = None,
-    has_sorry: bool = False,
-    reason: str | None = None,
-) -> dict[str, object]:
-    return {
-        "name": name,
-        "display_name": qualified_name or name,
-        "qualified_name": qualified_name,
-        "module": module,
-        "repository_title": repository_title,
-        "revision": revision,
-        "short_revision": revision[:7] if revision else None,
-        "source_url": source_url,
-        "has_sorry": has_sorry,
-        "status": status,
-        "reason": reason,
-    }
-
-
-def _index_configured_lean_repositories(nodes: list[Node], lean_config: LeanConfig) -> dict[str, LeanIndex]:
-    if not lean_config.repositories or not any(node.lean for node in nodes):
-        return {}
-    return {
-        repo_id: index_lean_project(repo.local_path, repository=repo)
-        for repo_id, repo in lean_config.repositories.items()
-    }
-
-
-def _resolve_lean_refs(node: Node, lean_config: LeanConfig, indexes: dict[str, LeanIndex]) -> list[dict[str, object]]:
-    if node.lean is None:
-        return []
-
-    if not indexes:
-        return [
-            _lean_ref_payload(name=decl, status="raw")
-            for decl in node.lean.declarations
-        ]
-
-    repo_id = node.lean.repository or lean_config.default_repository
-    if repo_id is None:
-        return [
-            _lean_ref_payload(
-                name=decl,
-                status="unresolved",
-                reason="no Lean repository configured for this node",
-            )
-            for decl in node.lean.declarations
-        ]
-    if repo_id not in lean_config.repositories or repo_id not in indexes:
-        return [
-            _lean_ref_payload(
-                name=decl,
-                status="unresolved",
-                reason=f"Lean repository {repo_id!r} is not configured",
-            )
-            for decl in node.lean.declarations
-        ]
-
-    idx = indexes[repo_id]
-    repo = lean_config.repositories[repo_id]
-    refs: list[dict[str, object]] = []
-    for decl_name in node.lean.declarations:
-        matches = _matching_declarations(decl_name, idx)
-        if len(matches) == 1:
-            decl = idx.declarations[matches[0]]
-            refs.append(_lean_ref_payload(
-                name=decl_name,
-                status="resolved",
-                qualified_name=decl.qualified_name,
-                module=_module_for_declaration(decl, idx),
-                repository_title=decl.repository_title or repo.title,
-                revision=decl.revision or repo.revision,
-                source_url=decl.source_url,
-                has_sorry=decl.has_sorry,
-            ))
-            continue
-        if len(matches) > 1:
-            refs.append(_lean_ref_payload(
-                name=decl_name,
-                status="unresolved",
-                reason=f"ambiguous: {', '.join(sorted(matches))}",
-            ))
-            continue
-        refs.append(_lean_ref_payload(
-            name=decl_name,
-            status="unresolved",
-            reason="not found in configured Lean repository",
-        ))
-    return refs
+TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
 def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = None) -> None:
-    nodes_dir = knowledge_root / "nodes"
-    staged_dir = knowledge_root / "staged"
-    config = load_project_config(knowledge_root, config_path)
-
-    all_nodes = []
-    if nodes_dir.exists():
-        all_nodes.extend(scan_directory(nodes_dir))
-    if staged_dir.exists():
-        all_nodes.extend(scan_directory(staged_dir))
-    all_nodes_index: dict[str, Node] = {n.id: n for n in all_nodes}
-    lean_indexes = _index_configured_lean_repositories(all_nodes, config.lean)
-
-    g, _ = build_graph(all_nodes)
-    blueprint_graph = build_blueprint_graph(g)
-    blueprint_nodes = {view.id: view for view in blueprint_graph.nodes}
-    md = markdown.Markdown(extensions=["tables"])
-    env = Environment(
-        loader=FileSystemLoader(TEMPLATE_DIR),
-        autoescape=select_autoescape(["html"]),
+    ctx = KnowledgeContext.load(
+        knowledge_root,
+        lean=True,
+        dev_mode=False,
+        config_path=config_path,
     )
-    env.globals["node_href_from_root"] = _node_href_from_root
-    env.globals["topic_path"] = topic_path
-    env.globals["site"] = config.site
-    env.globals["math_options_json"] = json.dumps(katex_auto_render_options(config.math))
-    env.filters["titleize"] = _titleize
 
-    # Group by topic using multi-topic membership. Every ancestor topic receives
-    # descendant nodes. Each node is added to a given topic at most once.
-    seen_per_topic: dict[str, set[str]] = defaultdict(set)
-    topics: dict[str, list] = defaultdict(list)
-    for node in all_nodes:
-        for leaf_topic in leaf_topic_ids_for_node(node):
-            for topic in topic_prefixes(leaf_topic):
-                if node.id not in seen_per_topic[topic]:
-                    seen_per_topic[topic].add(node.id)
-                    topics[topic].append(node)
+    all_nodes = ctx.all_nodes
+    all_nodes_index = ctx.nodes_by_id
+    g = ctx.graph
+    blueprint_nodes = ctx.blueprint_nodes
+    config = ctx.config
+    lean_indexes = ctx.lean_indexes
+    topics = ctx.topics
+    topic_names = ctx.topic_names
+    topic_tree = ctx.topic_tree
+    child_topics_map = ctx.child_topics_map
+    keywords = ctx.keywords
+    keyword_names = ctx.keyword_names
+    env = ctx.jinja_env
 
-    topic_names = sorted(topics.keys())
-    topic_tree = _build_topic_tree(topic_names)
-
-    # One-level-deep child topic map
-    child_topics_map: dict[str, list[str]] = {}
-    for t in topic_names:
-        depth = len(t.split("."))
-        child_topics_map[t] = [
-            other for other in topic_names
-            if other.startswith(t + ".") and len(other.split(".")) == depth + 1
-        ]
-    keywords: dict[str, list] = defaultdict(list)
-    for node in all_nodes:
-        for tag in node.tags:
-            keywords[tag].append(node)
-    keyword_names = sorted(keywords.keys())
-
-    # Clean and create output
     resolved_out = output_dir.resolve()
     resolved_root = knowledge_root.resolve()
     if resolved_out == resolved_root or resolved_root.is_relative_to(resolved_out):
@@ -440,196 +66,50 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
 
-    # Copy CSS
     shutil.copy(TEMPLATE_DIR / "style.css", output_dir / "style.css")
     shutil.copy(TEMPLATE_DIR / "graph.js", output_dir / "graph.js")
 
-    # Write graph.json
     write_graph_json(g, output_dir / "graph.json")
     write_topic_overview_json(g, output_dir / "graph_topics.json")
     write_topic_hierarchy_json(g, output_dir / "graph_topics_hierarchy.json")
     write_topic_subgraph_jsons(g, output_dir / "subgraphs" / "topics")
 
-    node_payloads = {}
+    payload_dir = output_dir / "node_payloads"
+    payload_dir.mkdir(parents=True, exist_ok=True)
     for node in all_nodes:
-        topic = home_topic_for_node(node)
-
-        deps = []
-        for dep_id in node.uses:
-            dep_node = g.nodes.get(dep_id)
-            if dep_node:
-                deps.append({
-                    "id": dep_id,
-                    "title": dep_node.title,
-                    "href": _node_href_for_node(dep_node, from_topic=topic),
-                })
-
-        dependents = []
-        for rev_id in sorted(g.reverse_edges.get(node.id, [])):
-            rev_node = g.nodes.get(rev_id)
-            if rev_node:
-                dependents.append({
-                    "id": rev_id,
-                    "title": rev_node.title,
-                    "href": _node_href_for_node(rev_node, from_topic=topic),
-                })
-
-        md.reset()
-        rendered = _render_body(md, node.body, all_nodes=all_nodes_index, from_topic=topic)
-        node_payloads[node.id] = {
-            "node": node,
-            "view": blueprint_nodes[node.id],
-            "body_html": rendered["body_html"],
-            "proof_html": rendered["proof_html"],
-            "deps": deps,
-            "dependents": dependents,
-            "lean_refs": _resolve_lean_refs(node, config.lean, lean_indexes),
-        }
-
-    _write_node_detail_payloads(output_dir, node_payloads, g)
-
-    # Index page
-    topic_groups = []
-    for topic in topic_names:
-        topic_groups.append({
-            "name": topic,
-            "title": _titleize(topic),
-            "href": f"{topic_path(topic)}/index.html",
-            "nodes": [
-                _summary_payload(node, blueprint_nodes, _node_href_for_node(node))
-                for node in sorted(topics[topic], key=lambda n: n.title)
-            ],
-        })
-    tmpl = env.get_template("index.html")
-    (output_dir / "index.html").write_text(
-        tmpl.render(
-            title="Home",
-            root="",
-            topics=topic_names,
-            topic_tree=topic_tree,
-            active_topic="",
-            keywords=keyword_names,
-            topic_groups=topic_groups,
-            node_count=len(all_nodes),
-            topic_count=len(topic_names),
-        ),
-        encoding="utf-8",
-    )
-
-    # Graph page
-    tmpl = env.get_template("graph.html")
-    graph_html = tmpl.render(
-        title="Dependency graph",
-        root="",
-        topics=topic_names,
-        topic_tree=topic_tree,
-        active_topic="",
-        keywords=keyword_names,
-        graph_config_json=json.dumps({
-            "topicOverviewUrl": "graph_topics.json",
-            "topicSubgraphBaseUrl": "subgraphs/topics",
-            "maxVisibleNodes": config.graph.max_visible_nodes,
-            "maxExpandNodes": config.graph.max_expand_nodes,
-            "proofPlans": config.graph.proof_plans,
-            "mode": "topic-overview",
-        }),
-    )
-    (output_dir / "dep_graph_document.html").write_text(
-        graph_html,
-        encoding="utf-8",
-    )
-    (output_dir / "graph.html").write_text(
-        graph_html,
-        encoding="utf-8",
-    )
-
-    # Keyword pages
-    keyword_dir = output_dir / "keywords"
-    keyword_dir.mkdir(parents=True, exist_ok=True)
-    tmpl = env.get_template("keyword.html")
-    for keyword in keyword_names:
-        keyword_nodes = sorted(keywords[keyword], key=lambda n: n.title)
-        (keyword_dir / f"{keyword}.html").write_text(
-            tmpl.render(
-                title=f"Keyword: {keyword}",
-                root="../",
-                topics=topic_names,
-                topic_tree=topic_tree,
-                active_topic="",
-                keywords=keyword_names,
-                keyword=keyword,
-                nodes=[
-                    _summary_payload(node, blueprint_nodes, f"../{_node_href_for_node(node)}")
-                    for node in keyword_nodes
-                ],
-            ),
+        detail = node_detail_payload(ctx, node.id)
+        (payload_dir / f"{node.id.replace('.', '_')}.json").write_text(
+            json.dumps(detail, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
 
-    # Topic pages and node pages
+    (output_dir / "index.html").write_text(render_index(ctx), encoding="utf-8")
+
+    graph_html = render_graph_page(ctx)
+    (output_dir / "dep_graph_document.html").write_text(graph_html, encoding="utf-8")
+    (output_dir / "graph.html").write_text(graph_html, encoding="utf-8")
+
+    keyword_dir = output_dir / "keywords"
+    keyword_dir.mkdir(parents=True, exist_ok=True)
+    for keyword in keyword_names:
+        (keyword_dir / f"{keyword}.html").write_text(
+            render_keyword(ctx, keyword), encoding="utf-8",
+        )
+
     for topic, topic_nodes in topics.items():
         topic_dir = output_dir / topic_path(topic)
         topic_dir.mkdir(parents=True, exist_ok=True)
-        root = _root_prefix_for_topic(topic)
 
-        # Topic catalog and metadata
-        catalog_html = _load_topic_catalog(knowledge_root, topic, md)
-        if catalog_html:
-            catalog_html, _ = _resolve_node_refs_in_html(catalog_html, all_nodes_index, from_topic=topic)
-        status_counts: dict[str, int] = {}
-        for n in topic_nodes:
-            status_counts[n.status] = status_counts.get(n.status, 0) + 1
-
-        # Topic index
-        tmpl = env.get_template("topic.html")
         (topic_dir / "index.html").write_text(
-            tmpl.render(
-                title=topic,
-                root=root,
-                topics=topic_names,
-                topic_tree=topic_tree,
-                active_topic=topic,
-                keywords=keyword_names,
-                topic=topic,
-                topic_title=_titleize(topic),
-                child_topics=child_topics_map[topic],
-                catalog_html=catalog_html,
-                status_counts=status_counts,
-                nodes=[
-                    _summary_payload(node, blueprint_nodes, _node_href_for_node(node, from_topic=topic))
-                    for node in sorted(topic_nodes, key=lambda n: n.title)
-                ],
-            ),
-            encoding="utf-8",
+            render_topic(ctx, topic), encoding="utf-8",
         )
 
-        # Node pages are written once, under the node's home topic.
-        tmpl = env.get_template("node.html")
         for node in topic_nodes:
             if home_topic_for_node(node) != topic:
                 continue
-            payload = node_payloads[node.id]
-            topic_memberships = leaf_topic_ids_for_node(node)
-
             filename = node.id.replace(".", "_") + ".html"
             (topic_dir / filename).write_text(
-                tmpl.render(
-                    title=node.title,
-                    root=root,
-                    topics=topic_names,
-                    topic_tree=topic_tree,
-                    active_topic=topic,
-                    keywords=keyword_names,
-                    node=node,
-                    node_view=payload["view"],
-                    body_html=payload["body_html"],
-                    proof_html=payload["proof_html"],
-                    deps=payload["deps"],
-                    dependents=payload["dependents"],
-                    lean_refs=payload["lean_refs"],
-                    topic_memberships=topic_memberships,
-                ),
-                encoding="utf-8",
+                render_node(ctx, node.id), encoding="utf-8",
             )
 
 

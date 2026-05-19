@@ -13,7 +13,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Iterator
 
-from tools.knowledge.publish import TEX_MATH_RE
+from tools.knowledge.renderer import TEX_MATH_RE
 
 
 RAW_RENDERED_TEX_RE = re.compile(r"\\\(|\\\[|\$\$|(?<!\\)\$[^$\n]+(?<!\\)\$")

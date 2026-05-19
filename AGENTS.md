@@ -85,6 +85,18 @@ uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
 # Browser render check for a generated site
 uv run --extra browser python -m tools.knowledge.render_check /tmp/mdblueprint-site
 
+# Local dev server (dynamic; auto-reloads on .md/.yml changes)
+uv run --extra serve python -m tools.knowledge.serve docs/knowledge
+# or, after install:
+uv run --extra serve mdblueprint-serve docs/knowledge --port 8080
+```
+
+The dev server holds the knowledge base in memory and renders pages
+on-demand. It mirrors the static-site URL structure exactly, so any URL that
+works against a published site also works against `localhost:8080`. The
+server is meant for local iteration only — production builds still use
+`mdblueprint-publish`.
+
 # Real-library gate against EconCSLib
 uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode smoke
 ```
@@ -247,6 +259,7 @@ rendering, or navigation changes.
 | Lean links or checks | `docs/lean-repositories.md`, `tools/knowledge/lean_index.py`, `tools/knowledge/lean_check.py` | `uv run --extra dev python -m pytest tests/test_lean_index.py tests/test_lean_check.py tests/test_lean_links_publish.py -q` |
 | Skills or agent workflow docs | `docs/skills.md`, `skills/mdblueprint-*/SKILL.md` | focused docs tests and manual contract review |
 | EconCSLib gate | `tools/knowledge/econcslib_gate.py` | `uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode smoke` |
+| Local dev server | `tools/knowledge/serve.py`, `tools/knowledge/context.py` | `uv run --extra dev --extra serve python -m pytest tests/test_serve.py tests/test_serve_integration.py -q` |
 
 ## Knowledge Node Rules
 
