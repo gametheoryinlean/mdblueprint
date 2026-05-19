@@ -131,3 +131,35 @@ end Example
         assert ":=" not in decl.signature
         assert idx.declarations["Example.Fancy"].kind == "structure"
         assert "structure Fancy where" in idx.declarations["Example.Fancy"].signature
+
+    def test_sections_do_not_qualify_declaration_names(self, tmp_path):
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            """
+section helper_section
+
+def sectionLocalName : True := True.intro
+
+end helper_section
+
+namespace RealNamespace
+
+section inner
+
+theorem namespacedOnly : True := True.intro
+
+end inner
+
+end RealNamespace
+""".strip() + "\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+
+        assert "sectionLocalName" in idx.declarations
+        assert "helper_section.sectionLocalName" not in idx.declarations
+        assert "RealNamespace.namespacedOnly" in idx.declarations
+        assert "RealNamespace.inner.namespacedOnly" not in idx.declarations

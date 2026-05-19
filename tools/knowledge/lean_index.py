@@ -29,7 +29,8 @@ _CANONICAL_KIND: dict[str, str] = {
 
 SORRY_RE = re.compile(r"\bsorry\b")
 ADMIT_RE = re.compile(r"\badmit\b")
-NAMESPACE_RE = re.compile(r"^(?:namespace|section)\s+(\S+)")
+NAMESPACE_RE = re.compile(r"^namespace\s+(\S+)")
+SECTION_RE = re.compile(r"^section(?:\s+(\S+))?\s*$")
 END_NAMED_RE = re.compile(r"^end\s+(\S+)")
 END_BARE_RE = re.compile(r"^end\s*$")
 
@@ -161,23 +162,27 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
             lines = lean_file.read_text(encoding="utf-8").splitlines()
         except (OSError, UnicodeDecodeError):
             continue
-        namespace_stack: list[str] = []
+        scope_stack: list[tuple[str, str | None]] = []
 
         for lineno, line in enumerate(lines, start=1):
             # Track namespace/section scopes
             ns_match = NAMESPACE_RE.match(line)
             if ns_match:
-                namespace_stack.append(ns_match.group(1))
+                scope_stack.append(("namespace", ns_match.group(1)))
+                continue
+            section_match = SECTION_RE.match(line)
+            if section_match:
+                scope_stack.append(("section", section_match.group(1)))
                 continue
             end_named = END_NAMED_RE.match(line)
             if end_named:
                 name = end_named.group(1)
-                if namespace_stack and namespace_stack[-1] == name:
-                    namespace_stack.pop()
+                if scope_stack and scope_stack[-1][1] == name:
+                    scope_stack.pop()
                 continue
             if END_BARE_RE.match(line):
-                if namespace_stack:
-                    namespace_stack.pop()
+                if scope_stack:
+                    scope_stack.pop()
                 continue
 
             result = _extract_decl_name(line)
@@ -185,7 +190,7 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
                 continue
             keyword, name = result
 
-            prefix = ".".join(namespace_stack)
+            prefix = ".".join(name for kind, name in scope_stack if kind == "namespace" and name)
             qualified = f"{prefix}.{name}" if prefix else name
 
             # Check for sorry in the declaration body up to the next declaration
