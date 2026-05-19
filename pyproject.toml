@@ -25,6 +25,9 @@ mdblueprint-render-check = "tools.knowledge.render_check:main"
 mdblueprint-econcslib-gate = "tools.knowledge.econcslib_gate:main"
 mdblueprint-proof-fill = "tools.knowledge.proof_fill:main"
 
+[tool.setuptools.packages.find]
+include = ["tools*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
