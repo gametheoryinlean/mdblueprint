@@ -187,6 +187,17 @@ uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode sm
 # Index Lean declarations from a Lean project
 uv run python -m tools.knowledge.lean_index path/to/lean/project
 
+# Build bounded candidates for connecting one Markdown node to existing Lean
+uv run python -m tools.knowledge.lean_link_candidates docs/knowledge --node-id <node-id>
+
+# Validate or apply a mechanical Lean link proposal
+uv run python -m tools.knowledge.lean_linking docs/knowledge --proposal proposal.yml
+uv run python -m tools.knowledge.lean_linking docs/knowledge --proposal proposal.yml --apply
+
+# Build or validate a bounded Markdown-Lean semantic alignment report
+uv run python -m tools.knowledge.lean_alignment docs/knowledge --node-id <node-id> --declaration <Lean.Declaration>
+uv run python -m tools.knowledge.lean_alignment docs/knowledge --report alignment.yml
+
 # Run the Python-orchestrated admission pipeline after review gates pass
 uv run python -m tools.knowledge.admission_pipeline docs/knowledge/staged/example.md docs/knowledge
 
@@ -360,6 +371,7 @@ The repo includes workflow skills under [`skills/`](skills/) for humans and AI a
 | Create or edit a Markdown knowledge node by hand | `mdblueprint-node-author` |
 | Review staged nodes before admission | `mdblueprint-node-review` |
 | Generate Lean declarations or proof skeletons from admitted nodes | `mdblueprint-lean-generation` |
+| Propose mechanical links from Markdown nodes to existing Lean declarations | `mdblueprint-lean-linking` |
 | Check semantic alignment between Markdown and Lean | `mdblueprint-alignment-review` |
 | Publish or inspect the generated site and dependency graph | `mdblueprint-publish` |
 
@@ -497,6 +509,22 @@ Ordinary `admitted` nodes may omit Lean metadata. Nodes with status
 ### 3. Connect A Node To Lean
 
 First configure the Lean repository in `docs/knowledge/mdblueprint.yml`. With a default repository, nodes can omit `lean.repository`; otherwise each node must name the repository id.
+
+For first-time linking, use the bounded Python workflow instead of scanning the
+whole Lean repository by hand:
+
+```bash
+uv run python -m tools.knowledge.lean_link_candidates docs/knowledge --node-id <node-id>
+uv run python -m tools.knowledge.lean_linking docs/knowledge --proposal proposal.yml
+```
+
+`tools.knowledge.lean_link_candidates` builds the candidate bundle,
+`mdblueprint-lean-linking` is the agent skill for choosing a mechanical link, and
+`tools.knowledge.lean_linking` validates the proposal and can apply only the
+`lean:` block with `--apply`. Semantic matching is separate:
+`tools.knowledge.lean_alignment` builds and validates bounded alignment reports.
+The linking step must not set `verification.alignment`, `status: formalized`, or
+`status: proved`.
 
 Add a `lean` block when a node corresponds to Lean declarations:
 

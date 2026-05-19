@@ -62,6 +62,14 @@ points at the root of the checked-out source repository. `revision: auto`
 resolves to the source commit that triggered the workflow, giving published Lean
 links stable commit-based URLs.
 
+Private Lean source repositories use the same `web_url` and
+`source_url_template` shape. The generated link is still an ordinary GitHub blob
+URL; it opens only for viewers who are logged in and have the necessary GitHub
+permissions. Do not put tokens, secrets, signed URLs, or credential query
+parameters into `web_url` or `source_url_template`. CI credentials are only for
+checking out and indexing the repository during the build, not for generated HTML,
+graph JSON, topic subgraphs, or node payloads.
+
 ## Trigger Rules
 
 The GameTheoryLib workflow runs on manual dispatch and on pushes to `main` that
@@ -86,6 +94,11 @@ The separate-repository publishing pattern uses deploy keys:
 - `MDBLUEPRINT_DEPLOY_KEY`: read access to the mdblueprint repository when it is
   private or accessed over SSH;
 - `BLUEPRINT_DEPLOY_KEY`: write access to the blueprint publishing repository.
+
+If the Lean source repository itself is private, give the workflow read access
+through normal GitHub permissions or a deploy key during checkout. That access is
+not copied into the published site. The published source links remain ordinary
+GitHub URLs and rely on each viewer's own GitHub permissions.
 
 Keep workflow permissions minimal, for example:
 

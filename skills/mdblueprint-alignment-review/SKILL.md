@@ -5,18 +5,23 @@ description: Use when checking whether Lean declarations semantically match mdbl
 
 # mdblueprint-alignment-review
 
-Check whether a Lean declaration semantically matches a Markdown node.
+Check whether one candidate Lean declaration semantically matches one Markdown
+node from a bounded Python-generated bundle.
 
 ## When to use
 
-When verifying that a Lean formalization correctly represents the mathematical content of a knowledge node.
+When verifying that a Lean formalization correctly represents the mathematical
+content of a knowledge node. Use the bundle from `tools.knowledge.lean_alignment`;
+the verifier must not scan the repository or invent extra Lean context.
 
 ## Workflow
 
-1. Run Python mechanical prechecks: module existence, declaration existence, sorry/admit status.
-2. Package the Markdown statement, Lean signature, dependencies, and source snippets.
-3. Invoke the semantic alignment verifier (LLM).
-4. Write an alignment report under `docs/knowledge/reviews/`.
+1. Read only the bounded bundle supplied by Python.
+2. Compare the Markdown statement/body with the Lean signature/snippet.
+3. Return exactly one structured classification and evidence list.
+4. Let Python validate and write the report under `docs/knowledge/reviews/`.
+
+The agent must not write `verification.alignment` or node status directly.
 
 ## Decision vocabulary
 

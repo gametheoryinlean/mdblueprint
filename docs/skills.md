@@ -15,6 +15,7 @@ The maintained mdblueprint skills live in [`skills/`](../skills/). Each skill ha
 | Create or edit a Markdown knowledge node by hand | `mdblueprint-node-author` | node file |
 | Review staged content before admission | `mdblueprint-node-review` | statement/definition review, proof review, admission report |
 | Generate Lean code from admitted Markdown nodes | `mdblueprint-lean-generation` | Lean proposal, missing-node requests |
+| Choose existing Lean declarations for a Markdown node from a bounded candidate bundle | `mdblueprint-lean-linking` | mechanical Lean link proposal |
 | Check semantic alignment between Markdown and Lean | `mdblueprint-alignment-review` | alignment report |
 | Publish or inspect the static site and dependency graph | `mdblueprint-publish` | generated site, `graph.json`, QA notes |
 | Answer from admitted KB content only | `mdblueprint-kb-reasoning` | cited answer, missing-fact report |
@@ -30,7 +31,11 @@ Recommended order for building a knowledge base from a book:
 3. For existing theorem-like nodes with missing or incomplete proofs, use `mdblueprint-source-proof-recovery` before bounded `mdblueprint-proof-fill` when `source.spans` or source hints exist.
 4. Use `tools.knowledge.admission_pipeline` only after review gates pass.
 5. Use `mdblueprint-publish` to validate and publish the generated site.
-6. Use `mdblueprint-lean-generation` and `mdblueprint-alignment-review` when connecting admitted nodes to Lean.
+6. Use `tools.knowledge.lean_link_candidates`, `mdblueprint-lean-linking`,
+   `tools.knowledge.lean_linking`, and `tools.knowledge.lean_alignment` when
+   connecting admitted nodes to existing Lean declarations.
+7. Use `mdblueprint-lean-generation` when no suitable existing Lean declaration
+   exists and new Lean code is needed.
 
 Admission is deterministic and Python-orchestrated:
 
@@ -239,15 +244,43 @@ Must not:
 - weaken the Markdown statement without a review note;
 - generate final graph data.
 
+### `mdblueprint-lean-linking`
+
+Use when a Markdown node needs a mechanical link to existing Lean declarations.
+
+Reads:
+
+- bounded candidate bundle from `tools.knowledge.lean_link_candidates`;
+- candidate signatures, snippets, source URLs, and declaration metadata supplied
+  by Python.
+
+Writes:
+
+- one proposal consumed by `tools.knowledge.lean_linking`;
+- no direct node edits unless the Python CLI validates and applies the proposal.
+
+Must not:
+
+- scan the whole Lean repository;
+- set `verification.alignment`;
+- set `status: formalized` or `status: proved`;
+- generate new Lean code;
+- claim semantic equivalence.
+
+The proposal is a mechanical link only. After it is validated, use
+`tools.knowledge.lean_alignment` and `mdblueprint-alignment-review` for semantic
+alignment evidence.
+
 ### `mdblueprint-alignment-review`
 
 Use when checking whether Lean declarations match Markdown nodes.
 
 Reads:
 
-- Markdown node and dependencies;
-- Lean declaration signature or source;
-- mechanical precheck output.
+- bounded bundle from `tools.knowledge.lean_alignment`;
+- one Markdown node and one mechanically resolved Lean declaration;
+- Lean signature/snippet, docstring, source URL, and declaration metadata supplied
+  by Python.
 
 Writes:
 
@@ -255,6 +288,8 @@ Writes:
 
 Must not:
 
+- scan the whole Lean repository;
+- update `verification.alignment`;
 - update final status directly;
 - rely on mechanical existence checks as semantic equivalence;
 - ignore extra hypotheses or special cases.

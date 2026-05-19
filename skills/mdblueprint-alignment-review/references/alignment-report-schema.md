@@ -2,19 +2,18 @@
 
 ```yaml
 agent: alignment-verifier
-target:
-  node_id: <node.id>
-  path: <path to node file>
-decision: aligned | lean_stronger | lean_weaker | lean_special_case | lean_extra_hypotheses | lean_missing_hypotheses | definition_mismatch | uncertain
-created_at: "ISO-8601"
-inputs:
-  - <node file path>
-  - <lean declaration source>
-summary: <one sentence>
-prechecks:
-  modules_found: true | false
-  declarations_found: true | false
-  sorry_present: true | false
+node_id: <node.id>
+repository: <repo id>
+declaration: <fully qualified Lean declaration>
+classification: aligned | lean_stronger | lean_weaker | lean_special_case | lean_extra_hypotheses | lean_missing_hypotheses | definition_mismatch | uncertain
+evidence:
+  - markdown: <quoted Markdown phrase or formula>
+    lean: <quoted Lean signature/snippet phrase>
+    note: <why this supports the classification>
+risks:
+  - <semantic risk, mismatch, or caveat>
+recommendation: <one sentence>
 ```
 
-Body: detailed comparison of Markdown statement vs Lean signature, noting extra/missing hypotheses, specializations, etc.
+The report is produced from a bounded Python bundle. The agent must not scan the
+whole Lean repository and must not set `verification.alignment` directly.

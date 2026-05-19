@@ -109,6 +109,77 @@ Lean coverage. Lean metadata is mandatory only for Lean-backed claims:
 - nodes that set `verification.alignment`, because alignment is a semantic claim
   about a Markdown statement and a Lean declaration.
 
+## Markdown-To-Lean Linking Workflow
+
+First-time linking is Python-orchestrated and agent-agnostic. The deterministic
+tools index configured Lean repositories, build a bounded candidate bundle, validate
+agent output, and optionally apply only the `lean:` frontmatter block.
+
+```bash
+# Build a bounded candidate bundle for one node.
+uv run python -m tools.knowledge.lean_link_candidates docs/knowledge --node-id <node-id>
+# or, after install:
+uv run mdblueprint-lean-link-candidates docs/knowledge --node-id <node-id>
+
+# Validate an agent proposal and write a review report.
+uv run python -m tools.knowledge.lean_linking docs/knowledge --proposal proposal.yml
+
+# Apply a validated mechanical link to the node's lean block only.
+uv run python -m tools.knowledge.lean_linking docs/knowledge --proposal proposal.yml --apply
+```
+
+Use `skills/mdblueprint-lean-linking/SKILL.md` for the agent step. Codex, Claude,
+OpenCode, or a human reviewer should choose from the bounded candidates and return
+`decision: link`, `no_match`, `ambiguous`, `needs_lean_generation`, or
+`needs_human_decision`. The proposal may include `proposed_lean`, but it must not
+set `verification.alignment`, `status: formalized`, or `status: proved`.
+
+After mechanical linking, semantic alignment is a separate bounded workflow:
+
+```bash
+uv run python -m tools.knowledge.lean_alignment docs/knowledge \
+  --node-id <node-id> \
+  --declaration <Lean.Declaration>
+
+uv run python -m tools.knowledge.lean_alignment docs/knowledge --report alignment.yml
+```
+
+The alignment verifier reads only the bundle from `tools.knowledge.lean_alignment`
+and writes a review report. Updating `verification.alignment` or final status is a
+later admission/referee decision, not part of mechanical linking.
+
+## Private Repositories
+
+Private Lean repositories use the same GitHub blob link shape as public
+repositories. The only difference is access control: if the viewer is logged in to
+GitHub and has permission for the private repository, the link opens; otherwise
+GitHub denies access.
+
+```yaml
+lean:
+  default_repository: core
+  repositories:
+    - id: core
+      title: Private Lean Library
+      local_path: ../private-lean
+      web_url: https://github.com/example/private-lean
+      source_url_template: "{web_url}/blob/{revision}/{path}#L{line}"
+      revision: auto
+```
+
+Security contract:
+
+- The generated site contains ordinary GitHub URLs only. It must not contain
+  tokens, secrets, signed URLs, or credential query parameters.
+- `source_url_template` should be the same browser URL pattern used for public
+  repositories, normally `{web_url}/blob/{revision}/{path}#L{line}`.
+- Access is handled outside mdblueprint by GitHub permissions, deploy keys, or the
+  local/CI checkout used to run the build.
+- `revision: auto` resolves to the local Git `HEAD` commit, so private source links
+  are stable without embedding credentials.
+- Generated HTML, `graph.json`, topic subgraphs, and node payloads must not leak
+  tokens or secrets.
+
 ## Checks
 
 With project-level repository config, the normal check command indexes configured

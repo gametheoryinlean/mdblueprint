@@ -1,4 +1,5 @@
 import json
+import subprocess
 import textwrap
 from pathlib import Path
 
@@ -112,3 +113,63 @@ def test_unresolved_lean_reference_is_shown_without_broken_source_link(tmp_path)
     assert '"status": "unresolved"' in graph_payload_json
     assert "Example.missing#L" not in node_page
     assert "Example.missing#L" not in graph_payload_json
+
+
+def test_private_github_repo_links_use_plain_urls_and_auto_revision(tmp_path):
+    lean_root = tmp_path / "private-lean"
+    _write_lean_file(lean_root)
+    subprocess.run(["git", "init"], cwd=lean_root, check=True, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=lean_root, check=True, capture_output=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test User",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-m",
+            "Initial Lean library",
+        ],
+        cwd=lean_root,
+        check=True,
+        capture_output=True,
+    )
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=lean_root, text=True).strip()
+
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir(parents=True, exist_ok=True)
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            f"""
+            site:
+              title: Private Lean Blueprint
+            lean:
+              default_repository: main
+              repositories:
+                - id: main
+                  title: Private Lean Library
+                  local_path: {lean_root}
+                  web_url: https://github.com/private-org/private-lean
+                  source_url_template: "{{web_url}}/blob/{{revision}}/{{path}}#L{{line}}"
+                  revision: auto
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    _write_node(knowledge_root, declaration="Example.ok")
+
+    publish(knowledge_root, tmp_path / "site")
+
+    node_page = (tmp_path / "site" / "example" / "example_ok.html").read_text(encoding="utf-8")
+    graph_payload = json.loads(
+        (tmp_path / "site" / "node_payloads" / "example_ok.json").read_text(encoding="utf-8")
+    )
+    graph_payload_json = json.dumps(graph_payload)
+    source_url = f"https://github.com/private-org/private-lean/blob/{revision}/Example/Basic.lean#L1"
+    generated = node_page + graph_payload_json
+
+    assert source_url in generated
+    assert "token" not in generated.lower()
+    assert "secret" not in generated.lower()
+    assert "ghp_" not in generated

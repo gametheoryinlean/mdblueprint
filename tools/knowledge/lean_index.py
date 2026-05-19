@@ -41,6 +41,10 @@ class LeanDeclaration:
     kind: str
     file: Path
     line: int
+    module: str | None = None
+    signature: str | None = None
+    docstring: str | None = None
+    namespace: str | None = None
     has_sorry: bool = False
     repository_id: str | None = None
     repository_title: str | None = None
@@ -116,6 +120,36 @@ def _decl_location(decl: LeanDeclaration) -> str:
     return f"{decl.file}:{decl.line}"
 
 
+def _docstring_before(lines: list[str], decl_index: int) -> str | None:
+    previous = decl_index - 1
+    while previous >= 0 and not lines[previous].strip():
+        previous -= 1
+    if previous < 0:
+        return None
+    line = lines[previous].strip()
+    if line.startswith("/--") and line.endswith("-/"):
+        return line[3:-2].strip()
+    return None
+
+
+def _signature_snippet(lines: list[str], decl_index: int, *, max_lines: int = 12) -> str:
+    collected: list[str] = []
+    for offset in range(decl_index, min(decl_index + max_lines, len(lines))):
+        raw = lines[offset].rstrip()
+        if offset > decl_index and DECL_KEYWORDS.match(raw.lstrip()):
+            break
+        if ":=" in raw:
+            before = raw.split(":=", 1)[0].rstrip()
+            if before:
+                collected.append(before)
+            break
+        collected.append(raw)
+        stripped = raw.strip()
+        if stripped.endswith(" where") or stripped == "where":
+            break
+    return "\n".join(line for line in collected if line.strip()).strip()
+
+
 def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | None = None) -> LeanIndex:
     idx = LeanIndex()
 
@@ -171,6 +205,10 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
                 kind=keyword,
                 file=lean_file,
                 line=lineno,
+                module=module,
+                signature=_signature_snippet(lines, lineno - 1),
+                docstring=_docstring_before(lines, lineno - 1),
+                namespace=prefix or None,
                 has_sorry=has_sorry,
                 **_source_metadata(lean_file, lineno, lean_root, repository),
             )

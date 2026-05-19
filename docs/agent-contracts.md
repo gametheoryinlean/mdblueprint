@@ -89,7 +89,8 @@ The Markdown body of a report can explain reasons, but the decision must be mach
 | Proof-Fill Generator | Generate a local proof for one node | candidate proof text (in-memory until verifier accepts) | any file directly |
 | Proof-Fill Verifier | Independently verify the candidate proof | node body + `verification.proof` only on `accepted` | any file if verdict is `gap` or `critical` |
 | MD-to-Lean Generator | Generate Lean proposal from admitted nodes | Lean patch proposal, `docs/knowledge/requests/` | admitted nodes without request |
-| MD-Lean Alignment Verifier | Judge semantic alignment | `docs/knowledge/reviews/` | final status directly |
+| Lean Linking Proposer | Choose existing Lean declarations from a bounded candidate bundle | mechanical proposal for `tools.knowledge.lean_linking` | `verification.alignment`, final status, broad repo scans |
+| MD-Lean Alignment Verifier | Judge semantic alignment from a bounded bundle | `docs/knowledge/reviews/` | final status directly |
 | Admission Referee | Decide whether reports justify admission | admission report, optional controlled move | direct mathematical rewriting without record |
 
 External-theorem nodes bypass Source-to-MD extraction and are admitted directly after
@@ -305,19 +306,62 @@ Required for external-theorem admission (no staged phase):
   acceptable discrepancy;
 - generality gate: required (same as for theorem kind).
 
-## 6. MD-Lean Alignment Verifier
+## 6. Lean Linking Proposer
+
+Purpose: choose existing Lean declarations that should be placed in a node's
+`lean:` frontmatter as mechanical links.
+
+The deterministic workflow is:
+
+```bash
+uv run python -m tools.knowledge.lean_link_candidates docs/knowledge --node-id <node-id>
+uv run python -m tools.knowledge.lean_linking docs/knowledge --proposal proposal.yml
+uv run python -m tools.knowledge.lean_linking docs/knowledge --proposal proposal.yml --apply
+```
+
+`tools.knowledge.lean_link_candidates` indexes configured Lean repositories and
+packages a bounded candidate bundle. The agent uses
+`skills/mdblueprint-lean-linking/SKILL.md` and returns a structured proposal.
+`tools.knowledge.lean_linking` validates the proposal mechanically, writes a
+review report, and only with `--apply` updates the node's `lean:` block.
+
+Decision vocabulary:
+
+```text
+link
+no_match
+ambiguous
+needs_lean_generation
+needs_human_decision
+```
+
+Rules:
+
+- It must read only the bounded candidate bundle.
+- It must not scan the whole Lean repository.
+- It must not set `verification.alignment`.
+- It must not set `status: formalized` or `status: proved`.
+- It must not generate new Lean code.
+- It must treat the `lean:` block as a mechanical link only.
+
+Semantic matching is a separate workflow. Use
+`tools.knowledge.lean_alignment` to build or validate bounded alignment reports.
+
+## 7. MD-Lean Alignment Verifier
 
 Purpose: decide whether a Lean declaration semantically matches the Markdown node.
 
 This is an LLM semantic verifier, preceded by deterministic Python prechecks.
 
-Python prechecks:
+Python prechecks and bundle generation:
 
 - referenced Lean modules can be found;
 - referenced Lean declarations can be indexed;
 - declarations have source locations;
 - obvious `sorry` or `admit` markers are reported;
 - node YAML has valid `lean.modules` and `lean.declarations` fields.
+- `tools.knowledge.lean_alignment` packages exactly one Markdown node and one
+  mechanically resolved Lean declaration.
 
 LLM semantic alignment:
 
@@ -341,7 +385,7 @@ uncertain
 
 May propose new nodes: no. It may request a review if the mismatch reveals a missing concept.
 
-## 7. Admission Referee
+## 8. Admission Referee
 
 Purpose: decide whether staged nodes and review reports are sufficient to admit a node.
 
@@ -394,7 +438,7 @@ The pipeline reports `schema`, `generality`, `verification`, `reviews`, `dag`,
 and `write` gates. Agents should cite that report in review or issue comments
 instead of manually copying staged files into `docs/knowledge/nodes/`.
 
-## 8. Proof Repair Order
+## 9. Proof Repair Order
 
 For theorem-like nodes with missing or incomplete proof content, the Python
 orchestrator owns the repair sequence:
@@ -407,7 +451,7 @@ If the node has `source.spans`, source-proof-recovery runs before proof-fill. If
 source recovery returns `hint_only`, the orchestrator may pass that explicit
 source hint to proof-fill. Proof-fill must not read source files directly.
 
-## 9. Proof-Fill Agents
+## 10. Proof-Fill Agents
 
 The proof-fill agents handle a bounded repair loop that fills a single, local
 natural-language proof gap. They are invoked only after the statement verifier
@@ -416,7 +460,7 @@ can be completed from the node's existing `uses` list. If source spans exist,
 they are invoked only after source-proof-recovery has failed or produced an
 explicit source hint.
 
-### 9.1 Proof-Fill Generator
+### 10.1 Proof-Fill Generator
 
 Purpose: write a short local proof for the target node using only facts already
 listed in the node's `uses` field.
@@ -451,7 +495,7 @@ Rules:
 - If a valid local proof cannot be written from the allowed context, it must
   return `cannot_fill` with a reason.
 
-### 9.2 Proof-Fill Verifier
+### 10.2 Proof-Fill Verifier
 
 Purpose: independently verify the candidate proof without access to the
 generator's reasoning chain.

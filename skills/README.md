@@ -13,9 +13,15 @@ Each skill is a directory with a `SKILL.md` file and optional `references/` file
 | Create or edit Markdown knowledge nodes by hand | `mdblueprint-node-author` |
 | Review staged nodes before admission | `mdblueprint-node-review` |
 | Generate Lean declarations, proof skeletons, or Lean patch proposals | `mdblueprint-lean-generation` |
+| Choose existing Lean declarations from a bounded candidate bundle | `mdblueprint-lean-linking` |
 | Check whether Lean declarations semantically match Markdown nodes | `mdblueprint-alignment-review` |
 | Generate or inspect the static site and dependency graph | `mdblueprint-publish` |
 | Answer from admitted KB content only | `mdblueprint-kb-reasoning` |
+
+For existing Lean declarations, run `tools.knowledge.lean_link_candidates`, use
+`mdblueprint-lean-linking` to produce a mechanical proposal, validate or apply it
+with `tools.knowledge.lean_linking`, then use `tools.knowledge.lean_alignment`
+and `mdblueprint-alignment-review` for semantic evidence.
 
 ## Use Without Installing
 

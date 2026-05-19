@@ -98,3 +98,36 @@ class TestLeanIndex:
         assert "main@abc123" in warning
         assert "A.lean:1" in warning
         assert "B.lean:1" in warning
+
+    def test_extracts_signature_docstring_module_and_namespace(self, tmp_path):
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example" / "Rich.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            """
+namespace Example
+
+/-- A documented predicate. -/
+def IsGood
+    (n : Nat) : Prop :=
+  n = n
+
+structure Fancy where
+  value : Nat
+
+end Example
+""".strip() + "\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+
+        decl = idx.declarations["Example.IsGood"]
+        assert decl.module == "Example.Rich"
+        assert decl.namespace == "Example"
+        assert decl.docstring == "A documented predicate."
+        assert "def IsGood" in decl.signature
+        assert "(n : Nat) : Prop" in decl.signature
+        assert ":=" not in decl.signature
+        assert idx.declarations["Example.Fancy"].kind == "structure"
+        assert "structure Fancy where" in idx.declarations["Example.Fancy"].signature
