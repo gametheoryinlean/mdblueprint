@@ -61,6 +61,7 @@ class GraphDisplayConfig:
 @dataclass(frozen=True)
 class SourcesConfig:
     library: dict[str, SourceLibraryEntry] = field(default_factory=dict)
+    require_source_spans: bool = False
 
 
 @dataclass(frozen=True)
@@ -379,7 +380,10 @@ def _parse_sources_config(raw: Any, *, path: Path) -> SourcesConfig:
             path=entry_path.strip() if entry_path else None,
         )
 
-    return SourcesConfig(library=library)
+    require_source_spans = raw.get("require_source_spans", False)
+    if not isinstance(require_source_spans, bool):
+        raise ValueError(f"Project config sources.require_source_spans must be a boolean: {path}")
+    return SourcesConfig(library=library, require_source_spans=require_source_spans)
 
 
 def load_project_config(knowledge_root: Path, config_path: Path | None = None) -> ProjectConfig:

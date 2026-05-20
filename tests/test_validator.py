@@ -242,6 +242,48 @@ class TestTopicMembership:
         assert any("topics entries" in d.message and d.level == "error" for d in diags)
 
 
+class TestRequireSourceSpans:
+    def test_definition_missing_spans_warns_when_required(self):
+        text = "---\nid: t.x\ntitle: X\nkind: definition\nstatus: staged\nuses: []\n---\n\n# X\n\nA definition.\n"
+        node = parse_node(text)
+        diags = validate_node(node, require_source_spans=True)
+        warns = [d for d in diags if d.level == "warning" and "source.spans" in d.message]
+        assert warns, "expected a source.spans warning for definition with no source"
+
+    def test_theorem_missing_spans_warns_when_required(self):
+        text = "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: staged\nuses: []\n---\n\n# X\n\nStatement.\n"
+        node = parse_node(text)
+        diags = validate_node(node, require_source_spans=True)
+        warns = [d for d in diags if d.level == "warning" and "source.spans" in d.message]
+        assert warns, "expected a source.spans warning for theorem with no source"
+
+    def test_missing_spans_no_warning_without_flag(self):
+        text = "---\nid: t.x\ntitle: X\nkind: definition\nstatus: staged\nuses: []\n---\n\n# X\n\nA definition.\n"
+        node = parse_node(text)
+        diags = validate_node(node, require_source_spans=False)
+        warns = [d for d in diags if d.level == "warning" and "source.spans" in d.message]
+        assert warns == []
+
+    def test_math_node_with_spans_no_warning(self):
+        text = (
+            "---\nid: t.x\ntitle: X\nkind: definition\nstatus: staged\nuses: []\n"
+            "source:\n  artifacts:\n    - id: a1\n      path: foo.pdf\n"
+            "  spans:\n    - artifact: a1\n      locator: \"p.42\"\n"
+            "---\n\n# X\n"
+        )
+        node = parse_node(text)
+        diags = validate_node(node, require_source_spans=True)
+        warns = [d for d in diags if d.level == "warning" and "source.spans" in d.message]
+        assert warns == []
+
+    def test_non_math_node_missing_spans_no_warning(self):
+        text = "---\nid: t.x\ntitle: X\nkind: task\nstatus: staged\nuses: []\n---\n\n# X\n"
+        node = parse_node(text)
+        diags = validate_node(node, require_source_spans=True)
+        warns = [d for d in diags if d.level == "warning" and "source.spans" in d.message]
+        assert warns == []
+
+
 class TestSourceSpanFormat:
     def test_unknown_locator_format_warns(self):
         text = (

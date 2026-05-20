@@ -24,6 +24,8 @@ from tools.knowledge.models import (
     SourceLibraryEntry,
 )
 
+_SOURCE_REQUIRED_KINDS = DEFINITION_KINDS | STATEMENT_KINDS
+
 
 @dataclass
 class Diagnostic:
@@ -46,6 +48,7 @@ def validate_node(
     *,
     is_staged_dir: bool = False,
     project_library: dict[str, SourceLibraryEntry] | None = None,
+    require_source_spans: bool = False,
 ) -> list[Diagnostic]:
     diags: list[Diagnostic] = []
     nid = node.id or "<no-id>"
@@ -147,6 +150,11 @@ def validate_node(
     if node.status in ADMITTED_STATUSES and not is_staged_dir:
         if not node.uses and node.uses != []:
             warn("admitted node missing 'uses' field")
+
+    # Source spans required by project config
+    if require_source_spans and node.kind in _SOURCE_REQUIRED_KINDS:
+        if node.source is None or not node.source.spans:
+            warn(f"math node of kind {node.kind!r} has no source.spans (project requires sources)")
 
     # Topic membership consistency
     if node.topics:
