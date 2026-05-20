@@ -215,7 +215,9 @@ def validate_repair_classifier_output(raw: dict[str, Any]) -> RepairClassifierRe
             f"decision must be one of {', '.join(sorted(REPAIR_DECISIONS))}"
         )
     proposed_changes = raw.get("proposed_changes") or []
-    if isinstance(proposed_changes, list) and decision == "small_fix":
+    if not isinstance(proposed_changes, list):
+        raise LeanAuditError("proposed_changes must be a list when present")
+    if decision == "small_fix":
         for change in proposed_changes:
             if isinstance(change, dict):
                 field = str(change.get("field", "")).lower()
@@ -235,7 +237,7 @@ def validate_repair_classifier_output(raw: dict[str, Any]) -> RepairClassifierRe
 
 
 def _timestamp() -> str:
-    return datetime.datetime.now(datetime.UTC).replace(microsecond=0).isoformat()
+    return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
 
 
 def _safe_ts(ts: str) -> str:

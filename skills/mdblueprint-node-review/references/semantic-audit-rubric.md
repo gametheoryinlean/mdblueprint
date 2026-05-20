@@ -92,13 +92,14 @@ expose enough structure to trace symbols.
 **Example failure — undefined symbol:**
 
 ```markdown
-# Nash Equilibrium
+# Continuous Function
 
-A strategy profile $s^*$ is a Nash equilibrium if for every player $i$,
-$u_i(s^*) \geq u_i(s_i', s^*_{-i})$ for all $s_i' \in S_i$.
+A function $f : X \to Y$ is continuous when every inverse image
+$f^{-1}(U)$ of an open set $U$ is open.
 ```
 
-If `uses` does not reference a node defining $u_i$ or $S_i$, this gate fails.
+If `uses` does not reference nodes defining "open set" and "inverse image",
+this gate fails.
 
 ## Gate 4: Source/Reference Gate
 

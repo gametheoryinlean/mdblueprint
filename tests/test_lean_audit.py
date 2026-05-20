@@ -1,8 +1,10 @@
 """Tests for the Lean audit coordinator utilities."""
 from pathlib import Path
+import inspect
 
 import pytest
 
+from tools.knowledge import lean_audit
 from tools.knowledge.config import LeanConfig, LeanRepositoryConfig
 from tools.knowledge.lean_audit import (
     LeanAuditError,
@@ -240,6 +242,17 @@ class TestValidateRepairClassifierOutput:
         )
         result = validate_repair_classifier_output(raw)
         assert result.decision == "small_fix"
+
+    def test_non_list_proposed_changes_rejected(self):
+        raw = self._valid(proposed_changes={"field": "statement"})
+        with pytest.raises(LeanAuditError, match="proposed_changes"):
+            validate_repair_classifier_output(raw)
+
+
+class TestCompatibility:
+    def test_timestamp_does_not_use_python_311_datetime_utc_alias(self):
+        source = inspect.getsource(lean_audit._timestamp)
+        assert "datetime.UTC" not in source
 
 
 class TestWriteReports:
