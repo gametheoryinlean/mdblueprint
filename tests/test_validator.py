@@ -100,6 +100,16 @@ class TestSourceSpanBinding:
 
 
 class TestInvalidKindAndStatus:
+    def test_topic_kind_is_valid(self):
+        node = parse_node("---\nid: t.x\ntitle: X\nkind: topic\nstatus: admitted\nuses: []\n---\n\n# X\n")
+        diags = validate_node(node)
+        assert not any("invalid kind" in d.message for d in diags)
+
+    def test_concept_kind_remains_valid(self):
+        node = parse_node("---\nid: t.x\ntitle: X\nkind: concept\nstatus: admitted\nuses: []\n---\n\n# X\n")
+        diags = validate_node(node)
+        assert not any("invalid kind" in d.message for d in diags)
+
     def test_invalid_kind(self):
         node = parse_node("---\nid: t.x\ntitle: X\nkind: bogus\nstatus: admitted\nuses: []\n---\n\n# X\n")
         diags = validate_node(node)

@@ -111,6 +111,8 @@ Admission invariants:
 The following kinds must pass a generality gate before admission:
 
 ```text
+topic
+concept
 definition
 lemma
 proposition
@@ -130,12 +132,11 @@ What hypotheses are only artifacts of the source presentation?
 
 If the answer is unclear after serious review, the node remains staged or receives
 `needs_statement_review` (for theorem/lemma kinds) or `needs_definition_review`
-(for definition kinds).
+(for topic, concept, and definition kinds).
 
 The following kinds are exempt from the generality gate:
 
 ```text
-concept       — organising ideas rather than mathematical claims; no gate required
 example       — intentionally specific by design; no gate required
 proof-plan    — a sketch or plan, not a complete mathematical claim; no gate required
 task          — a work item, not a mathematical claim; no gate required

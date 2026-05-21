@@ -12,8 +12,12 @@ from tools.knowledge.models import Node, Verification
 
 
 def test_kind_caption_and_shape():
+    assert kind_caption("topic") == "Topic"
+    assert kind_caption("concept") == "Concept"
     assert kind_caption("definition") == "Definition"
     assert kind_caption("theorem") == "Theorem"
+    assert node_shape("topic") == "box"
+    assert node_shape("concept") == "box"
     assert node_shape("definition") == "box"
     assert node_shape("theorem") == "ellipse"
     assert node_shape("example") == "note"

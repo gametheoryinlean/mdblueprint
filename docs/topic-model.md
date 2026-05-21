@@ -6,6 +6,11 @@ views in the generated site and DAG.
 
 ## Terms
 
+- `kind: topic` is a node kind for a roadmap-level mathematical subject that has
+  not yet been decomposed into individual definitions, constructions, examples,
+  standard theorems, references, and Lean targets. It is distinct from the
+  `topics` membership field below. Do not make `topic` a synthetic node id
+  prefix; use a mathematical id such as `root_data_and_duality.root_data`.
 - `id` is the stable machine identity of a node. It should remain stable across
   topic view changes.
 - `primary_topic` is the node's home topic. It is a canonical hierarchical topic

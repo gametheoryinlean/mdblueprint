@@ -24,6 +24,24 @@ def _write_definition(path: Path, *, verified: bool = True) -> None:
     )
 
 
+def _write_definition_like_kind(path: Path, kind: str, *, generality: bool = True) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    generality_block = "generality:\n  reviewed: true\n" if generality else ""
+    path.write_text(
+        "---\n"
+        f"id: algebra.{kind}_node\n"
+        f"title: {kind.title()} Node\n"
+        f"kind: {kind}\n"
+        "status: staged\n"
+        "uses: []\n"
+        "verification:\n  definition: accepted\n"
+        f"{generality_block}"
+        "---\n\n"
+        f"# {kind.title()} Node\n",
+        encoding="utf-8",
+    )
+
+
 def _write_theorem_with_unverified_proof(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -94,6 +112,32 @@ class TestAdmissionPipeline:
         assert gate.status == "failed"
         assert any("verification.definition" in message for message in gate.messages)
         assert staged.exists()
+
+    def test_topic_kind_requires_generality_gate(self, tmp_path):
+        kb = tmp_path / "knowledge"
+        staged = kb / "staged" / "algebra" / "topic.md"
+        (kb / "nodes").mkdir(parents=True)
+        _write_definition_like_kind(staged, "topic", generality=False)
+
+        result = run_admission_pipeline(staged, kb, require_reviews=False)
+
+        assert not result.success
+        gate = next(g for g in result.gates if g.name == "generality")
+        assert gate.status == "failed"
+        assert any("generality gate" in message for message in gate.messages)
+
+    def test_concept_kind_requires_generality_gate(self, tmp_path):
+        kb = tmp_path / "knowledge"
+        staged = kb / "staged" / "algebra" / "concept.md"
+        (kb / "nodes").mkdir(parents=True)
+        _write_definition_like_kind(staged, "concept", generality=False)
+
+        result = run_admission_pipeline(staged, kb, require_reviews=False)
+
+        assert not result.success
+        gate = next(g for g in result.gates if g.name == "generality")
+        assert gate.status == "failed"
+        assert any("generality gate" in message for message in gate.messages)
 
     def test_pipeline_reports_proof_verification_failure(self, tmp_path):
         kb = tmp_path / "knowledge"

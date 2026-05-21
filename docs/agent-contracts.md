@@ -418,7 +418,7 @@ Rules:
 - It must not hide uncertainty.
 - It must not admit a node if dependencies are missing or cyclic.
 - It must not admit a node without a completed generality gate.
-- It must not admit a definition or concept without
+- It must not admit a topic, concept, or definition node without
   `verification.definition: accepted`.
 - It must not admit a lemma, proposition, theorem, or external-theorem without
   `verification.statement: accepted`.

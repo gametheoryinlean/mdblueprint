@@ -66,6 +66,7 @@ def dot_quote(value: str) -> str:
 
 def kind_caption(kind: str) -> str:
     return {
+        "topic": "Topic",
         "concept": "Concept",
         "definition": "Definition",
         "lemma": "Lemma",

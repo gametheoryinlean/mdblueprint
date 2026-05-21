@@ -80,7 +80,7 @@
   }
 
   function shapeForKind(kind) {
-    if (kind === "definition" || kind === "concept") return "box";
+    if (kind === "topic" || kind === "definition" || kind === "concept") return "box";
     if (["lemma", "proposition", "theorem", "external-theorem"].includes(kind)) return "ellipse";
     if (kind === "example" || kind === "proof-plan") return "note";
     if (kind === "task") return "component";

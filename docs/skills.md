@@ -43,8 +43,8 @@ Admission is deterministic and Python-orchestrated:
 uv run python -m tools.knowledge.admission_pipeline docs/knowledge/staged/example.md docs/knowledge
 ```
 
-The pipeline requires `verification.definition: accepted` for concepts and
-definitions, `verification.statement: accepted` for theorem-like nodes, and
+The pipeline requires `verification.definition: accepted` for topic, concept,
+and definition nodes, `verification.statement: accepted` for theorem-like nodes, and
 `verification.proof: accepted` when theorem-like proof content is present.
 Ordinary admitted nodes may omit Lean metadata; `formalized` and `proved` nodes
 must include `lean.modules` and `lean.declarations`.

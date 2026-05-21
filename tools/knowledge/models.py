@@ -57,7 +57,7 @@ class Generality:
 
 
 VALID_KINDS = frozenset({
-    "concept", "definition", "lemma", "proposition", "theorem",
+    "topic", "concept", "definition", "lemma", "proposition", "theorem",
     "example", "proof-plan", "external-theorem", "task",
 })
 
@@ -78,15 +78,15 @@ STAGED_STATUSES = frozenset({
 })
 
 MATH_KINDS = frozenset({
-    "concept", "definition", "lemma", "proposition", "theorem",
+    "topic", "concept", "definition", "lemma", "proposition", "theorem",
     "example", "proof-plan", "external-theorem",
 })
 
 STATEMENT_KINDS = frozenset({"lemma", "proposition", "theorem", "external-theorem"})
-DEFINITION_KINDS = frozenset({"definition", "concept"})
+DEFINITION_KINDS = frozenset({"definition", "concept", "topic"})
 PROOF_PLAN_TARGET_KINDS = frozenset({"lemma", "proposition", "theorem", "external-theorem"})
 GENERALITY_REQUIRED_KINDS = frozenset({
-    "definition", "lemma", "proposition", "theorem", "external-theorem",
+    "topic", "concept", "definition", "lemma", "proposition", "theorem", "external-theorem",
 })
 
 FORBIDDEN_HEADINGS = frozenset({

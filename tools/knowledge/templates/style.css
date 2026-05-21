@@ -129,6 +129,7 @@ a { color: var(--accent); }
 .status-needs_definition_review,
 .status-needs_proof_review { background: #f8d7da; color: #721c24; }
 .kind-definition { background: #e2e3f1; color: #3b3f7a; }
+.kind-topic { background: #e2e3f1; color: #3b3f7a; }
 .kind-concept { background: #e2e3f1; color: #3b3f7a; }
 .kind-theorem { background: #f1e2e2; color: #7a3b3b; }
 .kind-lemma { background: #f1ebe2; color: #7a5c3b; }
@@ -558,6 +559,7 @@ span.node-ref.unresolved::before { content: "?"; font-size: 0.75em; vertical-ali
   margin-top: 0.75rem;
 }
 
+.topic_thmcontent,
 .definition_thmcontent,
 .concept_thmcontent {
   border-left-color: var(--definition);

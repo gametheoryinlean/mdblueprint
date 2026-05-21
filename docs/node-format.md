@@ -184,13 +184,13 @@ The `verification` block uses only the fields that apply to the node's `kind`.
 | Field       | Applies to                                               | Values                                  |
 |-------------|----------------------------------------------------------|-----------------------------------------|
 | `statement` | lemma, proposition, theorem, external-theorem            | accepted, needs_revision, rejected      |
-| `definition`| definition, concept                                      | accepted, needs_revision, rejected      |
+| `definition`| topic, concept, definition                              | accepted, needs_revision, rejected      |
 | `proof`     | lemma, proposition, theorem (when proof content exists)  | accepted, gap, critical, not_applicable |
 | `alignment` | any node with a `lean` section                           | aligned, pending, mismatch              |
 
 A node should not carry both `statement` and `definition`. Use the field that matches
 the kind. Use `not_applicable` for `proof` only when the node kind cannot have a proof
-(e.g. a pure definition, a concept, an example).
+(e.g. a topic-level node, a pure definition, a concept, or an example).
 
 ## Body Rule
 
@@ -235,6 +235,7 @@ interaction, and render-check contract.
 The first version supports:
 
 ```text
+topic
 concept
 definition
 lemma
@@ -245,6 +246,24 @@ proof-plan
 external-theorem
 task
 ```
+
+Use `topic` for a roadmap-level mathematical subject that has not yet been
+expanded into precise definitions, constructions, examples, standard theorems,
+source references, and Lean targets. A `topic` node may contain an expansion
+list and scope notes; it is still a node in the mathematical dependency DAG, so
+its `uses` field records real prerequisite topics.
+
+Use `concept` for a mathematically stable idea that is not best represented as a
+single formal definition. A concept node should already explain the idea itself;
+it is not merely a placeholder for future decomposition.
+
+Use `definition` only when the body gives a precise definition suitable for
+review and eventual Lean alignment.
+
+Do not use `topic` as an id prefix merely to say that a node is a topic-level
+node. The node id should name its mathematical home, for example
+`root_data_and_duality.root_data`; `kind: topic` carries the node-type
+information.
 
 `task` nodes track mathematical work items (e.g. "prove X", "formalize Y"). They may
 appear in the `uses` field of other `task` nodes to express project dependency order.
@@ -362,7 +381,7 @@ schema -> generality -> verification -> reviews -> dag -> write
 The verification gate is kind-specific:
 
 ```text
-concept, definition              require verification.definition: accepted
+topic, concept, definition       require verification.definition: accepted
 lemma, proposition, theorem      require verification.statement: accepted
 external-theorem                 requires verification.statement: accepted and Lean refs
 proof block in any theorem-like  requires verification.proof: accepted
