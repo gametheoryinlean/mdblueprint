@@ -104,6 +104,26 @@ class TestParseNode:
         assert node.plan_status == "candidate"
         assert node.uses == ["algebra.group"]
 
+    def test_parse_proved_via_plan_marker(self):
+        node = parse_node(
+            "---\n"
+            "id: t.thm\n"
+            "title: Theorem\n"
+            "kind: theorem\n"
+            "status: proved\n"
+            "proved_via_plan: t.thm.plan.direct\n"
+            "uses: []\n"
+            "---\n\n"
+            "# Theorem\n"
+        )
+        assert node.proved_via_plan == "t.thm.plan.direct"
+
+    def test_parse_node_without_proved_via_plan_defaults_to_none(self):
+        node = parse_node(
+            "---\nid: t.x\ntitle: X\nkind: theorem\nstatus: admitted\nuses: []\n---\n\n# X\n"
+        )
+        assert node.proved_via_plan is None
+
     def test_parse_generality(self):
         node = parse_file(GENERIC_NODES_DIR / "group.md")
         assert node.generality is not None

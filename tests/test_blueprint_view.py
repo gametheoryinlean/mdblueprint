@@ -145,9 +145,8 @@ def _view_for(node_id, view):
     return next(n for n in view.nodes if n.id == node_id)
 
 
-def test_proved_via_plan_when_attached_plan_is_fully_formalized():
+def test_proved_via_plan_marker_yields_proved_via_plan_fill_state():
     base = Node(id="t.base", title="Base", kind="definition", status="formalized")
-    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="formalized", uses=[])
     plan = Node(
         id="t.thm.plan.direct",
         title="Direct Plan",
@@ -157,16 +156,34 @@ def test_proved_via_plan_when_attached_plan_is_fully_formalized():
         plan_status="selected",
         uses=["t.base"],
     )
-    graph, diags = build_graph([base, thm, plan])
+    thm = Node(
+        id="t.thm",
+        title="Theorem",
+        kind="theorem",
+        status="proved",
+        uses=[],
+        proved_via_plan="t.thm.plan.direct",
+    )
+    graph, diags = build_graph([base, plan, thm])
     assert diags == []
 
     view = build_blueprint_graph(graph)
     assert _view_for("t.thm", view).fill_state == "proved_via_plan"
 
 
-def test_explicit_proved_status_still_wins_over_plan_derivation():
+def test_status_proved_without_marker_renders_fully_proved():
     base = Node(id="t.base", title="Base", kind="definition", status="formalized")
     thm = Node(id="t.thm", title="Theorem", kind="theorem", status="proved", uses=["t.base"])
+    graph, diags = build_graph([base, thm])
+    assert diags == []
+
+    view = build_blueprint_graph(graph)
+    # No marker: this is an "explicit proved" claim — render as fully_proved.
+    assert _view_for("t.thm", view).fill_state == "fully_proved"
+
+
+def test_proved_via_plan_renders_distinct_fill_color_in_dot():
+    base = Node(id="t.base", title="Base", kind="definition", status="formalized")
     plan = Node(
         id="t.thm.plan.direct",
         title="Direct Plan",
@@ -176,45 +193,36 @@ def test_explicit_proved_status_still_wins_over_plan_derivation():
         plan_status="selected",
         uses=["t.base"],
     )
-    graph, diags = build_graph([base, thm, plan])
-    assert diags == []
-
-    view = build_blueprint_graph(graph)
-    # Author explicitly set status=proved; fully_proved should win, not proved_via_plan.
-    assert _view_for("t.thm", view).fill_state == "fully_proved"
-
-
-def test_plan_not_yet_formalized_does_not_promote_target():
-    base = Node(id="t.base", title="Base", kind="definition", status="formalized")
-    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="admitted", uses=["t.base"])
-    plan = Node(
-        id="t.thm.plan.draft",
-        title="Draft Plan",
-        kind="proof-plan",
-        status="staged",
-        target="t.thm",
-        plan_status="candidate",
-        uses=["t.base"],
+    thm = Node(
+        id="t.thm",
+        title="Theorem",
+        kind="theorem",
+        status="proved",
+        uses=[],
+        proved_via_plan="t.thm.plan.direct",
     )
-    graph, diags = build_graph([base, thm, plan])
+    graph, diags = build_graph([base, plan, thm])
     assert diags == []
 
-    view = build_blueprint_graph(graph)
-    # Plan is still staged; target should fall back to can_prove (admitted with ready deps).
-    assert _view_for("t.thm", view).fill_state == "can_prove"
+    dot = graph_to_dot(build_blueprint_graph(graph))
+    target_line = next(line for line in dot.split("\n") if '"t.thm"' in line and "->" not in line)
+    assert "fillcolor=\"#6DD2A4\"" in target_line
+    assert "style=\"filled\"" in target_line
 
 
-def test_plan_ancestor_not_yet_formalized_does_not_promote_target():
+def test_plan_provides_proof_predicate():
+    from tools.knowledge.blueprint_view import plan_provides_proof
+
     base = Node(id="t.base", title="Base", kind="definition", status="formalized")
     intermediate = Node(
         id="t.intermediate",
         title="Intermediate Lemma",
         kind="lemma",
-        status="admitted",
+        status="admitted",  # not yet formalized
         uses=["t.base"],
     )
     thm = Node(id="t.thm", title="Theorem", kind="theorem", status="admitted", uses=[])
-    plan = Node(
+    plan_via_intermediate = Node(
         id="t.thm.plan.via_intermediate",
         title="Plan via Intermediate",
         kind="proof-plan",
@@ -223,32 +231,34 @@ def test_plan_ancestor_not_yet_formalized_does_not_promote_target():
         plan_status="selected",
         uses=["t.intermediate"],
     )
-    graph, diags = build_graph([base, intermediate, thm, plan])
-    assert diags == []
-
-    view = build_blueprint_graph(graph)
-    # Plan itself is formalized, but it transitively depends on an admitted lemma
-    # whose own proof is not in Lean; target must NOT be marked proved_via_plan.
-    assert _view_for("t.thm", view).fill_state != "proved_via_plan"
-
-
-def test_proved_via_plan_renders_distinct_fill_color_in_dot():
-    base = Node(id="t.base", title="Base", kind="definition", status="formalized")
-    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="formalized", uses=[])
-    plan = Node(
+    plan_direct = Node(
         id="t.thm.plan.direct",
         title="Direct Plan",
         kind="proof-plan",
         status="formalized",
         target="t.thm",
-        plan_status="selected",
+        plan_status="candidate",
         uses=["t.base"],
     )
-    graph, diags = build_graph([base, thm, plan])
+    plan_unfinished = Node(
+        id="t.thm.plan.unfinished",
+        title="Unfinished Plan",
+        kind="proof-plan",
+        status="staged",
+        target="t.thm",
+        plan_status="candidate",
+        uses=["t.base"],
+    )
+    graph, diags = build_graph(
+        [base, intermediate, thm, plan_via_intermediate, plan_direct, plan_unfinished]
+    )
     assert diags == []
 
-    dot = graph_to_dot(build_blueprint_graph(graph))
-    # The target line for t.thm should carry the proved_via_plan fillcolor and be filled.
-    target_line = next(line for line in dot.split("\n") if '"t.thm"' in line and "->" not in line)
-    assert "fillcolor=\"#6DD2A4\"" in target_line
-    assert "style=\"filled\"" in target_line
+    # Direct plan is fully formalized end-to-end.
+    assert plan_provides_proof("t.thm.plan.direct", graph) is True
+    # Plan via intermediate fails: intermediate.status is admitted, not formalized.
+    assert plan_provides_proof("t.thm.plan.via_intermediate", graph) is False
+    # Plan itself not formalized.
+    assert plan_provides_proof("t.thm.plan.unfinished", graph) is False
+    # Unknown plan id.
+    assert plan_provides_proof("t.thm.plan.nonexistent", graph) is False

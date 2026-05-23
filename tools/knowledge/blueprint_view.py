@@ -121,13 +121,14 @@ def _border_state(node: Node, g: KnowledgeGraph) -> str | None:
     return None
 
 
-def _plan_provides_proof(plan_id: str, g: KnowledgeGraph) -> bool:
+def plan_provides_proof(plan_id: str, g: KnowledgeGraph) -> bool:
     """Return True iff an attached proof plan supplies a complete Lean proof.
 
     A plan provides a proof when its own status reaches Lean coverage and
     every transitive ancestor in its `uses` chain is itself either already
     in Lean coverage or is a definition-style node (which carries no proof
-    obligation of its own).
+    obligation of its own). Exported because the promote_via_plan CLI tool
+    uses the same predicate.
     """
     plan = g.nodes.get(plan_id)
     if plan is None or plan.status not in {"formalized", "proved"}:
@@ -148,6 +149,9 @@ def _fill_state(node: Node, g: KnowledgeGraph) -> str | None:
     if node.kind in DEFINITION_KINDS and node.status in {"formalized", "proved"}:
         return "defined"
     if node.status == "proved":
+        # Persistent marker takes precedence over the explicit-proof fill states.
+        if node.proved_via_plan is not None:
+            return "proved_via_plan"
         ancestor_ids = _ancestors(node.id, g)
         if all(
             g.nodes[ancestor_id].status in {"formalized", "proved"}
@@ -156,10 +160,6 @@ def _fill_state(node: Node, g: KnowledgeGraph) -> str | None:
         ):
             return "fully_proved"
         return "proved"
-    if node.kind in THEOREM_LIKE_KINDS:
-        for plan_id in g.proof_plans_by_target.get(node.id, []):
-            if _plan_provides_proof(plan_id, g):
-                return "proved_via_plan"
     if node.status == "admitted" and _deps_ready(node, g) and node.kind in THEOREM_LIKE_KINDS:
         return "can_prove"
     return None

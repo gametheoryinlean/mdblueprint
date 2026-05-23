@@ -113,6 +113,7 @@ class Node:
     uses: list[str] = field(default_factory=list)
     target: str | None = None
     plan_status: str | None = None
+    proved_via_plan: str | None = None
     lean: LeanRef | None = None
     source: Source | None = None
     verification: Verification | None = None

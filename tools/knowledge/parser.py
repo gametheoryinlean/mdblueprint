@@ -86,6 +86,7 @@ def parse_node(text: str, file_path: Path | None = None) -> Node:
         uses=fm.get("uses") or [],
         target=fm.get("target"),
         plan_status=fm.get("plan_status"),
+        proved_via_plan=fm.get("proved_via_plan"),
         lean=_parse_lean(fm.get("lean")),
         source=_parse_source(fm.get("source")),
         verification=_parse_verification(fm.get("verification")),

@@ -148,6 +148,59 @@ class TestProofPlanEdges:
         assert any("proof-plan cannot use its target" in d.message for d in errors)
 
 
+class TestProvedViaPlanCrossReference:
+    def _setup(self, **target_kwargs):
+        base = Node(id="t.base", title="Base", kind="definition", status="formalized")
+        plan = Node(
+            id="t.thm.plan.direct",
+            title="Direct Plan",
+            kind="proof-plan",
+            status="formalized",
+            target="t.thm",
+            plan_status="selected",
+            uses=["t.base"],
+        )
+        defaults = dict(
+            id="t.thm", title="Theorem", kind="theorem", status="proved", uses=[],
+        )
+        defaults.update(target_kwargs)
+        thm = Node(**defaults)
+        return [base, plan, thm]
+
+    def test_valid_proved_via_plan_reference(self):
+        nodes = self._setup(proved_via_plan="t.thm.plan.direct")
+        _, diags = build_graph(nodes)
+        assert [d for d in diags if d.level == "error"] == []
+
+    def test_missing_referenced_plan_is_error(self):
+        nodes = self._setup(proved_via_plan="t.thm.plan.nonexistent")
+        _, diags = build_graph(nodes)
+        assert any("references unknown node" in d.message for d in diags)
+
+    def test_reference_to_non_plan_node_is_error(self):
+        nodes = self._setup(proved_via_plan="t.base")
+        _, diags = build_graph(nodes)
+        assert any("must reference a proof-plan node" in d.message for d in diags)
+
+    def test_reference_to_plan_targeting_other_node_is_error(self):
+        nodes = self._setup(proved_via_plan="t.thm.plan.direct")
+        # Add another theorem and retarget the plan at it instead.
+        nodes[1] = Node(
+            id="t.thm.plan.direct",
+            title="Direct Plan",
+            kind="proof-plan",
+            status="formalized",
+            target="t.other",
+            plan_status="selected",
+            uses=["t.base"],
+        )
+        nodes.append(
+            Node(id="t.other", title="Other", kind="theorem", status="formalized", uses=[])
+        )
+        _, diags = build_graph(nodes)
+        assert any("whose target is" in d.message for d in diags)
+
+
 class TestTopologicalSort:
     def test_order(self):
         nodes = scan_directory(NODES_DIR)

@@ -113,6 +113,35 @@ def build_graph(nodes: list[Node]) -> tuple[KnowledgeGraph, list[Diagnostic]]:
     for plan_ids in g.proof_plans_by_target.values():
         plan_ids.sort()
 
+    # Cross-reference check for proved_via_plan markers: the referenced
+    # plan must exist, be a proof-plan, and target this very node.
+    for nid, node in g.nodes.items():
+        if node.proved_via_plan is None:
+            continue
+        plan = g.nodes.get(node.proved_via_plan)
+        if plan is None:
+            diags.append(Diagnostic(
+                "error", nid,
+                f"proved_via_plan references unknown node: {node.proved_via_plan!r}",
+                node.file_path,
+            ))
+            continue
+        if plan.kind != "proof-plan":
+            diags.append(Diagnostic(
+                "error", nid,
+                f"proved_via_plan must reference a proof-plan node; "
+                f"{node.proved_via_plan!r} is kind={plan.kind!r}",
+                node.file_path,
+            ))
+            continue
+        if plan.target != nid:
+            diags.append(Diagnostic(
+                "error", nid,
+                f"proved_via_plan references plan {node.proved_via_plan!r} "
+                f"whose target is {plan.target!r}, not this node",
+                node.file_path,
+            ))
+
     # Cycle detection via DFS
     WHITE, GRAY, BLACK = 0, 1, 2
     color: dict[str, int] = {nid: WHITE for nid in g.nodes}

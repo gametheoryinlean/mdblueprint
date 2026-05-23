@@ -10,6 +10,7 @@ from tools.knowledge.models import (
     DEFINITION_KINDS,
     FORBIDDEN_HEADINGS,
     MATH_KINDS,
+    PROOF_PLAN_TARGET_KINDS,
     STAGED_STATUSES,
     STATEMENT_KINDS,
     VALID_ALIGNMENT_VALUES,
@@ -90,6 +91,22 @@ def validate_node(
             err("target is only valid for proof-plan nodes")
         if node.plan_status is not None:
             err("plan_status is only valid for proof-plan nodes")
+
+    # proved_via_plan marker: only valid on theorem-like nodes whose status is proved.
+    # Cross-graph reference correctness (plan exists and targets this node) is
+    # enforced by graph.build_graph since it requires the full node table.
+    if node.proved_via_plan is not None:
+        if node.kind not in PROOF_PLAN_TARGET_KINDS:
+            err(
+                f"proved_via_plan is only valid on theorem-like nodes "
+                f"(lemma, proposition, theorem, external-theorem); got kind={node.kind!r}"
+            )
+        if node.status != "proved":
+            err(
+                f"proved_via_plan requires status=proved; got status={node.status!r}"
+            )
+        if node.proved_via_plan == node.id:
+            err("proved_via_plan cannot reference the node itself")
 
     # Directory-status consistency
     if is_staged_dir and node.status in ADMITTED_STATUSES:

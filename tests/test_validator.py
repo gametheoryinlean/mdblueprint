@@ -212,6 +212,41 @@ class TestLeanStatusPolicy:
         assert any(d.level == "warning" and "alignment" in d.message for d in diags)
 
 
+class TestProvedViaPlanField:
+    def _theorem(self, *, status="proved", **kwargs):
+        from tools.knowledge.models import LeanRef, Node
+        # status=proved requires a lean section per the existing validator rule,
+        # so attach a minimal LeanRef whenever we are testing the proved path.
+        if status == "proved" and "lean" not in kwargs:
+            kwargs["lean"] = LeanRef(modules=["Lib.Mod"], declarations=["Lib.thm"])
+        return Node(id="t.thm", title="T", kind="theorem", status=status, **kwargs)
+
+    def test_marker_valid_when_status_proved_on_theorem(self):
+        node = self._theorem(proved_via_plan="t.thm.plan.direct")
+        errors = [d for d in validate_node(node) if d.level == "error"]
+        assert errors == []
+
+    def test_marker_on_definition_is_error(self):
+        from tools.knowledge.models import LeanRef, Node
+        node = Node(
+            id="t.x", title="X", kind="definition", status="proved",
+            proved_via_plan="t.thm.plan.direct",
+            lean=LeanRef(modules=["Lib.Mod"], declarations=["Lib.def_x"]),
+        )
+        diags = validate_node(node)
+        assert any("theorem-like" in d.message and d.level == "error" for d in diags)
+
+    def test_marker_without_proved_status_is_error(self):
+        node = self._theorem(status="formalized", proved_via_plan="t.thm.plan.direct")
+        diags = validate_node(node)
+        assert any("status=proved" in d.message and d.level == "error" for d in diags)
+
+    def test_marker_pointing_to_self_is_error(self):
+        node = self._theorem(proved_via_plan="t.thm")
+        diags = validate_node(node)
+        assert any("cannot reference the node itself" in d.message for d in diags)
+
+
 class TestDiagnosticStr:
     def test_with_file_path(self):
         from tools.knowledge.validator import Diagnostic
