@@ -12,20 +12,71 @@ MATH_DELIMITER_RE = re.compile(r"(?<!\\)\$\$|(?<!\\)\$|\\\(|\\\)|\\\[|\\\]")
 ENVIRONMENT_RE = re.compile(r"\\(begin|end)\{([^{}]+)\}")
 MACRO_RE = re.compile(r"\\([A-Za-z]+)")
 KNOWN_MACROS = frozenset({
-    "Delta", "Gamma", "Lambda", "Longleftrightarrow", "Omega", "Phi", "Pi",
-    "Psi", "Rightarrow", "Sigma", "Theta", "Upsilon", "Xi", "alpha", "ast", "bar",
-    "beta", "bigcap", "bigcup", "cdot", "chi",
-    "colon", "delta", "dot", "downarrow", "ell", "emptyset", "epsilon", "eta",
-    "exists", "forall", "frac", "gamma", "ge", "in", "inf", "infty", "int",
-    "iota", "kappa", "lambda", "langle", "ldots", "le", "left", "lim",
-    "liminf", "limsup", "longrightarrow", "mapsto", "mathbb", "mathbf",
-    "mathcal", "mathrm", "max", "min", "mu", "nabla", "ne", "notin", "nu",
-    "omega", "operatorname", "otimes", "overline", "partial", "phi", "pi",
-    "prod", "psi", "qquad", "quad", "rangle", "rho", "right",
-    "rightrightarrows", "setminus", "sigma", "sqrt", "square", "subseteq",
-    "sum", "sup", "tau", "text", "theta", "times", "to", "underline",
-    "upsilon", "varepsilon", "varphi", "vartheta", "vee", "wedge", "widetilde",
-    "xi", "zeta", "begin", "end",
+    # Greek letters (lower)
+    "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta",
+    "theta", "vartheta", "iota", "kappa", "lambda", "mu", "nu", "xi",
+    "omicron", "pi", "rho", "sigma", "tau", "upsilon", "phi", "varphi",
+    "chi", "psi", "omega",
+    # Greek letters (upper)
+    "Delta", "Gamma", "Lambda", "Omega", "Phi", "Pi", "Psi", "Sigma",
+    "Theta", "Upsilon", "Xi",
+    # Arrows
+    "to", "mapsto", "rightarrow", "leftarrow", "leftrightarrow",
+    "longrightarrow", "longleftarrow", "longleftrightarrow",
+    "Rightarrow", "Leftarrow", "Leftrightarrow",
+    "Longrightarrow", "Longleftarrow", "Longleftrightarrow",
+    "hookrightarrow", "hookleftarrow", "rightrightarrows",
+    "uparrow", "downarrow", "updownarrow",
+    "Uparrow", "Downarrow", "Updownarrow",
+    # Logic / set membership / order
+    "exists", "forall", "nexists",
+    "land", "lor", "lnot", "neg", "implies", "impliedby", "iff",
+    "in", "ni", "notin", "subset", "supset", "subseteq", "supseteq",
+    "subsetneq", "supsetneq", "cap", "cup",
+    "le", "ge", "leq", "geq", "ll", "gg",
+    "ne", "neq", "equiv", "sim", "simeq", "approx", "cong", "asymp",
+    "prec", "succ", "preceq", "succeq", "mid", "nmid", "parallel",
+    # Arithmetic and binary ops
+    "pm", "mp", "times", "div", "cdot", "ast", "star", "circ", "bullet",
+    "oplus", "ominus", "otimes", "odot", "oslash",
+    "setminus", "wedge", "vee", "bigwedge", "bigvee",
+    # Big operators
+    "sum", "prod", "int", "iint", "iiint", "oint", "bigcap", "bigcup",
+    "bigoplus", "bigotimes", "bigsqcup", "biguplus",
+    "inf", "sup", "max", "min", "lim", "liminf", "limsup",
+    # Sizing delimiters
+    "big", "Big", "bigg", "Bigg",
+    "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr", "Biggl", "Biggr",
+    "left", "right",
+    # Brackets and dots
+    "langle", "rangle", "lceil", "rceil", "lfloor", "rfloor",
+    "vert", "Vert",
+    "ldots", "cdots", "vdots", "ddots", "dots",
+    # Named operators
+    "arg", "log", "ln", "exp", "det", "dim", "ker", "deg",
+    "sin", "cos", "tan", "arcsin", "arccos", "arctan",
+    "sinh", "cosh", "tanh", "cot", "csc", "sec",
+    "operatorname",
+    # Fonts and styling
+    "mathbb", "mathbf", "mathcal", "mathrm", "mathit", "mathsf", "mathtt",
+    "boldsymbol", "text", "textbf", "textit", "textsf", "texttt",
+    # Accents and decorations
+    "bar", "overline", "underline", "widetilde", "widehat",
+    "hat", "tilde", "dot", "ddot", "vec",
+    "overbrace", "underbrace", "overrightarrow", "overleftarrow",
+    # Symbols
+    "infty", "emptyset", "varnothing", "nabla", "partial",
+    "ell", "hbar", "imath", "jmath", "Re", "Im", "wp",
+    "top", "bot", "perp", "angle", "square",
+    "aleph", "beth",
+    "prime", "dagger", "ddagger",
+    "spadesuit", "heartsuit", "diamondsuit", "clubsuit",
+    # Numerics and spacing
+    "frac", "binom", "tfrac", "dfrac", "tbinom", "dbinom",
+    "sqrt", "colon",
+    "qquad", "quad",
+    # Math environments
+    "begin", "end",
 })
 
 
