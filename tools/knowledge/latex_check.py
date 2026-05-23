@@ -12,71 +12,155 @@ MATH_DELIMITER_RE = re.compile(r"(?<!\\)\$\$|(?<!\\)\$|\\\(|\\\)|\\\[|\\\]")
 ENVIRONMENT_RE = re.compile(r"\\(begin|end)\{([^{}]+)\}")
 MACRO_RE = re.compile(r"\\([A-Za-z]+)")
 KNOWN_MACROS = frozenset({
-    # Greek letters (lower)
+    # ---- Greek letters (lower case + variants) ----
     "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta",
-    "theta", "vartheta", "iota", "kappa", "lambda", "mu", "nu", "xi",
-    "omicron", "pi", "rho", "sigma", "tau", "upsilon", "phi", "varphi",
-    "chi", "psi", "omega",
-    # Greek letters (upper)
-    "Delta", "Gamma", "Lambda", "Omega", "Phi", "Pi", "Psi", "Sigma",
-    "Theta", "Upsilon", "Xi",
-    # Arrows
-    "to", "mapsto", "rightarrow", "leftarrow", "leftrightarrow",
+    "theta", "vartheta", "iota", "kappa", "varkappa", "lambda", "mu", "nu",
+    "xi", "omicron", "pi", "varpi", "rho", "varrho", "sigma", "varsigma",
+    "tau", "upsilon", "phi", "varphi", "chi", "psi", "omega", "digamma",
+    # ---- Greek letters (upper case) ----
+    "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta",
+    "Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi", "Omicron", "Pi", "Rho",
+    "Sigma", "Tau", "Upsilon", "Phi", "Chi", "Psi", "Omega",
+    # ---- Hebrew / other letters ----
+    "aleph", "beth", "daleth", "gimel",
+    "hbar", "hslash", "imath", "jmath", "ell", "wp", "eth", "mho",
+    "Re", "Im", "partial", "nabla",
+    # ---- Arrows ----
+    "to", "gets", "mapsto", "longmapsto",
+    "rightarrow", "leftarrow", "leftrightarrow",
     "longrightarrow", "longleftarrow", "longleftrightarrow",
     "Rightarrow", "Leftarrow", "Leftrightarrow",
     "Longrightarrow", "Longleftarrow", "Longleftrightarrow",
-    "hookrightarrow", "hookleftarrow", "rightrightarrows",
+    "hookrightarrow", "hookleftarrow",
+    "rightleftarrows", "leftrightarrows", "rightrightarrows", "leftleftarrows",
+    "rightleftharpoons", "leftrightharpoons",
+    "twoheadrightarrow", "twoheadleftarrow",
     "uparrow", "downarrow", "updownarrow",
     "Uparrow", "Downarrow", "Updownarrow",
-    # Logic / set membership / order
+    "nearrow", "searrow", "swarrow", "nwarrow",
+    "rightharpoonup", "rightharpoondown", "leftharpoonup", "leftharpoondown",
+    "upharpoonleft", "upharpoonright", "downharpoonleft", "downharpoonright",
+    "circlearrowleft", "circlearrowright", "curvearrowleft", "curvearrowright",
+    "Lleftarrow", "Rrightarrow",
+    # ---- Logic / set membership / order ----
     "exists", "forall", "nexists",
-    "land", "lor", "lnot", "neg", "implies", "impliedby", "iff",
-    "in", "ni", "notin", "subset", "supset", "subseteq", "supseteq",
-    "subsetneq", "supsetneq", "cap", "cup",
-    "le", "ge", "leq", "geq", "ll", "gg",
-    "ne", "neq", "equiv", "sim", "simeq", "approx", "cong", "asymp",
-    "prec", "succ", "preceq", "succeq", "mid", "nmid", "parallel",
-    # Arithmetic and binary ops
+    "land", "lor", "lnot", "neg",
+    "implies", "impliedby", "iff",
+    "in", "ni", "notin", "owns",
+    "subset", "supset", "subseteq", "supseteq",
+    "sqsubset", "sqsupset", "sqsubseteq", "sqsupseteq",
+    "subsetneq", "supsetneq", "subsetneqq", "supsetneqq",
+    "varsubsetneq", "varsupsetneq", "varsubsetneqq", "varsupsetneqq",
+    "cap", "cup", "sqcup", "sqcap", "uplus",
+    "lt", "gt", "le", "ge", "leq", "geq", "ll", "gg", "lll", "ggg",
+    "leqq", "geqq", "leqslant", "geqslant", "lessgtr", "gtrless",
+    "ne", "neq",
+    "equiv", "sim", "simeq", "approx", "cong", "propto",
+    "asymp", "doteq", "fallingdotseq", "risingdotseq",
+    "prec", "succ", "preceq", "succeq",
+    "precsim", "succsim", "precapprox", "succapprox",
+    "mid", "nmid", "parallel", "nparallel", "perp",
+    "vdash", "dashv", "models", "vDash", "Vdash",
+    "bowtie", "frown", "smile", "smallfrown", "smallsmile",
+    # ---- Arithmetic and binary ops ----
     "pm", "mp", "times", "div", "cdot", "ast", "star", "circ", "bullet",
-    "oplus", "ominus", "otimes", "odot", "oslash",
-    "setminus", "wedge", "vee", "bigwedge", "bigvee",
-    # Big operators
-    "sum", "prod", "int", "iint", "iiint", "oint", "bigcap", "bigcup",
-    "bigoplus", "bigotimes", "bigsqcup", "biguplus",
+    "oplus", "ominus", "otimes", "odot", "oslash", "ocirc",
+    "amalg", "wr", "dagger", "ddagger",
+    "vee", "wedge", "veebar", "barwedge", "doublebarwedge", "curlyvee", "curlywedge",
+    "setminus", "smallsetminus", "backslash", "slash",
+    # ---- Triangles, suits, geometric symbols ----
+    "triangle", "triangledown", "triangleleft", "triangleright",
+    "blacktriangle", "blacktriangledown", "blacktriangleleft", "blacktriangleright",
+    "diamond", "Diamond", "lozenge", "blacklozenge",
+    "square", "blacksquare",
+    "circ", "bigcirc", "circledast", "circledcirc", "circleddash",
+    "diamondsuit", "heartsuit", "clubsuit", "spadesuit",
+    "flat", "natural", "sharp",
+    "checkmark", "maltese",
+    "ltimes", "rtimes", "leftthreetimes", "rightthreetimes",
+    # ---- Big operators ----
+    "sum", "prod", "coprod",
+    "int", "iint", "iiint", "iiiint", "oint", "oiint", "oiiint",
+    "bigcap", "bigcup", "bigsqcup", "biguplus",
+    "bigvee", "bigwedge", "bigodot", "bigoplus", "bigotimes",
     "inf", "sup", "max", "min", "lim", "liminf", "limsup",
-    # Sizing delimiters
+    "varinjlim", "varprojlim", "varliminf", "varlimsup",
+    "injlim", "projlim",
+    # ---- Sizing delimiters ----
     "big", "Big", "bigg", "Bigg",
-    "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr", "Biggl", "Biggr",
-    "left", "right",
-    # Brackets and dots
+    "bigl", "bigr", "Bigl", "Bigr",
+    "biggl", "biggr", "Biggl", "Biggr",
+    "left", "right", "middle",
+    # ---- Brackets and dots ----
     "langle", "rangle", "lceil", "rceil", "lfloor", "rfloor",
-    "vert", "Vert",
-    "ldots", "cdots", "vdots", "ddots", "dots",
-    # Named operators
-    "arg", "log", "ln", "exp", "det", "dim", "ker", "deg",
-    "sin", "cos", "tan", "arcsin", "arccos", "arctan",
-    "sinh", "cosh", "tanh", "cot", "csc", "sec",
-    "operatorname",
-    # Fonts and styling
-    "mathbb", "mathbf", "mathcal", "mathrm", "mathit", "mathsf", "mathtt",
-    "boldsymbol", "text", "textbf", "textit", "textsf", "texttt",
-    # Accents and decorations
-    "bar", "overline", "underline", "widetilde", "widehat",
-    "hat", "tilde", "dot", "ddot", "vec",
-    "overbrace", "underbrace", "overrightarrow", "overleftarrow",
-    # Symbols
-    "infty", "emptyset", "varnothing", "nabla", "partial",
-    "ell", "hbar", "imath", "jmath", "Re", "Im", "wp",
-    "top", "bot", "perp", "angle", "square",
-    "aleph", "beth",
-    "prime", "dagger", "ddagger",
-    "spadesuit", "heartsuit", "diamondsuit", "clubsuit",
-    # Numerics and spacing
-    "frac", "binom", "tfrac", "dfrac", "tbinom", "dbinom",
-    "sqrt", "colon",
-    "qquad", "quad",
-    # Math environments
+    "lvert", "rvert", "lVert", "rVert", "vert", "Vert",
+    "lbrace", "rbrace", "lbrack", "rbrack",
+    "ulcorner", "urcorner", "llcorner", "lrcorner",
+    "ldots", "cdots", "vdots", "ddots", "dots", "dotsb", "dotsc", "dotsi", "dotsm", "dotso",
+    # ---- Named operators (KaTeX built-ins) ----
+    "arg", "log", "ln", "lg", "exp", "det", "dim", "ker", "deg", "hom",
+    "gcd", "Pr", "sin", "cos", "tan", "cot", "csc", "sec",
+    "arcsin", "arccos", "arctan", "arccot",
+    "sinh", "cosh", "tanh", "coth",
+    "operatorname", "operatornamewithlimits",
+    # ---- Fonts, styles, sizes ----
+    "mathbb", "mathbf", "mathcal", "mathfrak", "mathit", "mathnormal",
+    "mathrm", "mathsf", "mathtt", "mathscr",
+    "bold", "boldsymbol", "pmb",
+    "rm", "bf", "it", "sf", "tt", "cal",
+    "text", "textbf", "textit", "textmd", "textnormal", "textrm",
+    "textsf", "textsl", "textsc", "texttt", "textup", "emph",
+    "displaystyle", "textstyle", "scriptstyle", "scriptscriptstyle",
+    "tiny", "scriptsize", "footnotesize", "small", "normalsize",
+    "large", "Large", "LARGE", "huge", "Huge",
+    "color", "textcolor", "colorbox", "fcolorbox",
+    # ---- Accents and decorations ----
+    "hat", "widehat", "tilde", "widetilde", "bar", "overline", "underline",
+    "vec", "overrightarrow", "overleftarrow", "overleftrightarrow",
+    "underrightarrow", "underleftarrow", "underleftrightarrow",
+    "check", "breve", "acute", "grave", "dot", "ddot", "dddot", "ddddot",
+    "mathring", "overarc",
+    "overbrace", "underbrace", "overgroup", "undergroup",
+    "overlinesegment", "underlinesegment",
+    "boxed", "fbox", "framebox",
+    # ---- Symbols ----
+    "infty", "emptyset", "varnothing",
+    "top", "bot", "angle", "measuredangle", "sphericalangle",
+    "prime", "backprime",
+    "surd", "S",
+    "complement", "smallint", "Bumpeq", "bumpeq",
+    "between", "pitchfork",
+    "Finv", "Game", "Bbbk",
+    "yen", "pounds", "$",
+    # ---- Fractions, roots, binomials ----
+    "frac", "dfrac", "tfrac", "cfrac",
+    "binom", "dbinom", "tbinom",
+    "choose", "brace", "brack", "atop", "above", "abovewithdelims",
+    "sqrt",
+    # ---- Spacing ----
+    "qquad", "quad", "enspace", "thinspace", "medspace", "thickspace",
+    "negthinspace", "negmedspace", "negthickspace",
+    "allowbreak", "nobreakspace", "space",
+    "phantom", "hphantom", "vphantom", "smash",
+    # ---- Modular / number theory ----
+    "pmod", "mod", "bmod", "pod",
+    # ---- Punctuation / misc ----
+    "colon", "vcentcolon", "ratio",
+    # ---- LaTeX environments / macros allowed in body ----
     "begin", "end",
+    # ---- Math layout / matrix helpers ----
+    "matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix",
+    "smallmatrix", "array",
+    "cases", "rcases", "drcases",
+    "aligned", "alignedat", "gathered", "split",
+    "stackrel", "overset", "underset", "raisebox",
+    # ---- Equation tagging / labeling (silently allowed) ----
+    "label", "ref", "eqref", "tag", "notag", "nonumber",
+    # ---- Misc helpers in KaTeX ----
+    "limits", "nolimits", "substack", "genfrac",
+    "char", "not",
+    # ---- Backslash-style line break inside math (rare but supported) ----
+    # Note: "\\" itself is a row break in environments; not a name macro.
 })
 
 
