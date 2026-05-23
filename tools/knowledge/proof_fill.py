@@ -69,7 +69,7 @@ class ProofFillReport:
     rounds: int
     repair_hints: list[str]
     timestamp: str = dataclasses.field(
-        default_factory=lambda: datetime.datetime.utcnow().isoformat()
+        default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat()
     )
 
 
