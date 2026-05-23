@@ -139,3 +139,116 @@ def test_proof_plan_edges_are_attached_to_target_in_blueprint_dot():
     assert '"t.thm.plan.direct" -> "t.thm"' in dot
     assert 'label="has plan"' in dot
     assert 'style="dotted"' in dot
+
+
+def _view_for(node_id, view):
+    return next(n for n in view.nodes if n.id == node_id)
+
+
+def test_proved_via_plan_when_attached_plan_is_fully_formalized():
+    base = Node(id="t.base", title="Base", kind="definition", status="formalized")
+    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="formalized", uses=[])
+    plan = Node(
+        id="t.thm.plan.direct",
+        title="Direct Plan",
+        kind="proof-plan",
+        status="formalized",
+        target="t.thm",
+        plan_status="selected",
+        uses=["t.base"],
+    )
+    graph, diags = build_graph([base, thm, plan])
+    assert diags == []
+
+    view = build_blueprint_graph(graph)
+    assert _view_for("t.thm", view).fill_state == "proved_via_plan"
+
+
+def test_explicit_proved_status_still_wins_over_plan_derivation():
+    base = Node(id="t.base", title="Base", kind="definition", status="formalized")
+    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="proved", uses=["t.base"])
+    plan = Node(
+        id="t.thm.plan.direct",
+        title="Direct Plan",
+        kind="proof-plan",
+        status="formalized",
+        target="t.thm",
+        plan_status="selected",
+        uses=["t.base"],
+    )
+    graph, diags = build_graph([base, thm, plan])
+    assert diags == []
+
+    view = build_blueprint_graph(graph)
+    # Author explicitly set status=proved; fully_proved should win, not proved_via_plan.
+    assert _view_for("t.thm", view).fill_state == "fully_proved"
+
+
+def test_plan_not_yet_formalized_does_not_promote_target():
+    base = Node(id="t.base", title="Base", kind="definition", status="formalized")
+    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="admitted", uses=["t.base"])
+    plan = Node(
+        id="t.thm.plan.draft",
+        title="Draft Plan",
+        kind="proof-plan",
+        status="staged",
+        target="t.thm",
+        plan_status="candidate",
+        uses=["t.base"],
+    )
+    graph, diags = build_graph([base, thm, plan])
+    assert diags == []
+
+    view = build_blueprint_graph(graph)
+    # Plan is still staged; target should fall back to can_prove (admitted with ready deps).
+    assert _view_for("t.thm", view).fill_state == "can_prove"
+
+
+def test_plan_ancestor_not_yet_formalized_does_not_promote_target():
+    base = Node(id="t.base", title="Base", kind="definition", status="formalized")
+    intermediate = Node(
+        id="t.intermediate",
+        title="Intermediate Lemma",
+        kind="lemma",
+        status="admitted",
+        uses=["t.base"],
+    )
+    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="admitted", uses=[])
+    plan = Node(
+        id="t.thm.plan.via_intermediate",
+        title="Plan via Intermediate",
+        kind="proof-plan",
+        status="formalized",
+        target="t.thm",
+        plan_status="selected",
+        uses=["t.intermediate"],
+    )
+    graph, diags = build_graph([base, intermediate, thm, plan])
+    assert diags == []
+
+    view = build_blueprint_graph(graph)
+    # Plan itself is formalized, but it transitively depends on an admitted lemma
+    # whose own proof is not in Lean; target must NOT be marked proved_via_plan.
+    assert _view_for("t.thm", view).fill_state != "proved_via_plan"
+
+
+def test_proved_via_plan_renders_distinct_fill_color_in_dot():
+    base = Node(id="t.base", title="Base", kind="definition", status="formalized")
+    thm = Node(id="t.thm", title="Theorem", kind="theorem", status="formalized", uses=[])
+    plan = Node(
+        id="t.thm.plan.direct",
+        title="Direct Plan",
+        kind="proof-plan",
+        status="formalized",
+        target="t.thm",
+        plan_status="selected",
+        uses=["t.base"],
+    )
+    graph, diags = build_graph([base, thm, plan])
+    assert diags == []
+
+    dot = graph_to_dot(build_blueprint_graph(graph))
+    # The target line for t.thm should carry the proved_via_plan fillcolor and be filled.
+    target_line = next(line for line in dot.split("\n") if '"t.thm"' in line and "->" not in line)
+    assert "fillcolor=\"#6DD2A4\"" in target_line
+    assert "style=\"filled\"" in target_line

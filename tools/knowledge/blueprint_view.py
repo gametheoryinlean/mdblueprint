@@ -121,6 +121,29 @@ def _border_state(node: Node, g: KnowledgeGraph) -> str | None:
     return None
 
 
+def _plan_provides_proof(plan_id: str, g: KnowledgeGraph) -> bool:
+    """Return True iff an attached proof plan supplies a complete Lean proof.
+
+    A plan provides a proof when its own status reaches Lean coverage and
+    every transitive ancestor in its `uses` chain is itself either already
+    in Lean coverage or is a definition-style node (which carries no proof
+    obligation of its own).
+    """
+    plan = g.nodes.get(plan_id)
+    if plan is None or plan.status not in {"formalized", "proved"}:
+        return False
+    for ancestor_id in _ancestors(plan_id, g):
+        ancestor = g.nodes.get(ancestor_id)
+        if ancestor is None:
+            return False
+        if ancestor.status in {"formalized", "proved"}:
+            continue
+        if ancestor.kind in DEFINITION_KINDS:
+            continue
+        return False
+    return True
+
+
 def _fill_state(node: Node, g: KnowledgeGraph) -> str | None:
     if node.kind in DEFINITION_KINDS and node.status in {"formalized", "proved"}:
         return "defined"
@@ -133,6 +156,10 @@ def _fill_state(node: Node, g: KnowledgeGraph) -> str | None:
         ):
             return "fully_proved"
         return "proved"
+    if node.kind in THEOREM_LIKE_KINDS:
+        for plan_id in g.proof_plans_by_target.get(node.id, []):
+            if _plan_provides_proof(plan_id, g):
+                return "proved_via_plan"
     if node.status == "admitted" and _deps_ready(node, g) and node.kind in THEOREM_LIKE_KINDS:
         return "can_prove"
     return None
@@ -204,6 +231,9 @@ def dot_node_attributes(view: BlueprintNodeView) -> dict[str, str]:
         attrs["style"] = "filled"
     elif view.fill_state == "fully_proved":
         attrs["fillcolor"] = "#1CAC78"
+        attrs["style"] = "filled"
+    elif view.fill_state == "proved_via_plan":
+        attrs["fillcolor"] = "#6DD2A4"
         attrs["style"] = "filled"
     if view.kind == "proof-plan":
         attrs["style"] = "dashed"
