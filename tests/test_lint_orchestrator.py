@@ -105,3 +105,63 @@ class TestLinterLlmGating:
         diags = linter.run(root)
         assert det.last_call == {"n_nodes": 1, "llm_is_none": False}
         assert any(d.code == "LINT_LLM_ONLY" for d in diags)
+
+
+# ── Renderers ─────────────────────────────────────────────────────────────────
+
+import json
+
+from tools.knowledge.lint import render_json, render_text
+
+
+class TestRenderText:
+    def test_no_findings_renders_clean_message(self):
+        out = render_text([])
+        assert "No lint findings" in out
+
+    def test_findings_grouped_by_code(self):
+        diags = [
+            Diagnostic("warning", "n.a", "first", code="LINT_A"),
+            Diagnostic("warning", "n.b", "second", code="LINT_A"),
+            Diagnostic("info", "n.c", "third", code="LINT_B"),
+        ]
+        out = render_text(diags)
+        # Each rule code appears once as a group header, in stable (sorted) order.
+        assert out.index("LINT_A") < out.index("LINT_B")
+        # Each finding's node id and message appear under its group.
+        assert "n.a" in out and "first" in out
+        assert "n.b" in out and "second" in out
+        assert "n.c" in out and "third" in out
+
+    def test_diagnostics_without_code_render_under_uncoded_group(self):
+        diags = [Diagnostic("warning", "n.x", "raw")]
+        out = render_text(diags)
+        assert "n.x" in out and "raw" in out
+
+
+class TestRenderJson:
+    def test_empty_renders_empty_list(self):
+        assert json.loads(render_json([])) == []
+
+    def test_findings_serialize_all_fields(self, tmp_path):
+        diags = [
+            Diagnostic(
+                "warning", "n.a", "dup",
+                file_path=tmp_path / "n_a.md",
+                code="LINT_FUZZY_DUP",
+                related=("n.b",),
+            ),
+        ]
+        parsed = json.loads(render_json(diags))
+        assert isinstance(parsed, list) and len(parsed) == 1
+        item = parsed[0]
+        assert item["level"] == "warning"
+        assert item["node_id"] == "n.a"
+        assert item["message"] == "dup"
+        assert item["code"] == "LINT_FUZZY_DUP"
+        assert item["related"] == ["n.b"]
+        assert item["file_path"].endswith("n_a.md")
+
+    def test_none_file_path_serializes_as_null(self):
+        parsed = json.loads(render_json([Diagnostic("info", "n.x", "m")]))
+        assert parsed[0]["file_path"] is None

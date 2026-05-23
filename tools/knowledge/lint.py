@@ -65,3 +65,45 @@ class Linter:
             if d.exists():
                 nodes.extend(scan_directory(d))
         return nodes
+
+
+import json as _json
+
+
+def render_text(diags: list[Diagnostic]) -> str:
+    """Render diagnostics as a human-readable, code-grouped text block."""
+    if not diags:
+        return "✅ No lint findings."
+    coded: dict[str, list[Diagnostic]] = {}
+    uncoded: list[Diagnostic] = []
+    for d in diags:
+        if d.code:
+            coded.setdefault(d.code, []).append(d)
+        else:
+            uncoded.append(d)
+    lines: list[str] = []
+    for code in sorted(coded):
+        lines.append(f"── {code} ──")
+        for d in coded[code]:
+            lines.append(f"  {d}")
+    if uncoded:
+        lines.append("── (uncoded) ──")
+        for d in uncoded:
+            lines.append(f"  {d}")
+    return "\n".join(lines)
+
+
+def render_json(diags: list[Diagnostic]) -> str:
+    """Render diagnostics as a stable JSON list."""
+    payload = [
+        {
+            "level": d.level,
+            "node_id": d.node_id,
+            "message": d.message,
+            "file_path": str(d.file_path) if d.file_path is not None else None,
+            "code": d.code,
+            "related": list(d.related),
+        }
+        for d in diags
+    ]
+    return _json.dumps(payload, ensure_ascii=False, indent=2)
