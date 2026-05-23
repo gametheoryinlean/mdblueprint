@@ -69,7 +69,9 @@ class TestExportGraphJson:
         g, _ = build_graph(nodes)
         data = export_graph_json(g)
         edge_pairs = {(e["from"], e["to"]) for e in data["edges"]}
-        assert ("algebra.group_homomorphism", "algebra.group") in edge_pairs
+        # Edges point from dependency (source) to dependent (target):
+        # group_homomorphism uses group, so the edge is group -> group_homomorphism.
+        assert ("algebra.group", "algebra.group_homomorphism") in edge_pairs
 
     def test_deterministic(self):
         nodes = scan_directory(NODES_DIR)
@@ -119,13 +121,14 @@ class TestExportGraphJson:
         assert 'shape="box"' in dot
         assert 'shape="ellipse"' in dot
 
-    def test_existing_graph_json_shape_is_unchanged(self):
+    def test_graph_json_edges_point_from_dependency_to_dependent(self):
         nodes = scan_directory(NODES_DIR)
         g, _ = build_graph(nodes)
         data = export_graph_json(g)
 
         assert set(data) == {"nodes", "edges"}
-        assert {"from": "algebra.group_homomorphism", "to": "algebra.group"} in data["edges"]
+        # group_homomorphism uses group, so the edge is group -> group_homomorphism.
+        assert {"from": "algebra.group", "to": "algebra.group_homomorphism"} in data["edges"]
 
     def test_proof_plan_metadata_exports_without_attachment_edge_polluting_uses(self):
         from tools.knowledge.models import Node
@@ -150,8 +153,10 @@ class TestExportGraphJson:
 
         assert plan_entry["target"] == "t.thm"
         assert plan_entry["plan_status"] == "selected"
+        # Attachment edge (target -> plan) must not appear in the uses-edge list.
         assert ("t.thm", "t.thm.plan.direct") not in edge_pairs
-        assert ("t.thm.plan.direct", "t.base") in edge_pairs
+        # Plan uses base, so the edge is base -> plan (dependency -> dependent).
+        assert ("t.base", "t.thm.plan.direct") in edge_pairs
 
 
 class TestExportTopicOverviewJson:

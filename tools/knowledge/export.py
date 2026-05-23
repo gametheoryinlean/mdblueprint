@@ -166,7 +166,7 @@ def export_graph_json(g: KnowledgeGraph) -> dict:
     edges = []
     for nid in sorted(g.edges):
         for dep in sorted(g.edges[nid]):
-            edges.append({"from": nid, "to": dep})
+            edges.append({"from": dep, "to": nid})
 
     return {"nodes": nodes, "edges": edges}
 

@@ -98,7 +98,7 @@ The generated site intentionally follows leanblueprint's presentation style with
 
 - Python emits all graph semantics and DOT attributes.
 - Browser JavaScript renders the DOT and handles modal interaction only.
-- Dependencies display as `dependency -> dependent`, even though internal graph edges store `dependent -> dependency`.
+- Dependencies are emitted and displayed uniformly as `dependency -> dependent` (source is the prerequisite, target is the consequence). This applies to `graph.json`, all topic-level artifacts, and the rendered DOT graphs. The in-memory `KnowledgeGraph.edges` adjacency still keys by dependent (i.e. `edges[X]` is `X.uses`), but every public artifact emits the dependency-to-dependent direction.
 - Proof plans use typed graph semantics: theorem-like targets attach to plans with
   dotted `has plan` edges, while proof-plan `uses` dependencies remain separate
   proof-route dependencies.
