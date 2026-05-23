@@ -168,8 +168,11 @@ def build_blueprint_graph(g: KnowledgeGraph) -> BlueprintGraphView:
         for dependency in sorted(g.edges[dependent]):
             edges.append((dependency, dependent))
 
+    # has_plan attachment edges follow the same convention as every other
+    # mdblueprint edge: source = prerequisite, target = consequence. A proof
+    # plan is the prerequisite that establishes its target theorem.
     proof_plan_edges = [
-        (target_id, plan_id)
+        (plan_id, target_id)
         for plan_id, target_id in sorted(g.proof_plan_targets.items())
     ]
 

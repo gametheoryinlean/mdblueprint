@@ -133,7 +133,9 @@ def test_proof_plan_edges_are_attached_to_target_in_blueprint_dot():
     view = build_blueprint_graph(graph)
     dot = graph_to_dot(view)
 
-    assert view.proof_plan_edges == [("t.thm", "t.thm.plan.direct")]
-    assert '"t.thm" -> "t.thm.plan.direct"' in dot
+    # has_plan attachment goes plan -> target (dependency -> dependent),
+    # matching the orientation used by every other edge in the graph.
+    assert view.proof_plan_edges == [("t.thm.plan.direct", "t.thm")]
+    assert '"t.thm.plan.direct" -> "t.thm"' in dot
     assert 'label="has plan"' in dot
     assert 'style="dotted"' in dot
