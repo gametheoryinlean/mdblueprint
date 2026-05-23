@@ -11,6 +11,10 @@ Real detectors plug in via the Detector protocol and arrive in PR 3+.
 """
 from __future__ import annotations
 
+import argparse
+import json as _json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Callable, Protocol
 
@@ -67,9 +71,6 @@ class Linter:
         return nodes
 
 
-import json as _json
-
-
 def render_text(diags: list[Diagnostic]) -> str:
     """Render diagnostics as a human-readable, code-grouped text block."""
     if not diags:
@@ -109,11 +110,6 @@ def render_json(diags: list[Diagnostic]) -> str:
     return _json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-import argparse
-import subprocess
-import sys
-
-
 def _default_detectors() -> list[Detector]:
     """Return the built-in detector list. Empty in PR 2; PR 3+ populates it."""
     return []
@@ -140,10 +136,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("knowledge_root", type=Path,
                     help="Path to the knowledge base root (containing nodes/ and staged/).")
-    ap.add_argument("--llm", action="store_true",
-                    help="Enable LLM-backed detectors (calls `claude -p`).")
-    ap.add_argument("--no-llm", action="store_true",
-                    help="Explicitly disable LLM-backed detectors (default).")
+    llm_group = ap.add_mutually_exclusive_group()
+    llm_group.add_argument(
+        "--llm", action="store_true",
+        help="Enable LLM-backed detectors (calls `claude -p`).",
+    )
+    llm_group.add_argument(
+        "--no-llm", action="store_true",
+        help="Explicitly disable LLM-backed detectors (default).",
+    )
     ap.add_argument("--llm-budget", type=int, default=50,
                     help="Maximum number of LLM calls per run (default: 50). "
                          "Reserved for PR 6+.")
@@ -169,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     diags = linter.run(args.knowledge_root)
     output = render_json(diags) if args.json else render_text(diags)
     print(output)
+    if any(d.level == "error" for d in diags):
+        return 1
     if args.strict_warnings and any(d.level == "warning" for d in diags):
         return 1
     return 0
