@@ -518,8 +518,8 @@ class TestExportTopicSubgraphJson:
         data = export_topic_subgraph_json(graph, "algebra")
 
         assert {
-            "from": "algebra.group_identity_unique",
-            "to": "algebra.plan",
+            "from": "algebra.plan",
+            "to": "algebra.group_identity_unique",
             "kind": "has_plan",
             "plan_status": "selected",
         } in data["proof_plan_attachments"]

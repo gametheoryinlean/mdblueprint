@@ -298,11 +298,14 @@ blocked
 formalized
 ```
 
-The dependency graph treats proof plans with typed edges:
+The dependency graph treats proof plans with typed edges. All edges follow
+the global `dependency -> dependent` convention (source = prerequisite,
+target = consequence), so a proof plan emits a `has_plan` edge that points
+*from* the plan *to* the theorem it establishes:
 
 ```text
-theorem --has_plan--> proof-plan
-proof-plan --uses--> lemma-or-definition
+proof-plan --has_plan--> theorem
+lemma-or-definition --uses--> proof-plan
 ```
 
 Do not put a proof-plan id in a theorem's `uses` list. This keeps the main

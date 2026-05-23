@@ -512,9 +512,13 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
         if plan_id not in internal_set and target_id not in internal_set:
             continue
         plan = g.nodes[plan_id]
+        # has_plan edges follow the same orientation as every other graph
+        # edge in mdblueprint: dependency -> dependent. The proof-plan is
+        # the prerequisite that establishes the target theorem, so the
+        # plan node is the source and the target theorem is the sink.
         attachment = {
-            "from": target_id,
-            "to": plan_id,
+            "from": plan_id,
+            "to": target_id,
             "kind": "has_plan",
         }
         if plan.plan_status:
