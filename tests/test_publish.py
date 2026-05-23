@@ -902,6 +902,36 @@ class TestTopicCatalogPages:
         page = (tmp_path / "site" / "algebra" / "index.html").read_text()
         assert "Subtopics" not in page
 
+    def test_topic_kind_node_page_lists_child_topics_as_links(self, tmp_path):
+        knowledge = tmp_path / "knowledge"
+        root_dir = knowledge / "nodes" / "lattice" / "support"
+        sub_dir = knowledge / "nodes" / "lattice" / "support" / "distributive"
+        sub_dir.mkdir(parents=True)
+        (knowledge / "mdblueprint.yml").write_text("site:\n  title: Subtopics Node Test\n")
+        (root_dir / "support.md").write_text(
+            "---\nid: lattice.support\ntitle: Lattice Support\nkind: topic\n"
+            "status: admitted\nprimary_topic: lattice.support\n---\n\n"
+            "# Lattice Support\n\nRoadmap node.\n"
+        )
+        (sub_dir / "join.md").write_text(
+            "---\nid: lattice.support.distributive.join\ntitle: Join\nkind: definition\n"
+            "status: admitted\n---\n\n# Join\n"
+        )
+        publish(knowledge, tmp_path / "site")
+        node_page = (
+            tmp_path / "site" / "lattice" / "support" / "lattice_support.html"
+        ).read_text()
+        assert "Subtopics" in node_page
+        assert 'href="../../lattice/support/distributive/index.html"' in node_page
+
+    def test_non_topic_node_page_has_no_subtopics_section(self, tmp_path):
+        knowledge = self._make_knowledge(tmp_path)
+        publish(knowledge, tmp_path / "site")
+        node_page = (
+            tmp_path / "site" / "algebra" / "algebra_group.html"
+        ).read_text()
+        assert "Subtopics" not in node_page
+
     def test_malformed_topics_md_frontmatter_stripped(self, tmp_path):
         knowledge = self._make_knowledge(tmp_path)
         (knowledge / "nodes" / "algebra" / "topics.md").write_text(

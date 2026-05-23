@@ -76,6 +76,17 @@
     {% endif %}
   </div>
 
+  {% if child_topics %}
+  <nav class="child-topics" aria-label="Subtopics">
+    <h2>Subtopics</h2>
+    <ul>
+      {% for ct in child_topics %}
+      <li><a href="{{ root }}{{ topic_path(ct) }}/index.html">{{ ct | titleize }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+  {% endif %}
+
   {% if dependents %}
   <section class="deps deps-used-by">
     <h2>Used by</h2>
