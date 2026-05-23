@@ -260,6 +260,7 @@ rendering, or navigation changes.
 | Skills or agent workflow docs | `docs/skills.md`, `skills/mdblueprint-*/SKILL.md` | focused docs tests and manual contract review |
 | EconCSLib gate | `tools/knowledge/econcslib_gate.py` | `uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode smoke` |
 | Local dev server | `tools/knowledge/serve.py`, `tools/knowledge/context.py` | `uv run --extra dev --extra serve python -m pytest tests/test_serve.py tests/test_serve_integration.py -q` |
+| Auto-promote `status: proved` when a plan supplies the proof | `tools/knowledge/promote_via_plan.py`, `docs/node-format.md` (Proved-via-plan Marker, Auto-promotion) | `uv run --extra dev python -m pytest tests/test_promote_via_plan.py tests/test_blueprint_view.py -q`, then `uv run python -m tools.knowledge.promote_via_plan docs/knowledge --dry-run` |
 
 ## Knowledge Node Rules
 
@@ -271,6 +272,12 @@ rendering, or navigation changes.
 - `proof-plan` nodes describe proof routes. Their route dependencies must not be
   copied onto the target theorem's ordinary dependency list unless they are also
   genuine logical prerequisites of the target.
+- A theorem reaches `status: proved` either by direct author edit or via the
+  `promote_via_plan` CLI, which writes both `status: proved` and a
+  `proved_via_plan: <plan_id>` marker recording the attached plan that supplied
+  the proof. Direct claims have no marker; the renderer uses the marker's
+  presence to distinguish "proved via plan" (mint) from "fully proved" (deep
+  green). The tool is idempotent and never demotes.
 - Lean declarations in node frontmatter are mechanical links, not proof that the
   Markdown statement and Lean declaration are semantically aligned.
 

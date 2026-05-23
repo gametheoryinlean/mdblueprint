@@ -146,6 +146,13 @@ Proof plans are attached to theorem-like targets with a typed `has_plan` relatio
 Their `uses` dependencies belong to the proof route and must not be copied onto the
 target theorem's logical dependency list.
 
+When at least one attached plan reaches Lean coverage end-to-end, a theorem
+can be promoted to `status: proved` automatically by
+`tools/knowledge/promote_via_plan.py`. The promotion records the canonical
+attached plan in a `proved_via_plan` marker so the rendered graph distinguishes
+"proved via a plan" (mint fill) from a direct author claim (deep green
+`fully_proved`). See `docs/node-format.md` for the field schema and workflow.
+
 Exempt kinds may still receive an informal generality note if the reviewer judges it
 useful, but this note does not block admission.
 

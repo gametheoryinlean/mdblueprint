@@ -105,7 +105,26 @@ The generated site intentionally follows leanblueprint's presentation style with
 - Definitions and concepts use box nodes; theorem-like nodes use ellipse nodes;
   examples and proof plans use note nodes; tasks use component nodes.
 - Visible labels prefer node titles. Stable node ids remain available in URLs, anchors, and machine data.
-- Status and formalization fields determine border and fill colors: not-ready nodes are orange, ready admitted nodes are blue, formalized statements are green-bordered, formalized definitions are light green, and fully proved theorem-like nodes are dark green.
+- Status and formalization fields determine border and fill colors. The
+  derivation lives in `tools/knowledge/blueprint_view.py` (`_border_state`,
+  `_fill_state`):
+
+  | Visual state | Trigger | Color |
+  | --- | --- | --- |
+  | `not_ready` (border) | node in a staged/needs-review/blocked status | orange `#FFAA33` |
+  | `can_state` (border) | admitted with ready deps | blue |
+  | `stated` (border) | `status` is `formalized` or `proved` | green |
+  | `defined` (fill) | definition / concept / topic with status `formalized` or `proved` | light green `#B0ECA3` |
+  | `can_prove` (fill) | theorem-like admitted with ready deps | sky blue `#A3D6FF` |
+  | `proved` (fill) | theorem-like `status: proved`, some ancestor not yet ready | medium green `#9CEC8B` |
+  | `fully_proved` (fill) | theorem-like `status: proved`, every transitive ancestor is formalized/proved or a definition | deep green `#1CAC78` |
+  | `proved_via_plan` (fill) | theorem-like `status: proved` **and** the `proved_via_plan` marker is set, recording the canonical attached plan that supplied the proof | mint `#6DD2A4` |
+
+  `fully_proved` and `proved_via_plan` are both "this theorem is known true"
+  visuals; the mint shade tells the reader the proof came through an attached
+  plan rather than from a direct author claim. The persistent marker is the
+  sole trigger — runtime derivation from plan state is intentionally not used
+  (see `docs/node-format.md` for the field and the promotion workflow).
 - Node pages and graph modals keep proof text in a collapsed `<details>` section by default.
 - `dep_graph_document.html` is the leanblueprint-style graph page; `graph.html` is preserved as a compatibility alias.
 - The default graph view is topic-first. `graph.max_visible_nodes` defaults to `120`, `graph.max_expand_nodes` defaults to `80`, and oversized topic expansion shows a bounded navigation fallback instead of rendering an unreadable graph.

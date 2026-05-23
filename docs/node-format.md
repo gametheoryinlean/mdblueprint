@@ -313,6 +313,37 @@ mathematical dependency DAG separate from alternative proof routes. A proof plan
 also must not put its own `target` in `uses`; the `target` relation is represented
 by the typed `has_plan` edge.
 
+### Proved-via-plan Marker
+
+A theorem-like node may declare that its proof comes from one specific attached
+proof plan by setting the optional `proved_via_plan` field:
+
+```yaml
+id: zero_sum.von_neumann_minimax
+title: Von Neumann Minimax Theorem
+kind: theorem
+status: proved
+proved_via_plan: zero_sum.minimax.minimax_from_loomis
+```
+
+Constraints (enforced by `tools/knowledge/validator.py` and
+`tools/knowledge/graph.py`):
+
+- Only valid on theorem-like nodes (`lemma`, `proposition`, `theorem`,
+  `external-theorem`).
+- Requires `status: proved`.
+- Cannot reference the node itself.
+- The referenced id must be an existing `proof-plan` node whose `target`
+  equals this node's id.
+
+Multiple plans may be attached to the same target, but `proved_via_plan` records
+the single canonical one that supplied the proof — the others remain valid
+candidate routes via `has_plan` attachments.
+
+The marker is usually written by the `promote_via_plan` CLI (see the **Auto-promotion**
+note below), but authors can write it manually too — the validator rules apply
+the same way.
+
 ## Status Model
 
 Use a small status vocabulary:
@@ -337,6 +368,33 @@ Files under `docs/knowledge/staged/` are proposals even if their YAML says the m
 It does not require a Lean link. `formalized` and `proved` are stronger claims
 about Lean coverage and must include both `lean.modules` and
 `lean.declarations`.
+
+### Auto-promotion of `status: proved`
+
+A theorem reaches `status: proved` in one of two ways:
+
+1. **Direct** — the author edits the theorem's frontmatter to `status: proved`
+   when they have verified the theorem's own Lean module carries a complete
+   proof. No `proved_via_plan` marker is required.
+2. **Via an attached plan** — at least one attached proof plan has reached
+   `status: formalized` or `proved` and every transitive ancestor of that plan
+   is itself formalized/proved or a definition-kind node. In this case the
+   `tools/knowledge/promote_via_plan.py` CLI scans the knowledge base and
+   rewrites the YAML for every qualifying theorem:
+
+   ```bash
+   uv run python -m tools.knowledge.promote_via_plan docs/knowledge --dry-run
+   uv run python -m tools.knowledge.promote_via_plan docs/knowledge
+   ```
+
+   The tool is idempotent (re-running on already-promoted files is a no-op),
+   refuses to run if the knowledge base has schema errors or DAG cycles, and
+   never demotes — if a previously promoted theorem's plan later regresses,
+   the marker stays put and a lint diagnostic flags the inconsistency.
+
+When `promote_via_plan` writes the promotion, it both sets `status: proved`
+and adds the `proved_via_plan: <plan_id>` marker so downstream renderers can
+distinguish "proved through a plan" from a direct author claim.
 
 ## Staged Node Schema
 
