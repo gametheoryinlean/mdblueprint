@@ -30,6 +30,7 @@ mdblueprint-econcslib-gate = "tools.knowledge.econcslib_gate:main"
 mdblueprint-lean-alignment = "tools.knowledge.lean_alignment:main"
 mdblueprint-lean-link-candidates = "tools.knowledge.lean_link_candidates:main"
 mdblueprint-lean-linking = "tools.knowledge.lean_linking:main"
+mdblueprint-lint = "tools.knowledge.lint:main"
 mdblueprint-proof-fill = "tools.knowledge.proof_fill:main"
 mdblueprint-serve = "tools.knowledge.serve:main"
 
