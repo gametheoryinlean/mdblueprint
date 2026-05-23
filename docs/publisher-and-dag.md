@@ -163,10 +163,13 @@ A per-topic subgraph contains:
 - keyword links and counts for fallback navigation;
 - lazy node payload URLs, not full rendered node bodies.
 
-The display direction is always `dependency -> dependent`. The in-memory graph
-stores edges as `dependent -> dependency` because that is convenient for
-validation and topological sorting, but every human-facing graph projection
-reverses the direction.
+Every emitted edge — `graph.json`, `graph_topics.json`,
+`subgraphs/topics/<topic>.json`, and the in-memory blueprint DOT — uses the
+uniform `dependency -> dependent` direction (source is the prerequisite,
+target is the consequence). The in-memory `KnowledgeGraph.edges` adjacency
+still keys by dependent (so `edges[X]` mirrors `X.uses`, which is convenient
+for validation and topological sorting), but every public projection emits
+the canonical direction.
 
 The graph page keeps only one topic layer or expanded node-level topic visible
 at a time. Clicking a root topic in the overview loads its
