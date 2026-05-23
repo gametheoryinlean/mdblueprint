@@ -507,6 +507,11 @@ def render_node(ctx: "KnowledgeContext", node_id: str) -> str:
     root = _root_prefix_for_topic(topic)
     payload = _build_html_payload(ctx, node)
     topic_memberships = leaf_topic_ids_for_node(node)
+    child_topics = (
+        ctx.child_topics_map.get(node.id, [])
+        if node.kind == "topic"
+        else []
+    )
 
     tmpl = ctx.jinja_env.get_template("node.html")
     return tmpl.render(
@@ -524,6 +529,7 @@ def render_node(ctx: "KnowledgeContext", node_id: str) -> str:
         dependents=payload["dependents"],
         lean_refs=payload["lean_refs"],
         topic_memberships=topic_memberships,
+        child_topics=child_topics,
         dev_mode=ctx.dev_mode,
     )
 
