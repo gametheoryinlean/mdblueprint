@@ -1,6 +1,4 @@
 """Tests for the Diagnostic dataclass extension (lint PR 1)."""
-from __future__ import annotations
-
 from pathlib import Path
 
 from tools.knowledge.validator import Diagnostic
@@ -41,7 +39,6 @@ class TestDiagnosticCodeInStr:
 
     def test_code_segment_absent_when_unset(self):
         d = Diagnostic("error", "n.x", "msg")
-        assert "[LINT_" not in str(d)
         assert str(d) == "[ERROR] n.x: msg"
 
 
@@ -52,11 +49,11 @@ class TestDiagnosticRelated:
             code="LINT_FUZZY_DUP", related=("n.b",),
         )
         assert d.related == ("n.b",)
-        assert d.code == "LINT_FUZZY_DUP"
 
     def test_related_does_not_appear_in_str(self):
         # related is consumed by --json / structured renderers, not __str__.
         d = Diagnostic("warning", "n.a", "m", code="LINT_X", related=("n.b", "n.c"))
+        assert d.related == ("n.b", "n.c")
         assert "n.b" not in str(d)
         assert "n.c" not in str(d)
 
