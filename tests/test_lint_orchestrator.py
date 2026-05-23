@@ -165,3 +165,80 @@ class TestRenderJson:
     def test_none_file_path_serializes_as_null(self):
         parsed = json.loads(render_json([Diagnostic("info", "n.x", "m")]))
         assert parsed[0]["file_path"] is None
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+from tools.knowledge.lint import _make_claude_cli_runner, main
+
+
+class TestCli:
+    def test_smoke_no_detectors_exits_zero_with_no_findings(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        root = _make_minimal_knowledge_root(tmp_path)
+        # The default detector list (built inside main) is empty in PR 2.
+        rc = main([str(root)])
+        out = capsys.readouterr().out
+        assert rc == 0
+        assert "No lint findings" in out
+
+    def test_strict_warnings_promotes_warning_to_exit_one(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        root = _make_minimal_knowledge_root(tmp_path)
+        # Inject a default-detector list with one warning emitter for this test.
+        det = _emit_one_warning()
+        monkeypatch.setattr(
+            "tools.knowledge.lint._default_detectors", lambda: [det]
+        )
+        rc = main([str(root), "--strict-warnings"])
+        out = capsys.readouterr().out
+        assert rc == 1
+        assert "LINT_FAKE" in out
+
+    def test_warning_without_strict_still_exits_zero(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        root = _make_minimal_knowledge_root(tmp_path)
+        det = _emit_one_warning()
+        monkeypatch.setattr(
+            "tools.knowledge.lint._default_detectors", lambda: [det]
+        )
+        rc = main([str(root)])
+        assert rc == 0
+
+    def test_json_output_parses(self, tmp_path, capsys, monkeypatch):
+        root = _make_minimal_knowledge_root(tmp_path)
+        det = _emit_one_warning()
+        monkeypatch.setattr(
+            "tools.knowledge.lint._default_detectors", lambda: [det]
+        )
+        main([str(root), "--json"])
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert isinstance(parsed, list)
+        assert any(item["code"] == "LINT_FAKE" for item in parsed)
+
+    def test_no_llm_is_the_default_and_skips_llm_detectors(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        root = _make_minimal_knowledge_root(tmp_path)
+        det = _RecordingDetector(
+            code="LINT_LLM_ONLY",
+            needs_llm=True,
+            _emit=(Diagnostic("warning", "n.a", "should be skipped", code="LINT_LLM_ONLY"),),
+        )
+        monkeypatch.setattr(
+            "tools.knowledge.lint._default_detectors", lambda: [det]
+        )
+        rc = main([str(root)])
+        assert rc == 0
+        assert det.last_call is None
+
+
+class TestClaudeRunnerFactory:
+    def test_factory_returns_callable_without_calling_subprocess(self):
+        runner = _make_claude_cli_runner(model="claude-sonnet-4-6")
+        assert callable(runner)
+        # Calling runner() would actually invoke `claude`; we only verify shape.

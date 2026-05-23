@@ -107,3 +107,72 @@ def render_json(diags: list[Diagnostic]) -> str:
         for d in diags
     ]
     return _json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+import argparse
+import subprocess
+import sys
+
+
+def _default_detectors() -> list[Detector]:
+    """Return the built-in detector list. Empty in PR 2; PR 3+ populates it."""
+    return []
+
+
+def _make_claude_cli_runner(model: str = "claude-sonnet-4-6") -> LlmRunner:
+    """Return a runner that calls the `claude` CLI subprocess."""
+    def _run(prompt: str) -> str:
+        result = subprocess.run(
+            ["claude", "-p", prompt, "--model", model, "--output-format", "text"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout
+    return _run
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(
+        prog="mdblueprint-lint",
+        description="Lint a mdblueprint knowledge base for duplicate, structural, "
+                    "and reference issues.",
+    )
+    ap.add_argument("knowledge_root", type=Path,
+                    help="Path to the knowledge base root (containing nodes/ and staged/).")
+    ap.add_argument("--llm", action="store_true",
+                    help="Enable LLM-backed detectors (calls `claude -p`).")
+    ap.add_argument("--no-llm", action="store_true",
+                    help="Explicitly disable LLM-backed detectors (default).")
+    ap.add_argument("--llm-budget", type=int, default=50,
+                    help="Maximum number of LLM calls per run (default: 50). "
+                         "Reserved for PR 6+.")
+    ap.add_argument("--model", default="claude-sonnet-4-6",
+                    help="Claude model to use when --llm is set.")
+    ap.add_argument("--cache-dir", type=Path, default=Path(".mdblueprint/lint-cache"),
+                    help="Where LLM detectors cache responses. Reserved for PR 6+.")
+    ap.add_argument("--no-cache", action="store_true",
+                    help="Disable the LLM response cache. Reserved for PR 6+.")
+    ap.add_argument("--json", action="store_true",
+                    help="Emit findings as JSON instead of grouped text.")
+    ap.add_argument("--strict-warnings", action="store_true",
+                    help="Exit non-zero when any warning is emitted.")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _build_arg_parser().parse_args(argv)
+    llm: LlmRunner | None = None
+    if args.llm:
+        llm = _make_claude_cli_runner(model=args.model)
+    linter = Linter(detectors=_default_detectors(), llm=llm)
+    diags = linter.run(args.knowledge_root)
+    output = render_json(diags) if args.json else render_text(diags)
+    print(output)
+    if args.strict_warnings and any(d.level == "warning" for d in diags):
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
