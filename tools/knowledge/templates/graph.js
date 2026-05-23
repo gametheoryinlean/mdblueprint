@@ -87,11 +87,21 @@
     return "box";
   }
 
-  function statusColor(status) {
-    if (status === "formalized" || status === "proved") return "green";
-    if (status === "admitted") return "blue";
-    if (["staged", "needs_statement_review", "needs_definition_review", "needs_proof_review", "blocked"].includes(status)) return "#FFAA33";
-    return null;
+  function statusDisplay(status) {
+    if (status === "formalized" || status === "proved") {
+      return { color: "#2e7d32", fillcolor: "#c8e6c9", filled: true };
+    }
+    if (status === "admitted") {
+      return { color: "#1f6feb", fillcolor: "#d6e4ff", filled: true };
+    }
+    return { color: null, fillcolor: null, filled: false };
+  }
+
+  function nodeStyleAttr(node, statusFilled) {
+    const tokens = [];
+    if (statusFilled) tokens.push("filled");
+    if (node.kind === "proof-plan") tokens.push("dashed");
+    return tokens.length ? tokens.join(",") : null;
   }
 
   function dotAttributes(attrs) {
@@ -154,30 +164,29 @@
     if (data.topic) {
       lines.push(`\t${dotQuote(topicGraphId(data.topic.id))} [${dotAttributes({
         color: "blue",
-        label: `${data.topic.title}
-expanded`,
+        label: data.topic.title,
         penwidth: "2.4",
         shape: "box",
         URL: `#${topicGraphId(data.topic.id)}`,
       })}];`);
     }
     (data.boundary_topics || []).forEach((topic) => {
-      const label = `${topic.title}
-${topic.role.replace(/_/g, " ")}`;
       lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
         color: "#777777",
-        label,
+        label: topic.title,
         shape: "box",
         style: "dashed",
         URL: `#${topicGraphId(topic.id)}`,
       })}];`);
     });
     visibleNodes.forEach((node) => {
+      const display = statusDisplay(node.status);
       lines.push(`\t${dotQuote(node.id)} [${dotAttributes({
-        color: statusColor(node.status),
+        color: display.color,
+        fillcolor: display.fillcolor,
         label: node.title,
         shape: shapeForKind(node.kind),
-        style: node.kind === "proof-plan" ? "dashed" : null,
+        style: nodeStyleAttr(node, display.filled),
         URL: `#${node.id}`,
       })}];`);
     });
@@ -213,11 +222,9 @@ ${topic.role.replace(/_/g, " ")}`;
       })}];`);
     });
     (data.child_boundary_topics || []).forEach((topic) => {
-      const label = `${topic.title}
-${topic.role.replace(/_/g, " ")}`;
       lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
         color: "#777777",
-        label,
+        label: topic.title,
         shape: "box",
         style: "dashed",
         URL: `#${topicGraphId(topic.id)}`,

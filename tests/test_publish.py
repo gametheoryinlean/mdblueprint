@@ -379,7 +379,8 @@ class TestExampleCorpusPublish:
         assert "definitions" in graph_page
         assert "Ellipses" in graph_page
         assert "theorems and lemmas" in graph_page
-        assert "Blue border" in graph_page
+        assert "Transparent background" in graph_page
+        assert "Blue background" in graph_page
         assert "Green background" in graph_page
 
     def test_node_page_uses_theorem_wrapper(self, tmp_path):
