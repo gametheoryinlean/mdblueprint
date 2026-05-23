@@ -1,12 +1,21 @@
 """Tests for the lint orchestrator (PR 2 — skeleton only)."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
-from tools.knowledge.lint import Detector, Linter, LlmRunner
+from tools.knowledge.lint import (
+    Detector,
+    Linter,
+    LlmRunner,
+    _make_claude_cli_runner,
+    main,
+    render_json,
+    render_text,
+)
 from tools.knowledge.validator import Diagnostic
 
 
@@ -17,7 +26,7 @@ class _RecordingDetector:
     code: str = "LINT_FAKE"
     needs_llm: bool = False
     _emit: tuple[Diagnostic, ...] = ()
-    last_call: dict = None
+    last_call: dict | None = None
 
     def run(self, nodes, graph, *, llm):
         self.last_call = {"n_nodes": len(nodes), "llm_is_none": llm is None}
@@ -28,13 +37,6 @@ def _emit_one_warning() -> _RecordingDetector:
     return _RecordingDetector(
         code="LINT_FAKE",
         _emit=(Diagnostic("warning", "n.a", "fake", code="LINT_FAKE", related=("n.b",)),),
-    )
-
-
-def _emit_one_info() -> _RecordingDetector:
-    return _RecordingDetector(
-        code="LINT_INFO",
-        _emit=(Diagnostic("info", "n.a", "fyi", code="LINT_INFO"),),
     )
 
 
@@ -109,11 +111,6 @@ class TestLinterLlmGating:
 
 # ── Renderers ─────────────────────────────────────────────────────────────────
 
-import json
-
-from tools.knowledge.lint import render_json, render_text
-
-
 class TestRenderText:
     def test_no_findings_renders_clean_message(self):
         out = render_text([])
@@ -168,9 +165,6 @@ class TestRenderJson:
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
-
-from tools.knowledge.lint import _make_claude_cli_runner, main
-
 
 class TestCli:
     def test_smoke_no_detectors_exits_zero_with_no_findings(
@@ -235,6 +229,32 @@ class TestCli:
         rc = main([str(root)])
         assert rc == 0
         assert det.last_call is None
+
+    def test_error_level_diagnostic_exits_nonzero(
+        self, tmp_path, capsys
+    ):
+        """build_graph errors (e.g., missing dependency) must fail the lint run."""
+        root = tmp_path / "kb"
+        (root / "nodes").mkdir(parents=True)
+        (root / "staged").mkdir(parents=True)
+        (root / "mdblueprint.yml").write_text("site:\n  title: Lint Test\n")
+        # Node A claims to use n.missing, which doesn't exist anywhere.
+        # status=admitted means build_graph emits "error" (not "warning") for the missing dep.
+        (root / "nodes" / "node_a.md").write_text(
+            "---\nid: n.a\ntitle: Node A\nkind: definition\nstatus: admitted\n"
+            "uses: [n.missing]\n---\n\n# Node A\n"
+        )
+        rc = main([str(root)])
+        out = capsys.readouterr().out
+        assert rc == 1
+        # The error message from build_graph should appear in the output.
+        assert "n.missing" in out
+
+    def test_llm_and_no_llm_are_mutually_exclusive(self, tmp_path):
+        """argparse must reject --llm and --no-llm together."""
+        root = _make_minimal_knowledge_root(tmp_path)
+        with pytest.raises(SystemExit):
+            main([str(root), "--llm", "--no-llm"])
 
 
 class TestClaudeRunnerFactory:
