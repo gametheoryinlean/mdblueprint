@@ -29,14 +29,17 @@ _SOURCE_REQUIRED_KINDS = DEFINITION_KINDS | STATEMENT_KINDS
 
 @dataclass
 class Diagnostic:
-    level: str  # "error" or "warning"
+    level: str  # "error", "warning", or "info"
     node_id: str
     message: str
     file_path: Path | None = None
+    code: str | None = None
+    related: tuple[str, ...] = ()
 
     def __str__(self) -> str:
         loc = f"{self.file_path} ({self.node_id})" if self.file_path else self.node_id
-        return f"[{self.level.upper()}] {loc}: {self.message}"
+        code_segment = f"[{self.code}]" if self.code else ""
+        return f"[{self.level.upper()}]{code_segment} {loc}: {self.message}"
 
 
 def _heading_re():
