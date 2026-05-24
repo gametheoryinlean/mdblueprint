@@ -254,10 +254,14 @@ def katex_auto_render_options(math: MathConfig) -> dict[str, Any]:
         {"left": left, "right": right, "display": False}
         for left, right in math.inline_delimiters
     ]
+    # Lift the backslash out of the f-string expression so this parses on
+    # Python 3.11 (PEP 701, which permits backslashes inside f-string
+    # expressions, only landed in 3.12). pyproject targets >=3.10.
+    _bs = "\\"
     custom_macros = {
-        f"\\{name.lstrip('\\')}": expansion
+        f"\\{name.lstrip(_bs)}": expansion
         for name, expansion in sorted(math.macros.items())
-        if name.lstrip("\\") not in KNOWN_MACROS
+        if name.lstrip(_bs) not in KNOWN_MACROS
     }
     return {
         "delimiters": delimiters,
