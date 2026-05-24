@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Callable
 
+from tools.knowledge.blueprint_view import plan_provides_proof
 from tools.knowledge.graph import KnowledgeGraph
 from tools.knowledge.lean_index import LeanDeclaration, LeanIndex
 from tools.knowledge.models import ADMITTED_STATUSES, STAGED_STATUSES, Node
@@ -369,5 +370,81 @@ class LeanRefKindDetector:
                         code=self.code,
                         related=(decl_name,),
                     ))
+        return out
+
+
+# ── PlanPromoteDetector (PR 8 / closes #127) ─────────────────────────────────
+
+_PLAN_PROMOTE_VALID_SEVERITIES = frozenset({"info", "warning"})
+_PLAN_PROMOTE_TARGET_KINDS = frozenset(
+    {"lemma", "proposition", "theorem", "external-theorem"}
+)
+
+
+def _canonical_plan_for_target(target_id: str, graph: KnowledgeGraph) -> str | None:
+    """Mirror tools.knowledge.promote_via_plan._canonical_plan."""
+    candidates = [
+        plan_id
+        for plan_id in graph.proof_plans_by_target.get(target_id, [])
+        if plan_provides_proof(plan_id, graph)
+    ]
+    if not candidates:
+        return None
+    selected = sorted(
+        plan_id for plan_id in candidates
+        if graph.nodes[plan_id].plan_status == "selected"
+    )
+    if selected:
+        return selected[0]
+    return sorted(candidates)[0]
+
+
+@dataclass
+class PlanPromoteDetector:
+    """Nudge authors to run ``promote_via_plan`` (or hand-write status=proved)
+    when an attached plan already supplies a complete Lean proof."""
+
+    severity: str = "info"
+    code: str = "LINT_PLAN_PROMOTE"
+    needs_llm: bool = False
+
+    def __post_init__(self) -> None:
+        if self.severity not in _PLAN_PROMOTE_VALID_SEVERITIES:
+            raise ValueError(
+                f"PlanPromoteDetector severity must be 'info' or 'warning', "
+                f"got {self.severity!r}"
+            )
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        out: list[Diagnostic] = []
+        for node_id in sorted(graph.nodes):
+            node = graph.nodes[node_id]
+            if node.kind not in _PLAN_PROMOTE_TARGET_KINDS:
+                continue
+            if node.status == "proved":
+                continue
+            plan_id = _canonical_plan_for_target(node.id, graph)
+            if plan_id is None:
+                continue
+            out.append(Diagnostic(
+                level=self.severity,
+                node_id=node.id,
+                message=(
+                    f"plan {plan_id!r} provides a complete Lean proof for "
+                    f"{node.id!r} (status={node.status!r}). Consider running "
+                    f"`uv run python -m tools.knowledge.promote_via_plan` "
+                    f"or setting `status: proved` + "
+                    f"`proved_via_plan: {plan_id}` manually."
+                ),
+                file_path=node.file_path,
+                code=self.code,
+                related=(plan_id,),
+            ))
         return out
 
