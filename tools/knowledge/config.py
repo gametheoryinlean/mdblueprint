@@ -65,6 +65,11 @@ class SourcesConfig:
 
 
 @dataclass(frozen=True)
+class LintConfig:
+    fuzzy_threshold: float = 0.92
+
+
+@dataclass(frozen=True)
 class TopicConfig:
     id: str
     title: str
@@ -79,6 +84,7 @@ class ProjectConfig:
     graph: GraphDisplayConfig
     topics: tuple[TopicConfig, ...] = field(default_factory=())
     sources: SourcesConfig = field(default_factory=SourcesConfig)
+    lint: LintConfig = field(default_factory=LintConfig)
 
 
 def _titleize_path_name(name: str) -> str:
@@ -95,6 +101,7 @@ def _fallback_config(knowledge_root: Path) -> ProjectConfig:
         lean=_default_lean_config(),
         graph=_default_graph_config(),
         topics=(),
+        lint=LintConfig(),
     )
 
 
@@ -386,6 +393,26 @@ def _parse_sources_config(raw: Any, *, path: Path) -> SourcesConfig:
     return SourcesConfig(library=library, require_source_spans=require_source_spans)
 
 
+def _parse_lint_config(raw: Any, *, path: Path) -> LintConfig:
+    if raw is None:
+        return LintConfig()
+    if not isinstance(raw, dict):
+        raise ValueError(f"Project config lint must be a mapping: {path}")
+
+    threshold = raw.get("fuzzy_threshold", 0.92)
+    if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
+        raise ValueError(
+            f"Project config lint.fuzzy_threshold must be a number between 0 and 1: {path}"
+        )
+    threshold = float(threshold)
+    if not 0.0 <= threshold <= 1.0:
+        raise ValueError(
+            f"Project config lint.fuzzy_threshold must be between 0 and 1, got {threshold}: {path}"
+        )
+
+    return LintConfig(fuzzy_threshold=threshold)
+
+
 def load_project_config(knowledge_root: Path, config_path: Path | None = None) -> ProjectConfig:
     path = config_path if config_path is not None else knowledge_root / DEFAULT_CONFIG_NAME
     if not path.exists():
@@ -418,4 +445,5 @@ def load_project_config(knowledge_root: Path, config_path: Path | None = None) -
         graph=_parse_graph_config(raw.get("graph"), path=path),
         topics=_parse_topics_config(raw.get("topics"), path=path),
         sources=_parse_sources_config(raw.get("sources"), path=path),
+        lint=_parse_lint_config(raw.get("lint"), path=path),
     )

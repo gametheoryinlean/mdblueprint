@@ -3,6 +3,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from tools.knowledge.publish import publish
 
 
@@ -352,3 +354,50 @@ def test_lean_repository_reports_missing_required_fields(tmp_path):
         assert "lean.repositories[0].web_url" in str(exc)
     else:
         raise AssertionError("expected missing web_url to fail")
+
+
+def test_load_project_config_reads_lint_fuzzy_threshold(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Lint Threshold Test\n"
+        "lint:\n  fuzzy_threshold: 0.88\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.fuzzy_threshold == 0.88
+
+
+def test_load_project_config_uses_default_lint_threshold_when_section_missing(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Default Lint Threshold\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.fuzzy_threshold == 0.92
+
+
+def test_load_project_config_rejects_non_numeric_lint_threshold(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Bad Lint Threshold\n"
+        "lint:\n  fuzzy_threshold: nope\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="fuzzy_threshold"):
+        load_project_config(tmp_path)
+
+
+def test_load_project_config_rejects_lint_threshold_out_of_range(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Out of Range\n"
+        "lint:\n  fuzzy_threshold: 1.5\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="fuzzy_threshold"):
+        load_project_config(tmp_path)
