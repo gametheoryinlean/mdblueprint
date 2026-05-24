@@ -29,11 +29,14 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
+      # `serve` is needed because `tools/knowledge/watcher.py` imports
+      # `watchdog` unconditionally at module top, and several test modules
+      # transitively load it during pytest collection.
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --extra dev --extra serve
 
       - name: Run pytest
-        run: uv run --extra dev python -m pytest -q
+        run: uv run --extra dev --extra serve python -m pytest -q
 
   check:
     name: mdblueprint-check
