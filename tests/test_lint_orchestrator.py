@@ -286,6 +286,7 @@ class TestDefaultDetectorsWiring:
         from tools.knowledge.config import LintConfig
         from tools.knowledge.lint import (
             FuzzyTitleDupDetector,
+            LeanAlignmentLlmDetector,
             LeanRefKindDetector,
             SemanticDupDetector,
             StagedAdmittedOverlapDetector,
@@ -296,7 +297,7 @@ class TestDefaultDetectorsWiring:
             LintConfig(fuzzy_threshold=0.77, semantic_candidate_threshold=0.6)
         )
         codes = {d.code for d in detectors}
-        # PR 3..6 contributors:
+        # PR 3..7 contributors:
         assert codes >= {
             "LINT_FUZZY_DUP",
             "LINT_STAGED_OVERLAP",
@@ -304,6 +305,7 @@ class TestDefaultDetectorsWiring:
             "LINT_ORPHAN",
             "LINT_LEAN_KIND",
             "LINT_SEMANTIC_DUP",
+            "LINT_LEAN_ALIGN",
         }
 
         fuzzy = next(d for d in detectors if isinstance(d, FuzzyTitleDupDetector))
@@ -318,6 +320,11 @@ class TestDefaultDetectorsWiring:
         # "no index available" mode and produces a single info diagnostic
         # rather than warnings.
         assert lean_kind.indexes is None
+
+        align = next(d for d in detectors if isinstance(d, LeanAlignmentLlmDetector))
+        # Without an explicit lean_indexes kwarg it falls back to None
+        # and will emit a single info when run.
+        assert align.indexes is None
 
     def test_default_detectors_accept_lean_indexes_kwarg(self):
         from tools.knowledge.config import LintConfig

@@ -125,7 +125,10 @@ def _default_detectors(
         RedundantDepDetector,
         StagedAdmittedOverlapDetector,
     )
-    from tools.knowledge.lint._llm import SemanticDupDetector
+    from tools.knowledge.lint._llm import (
+        LeanAlignmentLlmDetector,
+        SemanticDupDetector,
+    )
 
     cfg = config if config is not None else _LintConfig()
     cache = cache if cache is not None else _LC(cache_dir=None)
@@ -140,6 +143,11 @@ def _default_detectors(
             cache=cache,
             budget=budget,
             candidate_threshold=cfg.semantic_candidate_threshold,
+        ),
+        LeanAlignmentLlmDetector(
+            cache=cache,
+            budget=budget,
+            indexes=lean_indexes,
         ),
     ]
 
