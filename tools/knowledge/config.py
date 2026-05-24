@@ -67,6 +67,7 @@ class SourcesConfig:
 @dataclass(frozen=True)
 class LintConfig:
     fuzzy_threshold: float = 0.92
+    semantic_candidate_threshold: float = 0.75
 
 
 @dataclass(frozen=True)
@@ -393,24 +394,39 @@ def _parse_sources_config(raw: Any, *, path: Path) -> SourcesConfig:
     return SourcesConfig(library=library, require_source_spans=require_source_spans)
 
 
+def _parse_unit_interval(value: Any, *, path: Path, field: str) -> float:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ValueError(
+            f"Project config lint.{field} must be a number between 0 and 1: {path}"
+        )
+    value = float(value)
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(
+            f"Project config lint.{field} must be between 0 and 1, got {value}: {path}"
+        )
+    return value
+
+
 def _parse_lint_config(raw: Any, *, path: Path) -> LintConfig:
     if raw is None:
         return LintConfig()
     if not isinstance(raw, dict):
         raise ValueError(f"Project config lint must be a mapping: {path}")
 
-    threshold = raw.get("fuzzy_threshold", 0.92)
-    if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
-        raise ValueError(
-            f"Project config lint.fuzzy_threshold must be a number between 0 and 1: {path}"
-        )
-    threshold = float(threshold)
-    if not 0.0 <= threshold <= 1.0:
-        raise ValueError(
-            f"Project config lint.fuzzy_threshold must be between 0 and 1, got {threshold}: {path}"
-        )
-
-    return LintConfig(fuzzy_threshold=threshold)
+    fuzzy_threshold = _parse_unit_interval(
+        raw.get("fuzzy_threshold", 0.92),
+        path=path,
+        field="fuzzy_threshold",
+    )
+    semantic_candidate_threshold = _parse_unit_interval(
+        raw.get("semantic_candidate_threshold", 0.75),
+        path=path,
+        field="semantic_candidate_threshold",
+    )
+    return LintConfig(
+        fuzzy_threshold=fuzzy_threshold,
+        semantic_candidate_threshold=semantic_candidate_threshold,
+    )
 
 
 def load_project_config(knowledge_root: Path, config_path: Path | None = None) -> ProjectConfig:

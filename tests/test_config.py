@@ -401,3 +401,41 @@ def test_load_project_config_rejects_lint_threshold_out_of_range(tmp_path: Path)
     )
     with pytest.raises(ValueError, match="fuzzy_threshold"):
         load_project_config(tmp_path)
+
+
+def test_load_project_config_reads_semantic_candidate_threshold(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Semantic Threshold Test\n"
+        "lint:\n"
+        "  fuzzy_threshold: 0.91\n"
+        "  semantic_candidate_threshold: 0.65\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.fuzzy_threshold == 0.91
+    assert cfg.lint.semantic_candidate_threshold == 0.65
+
+
+def test_load_project_config_uses_default_semantic_threshold(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Default Semantic Threshold\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.semantic_candidate_threshold == 0.75
+
+
+def test_load_project_config_rejects_bad_semantic_threshold(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Bad Semantic Threshold\n"
+        "lint:\n  semantic_candidate_threshold: 2.0\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="semantic_candidate_threshold"):
+        load_project_config(tmp_path)
