@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from tools.knowledge.graph import build_graph
-from tools.knowledge.lint import RedundantDepDetector
+from tools.knowledge.lint import OrphanDetector, RedundantDepDetector
 from tools.knowledge.models import Node
 
 
@@ -84,3 +84,65 @@ class TestRedundantDepDetector:
         graph.edges["topic.b"] = ["topic.a"]  # idempotent re-assignment
         det = RedundantDepDetector()
         assert det.run([a, b], graph, llm=None) == []
+
+
+class TestOrphanDetector:
+    def test_isolated_node_is_orphan(self):
+        a = _node("topic.solo", kind="definition")
+        graph, _ = build_graph([a])
+        out = OrphanDetector().run([a], graph, llm=None)
+        assert len(out) == 1
+        d = out[0]
+        assert d.level == "info"
+        assert d.code == "LINT_ORPHAN"
+        assert d.node_id == "topic.solo"
+        assert d.related == ()
+
+    def test_node_with_outgoing_dep_is_not_orphan(self):
+        a = _node("topic.a", kind="definition")
+        b = _node("topic.b", uses=["topic.a"])
+        graph, _ = build_graph([a, b])
+        out = OrphanDetector().run([a, b], graph, llm=None)
+        ids = {d.node_id for d in out}
+        # b has out-deg 1; a has in-deg 1. Neither is orphan.
+        assert ids == set()
+
+    def test_node_with_incoming_dep_is_not_orphan(self):
+        # Same fixture as above, but assert from the receiving side explicitly.
+        a = _node("topic.a", kind="definition")
+        b = _node("topic.b", uses=["topic.a"])
+        graph, _ = build_graph([a, b])
+        out = OrphanDetector().run([a, b], graph, llm=None)
+        assert all(d.node_id != "topic.a" for d in out)
+
+    def test_multiple_orphans(self):
+        a = _node("topic.solo_one", kind="definition")
+        b = _node("topic.solo_two", kind="definition")
+        c = _node("topic.c", kind="definition")
+        d = _node("topic.d", uses=["topic.c"])
+        graph, _ = build_graph([a, b, c, d])
+        out = OrphanDetector().run([a, b, c, d], graph, llm=None)
+        ids = {x.node_id for x in out}
+        # solo_one and solo_two are orphans; c and d form a chain.
+        assert ids == {"topic.solo_one", "topic.solo_two"}
+
+    def test_proof_plan_with_target_but_no_uses_is_not_orphan(self):
+        # Proof plans attach to their targets through proof_plan_targets,
+        # not through uses. They should not be flagged as orphans just
+        # because their uses list is empty.
+        thm = _node("topic.thm", kind="theorem")
+        plan = Node(
+            id="topic.thm.plan.direct",
+            title="Plan",
+            kind="proof-plan",
+            status="staged",
+            target="topic.thm",
+            plan_status="candidate",
+        )
+        graph, diags = build_graph([thm, plan])
+        assert diags == []
+        out = OrphanDetector().run([thm, plan], graph, llm=None)
+        ids = {x.node_id for x in out}
+        # thm has the plan attached; plan has a target. Neither is orphan.
+        assert "topic.thm.plan.direct" not in ids
+        assert "topic.thm" not in ids

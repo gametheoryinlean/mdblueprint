@@ -291,6 +291,47 @@ def _path_exists_excluding_direct(
     return False
 
 
+@dataclass
+class OrphanDetector:
+    """Flag nodes with no incoming `uses` edges and no outgoing `uses` edges.
+
+    Proof-plan attachments (target / proof_plan_targets / proof_plans_by_target)
+    are intentionally considered non-orphan even when uses is empty: a plan
+    attached to a theorem is not stranded, and a theorem with at least one
+    candidate plan is being actively reasoned about.
+    """
+
+    code: str = "LINT_ORPHAN"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        out: list[Diagnostic] = []
+        for node_id in sorted(graph.nodes):
+            node = graph.nodes[node_id]
+            if graph.edges.get(node_id):
+                continue  # has out-degree
+            if graph.reverse_edges.get(node_id):
+                continue  # has in-degree
+            if node_id in graph.proof_plan_targets:
+                continue  # is a plan attached to some target
+            if graph.proof_plans_by_target.get(node_id):
+                continue  # is a target carrying at least one plan
+            out.append(Diagnostic(
+                level="info",
+                node_id=node_id,
+                message=f"node {node_id!r} has no incoming or outgoing dependencies",
+                file_path=node.file_path,
+                code=self.code,
+            ))
+        return out
+
+
 def render_text(diags: list[Diagnostic]) -> str:
     """Render diagnostics as a human-readable, code-grouped text block."""
     if not diags:
