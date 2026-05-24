@@ -123,9 +123,9 @@ def _default_detectors(
         LeanRefKindDetector,
         OrphanDetector,
         RedundantDepDetector,
-        SemanticDupDetector,
         StagedAdmittedOverlapDetector,
     )
+    from tools.knowledge.lint._llm import SemanticDupDetector
 
     cfg = config if config is not None else _LintConfig()
     cache = cache if cache is not None else _LC(cache_dir=None)

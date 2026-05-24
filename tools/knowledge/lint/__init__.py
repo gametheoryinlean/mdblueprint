@@ -21,11 +21,11 @@ from tools.knowledge.lint._detectors import (
     LeanRefKindDetector,
     OrphanDetector,
     RedundantDepDetector,
-    SemanticDupDetector,
     StagedAdmittedOverlapDetector,
     _normalize,
     _ratio,
 )
+from tools.knowledge.lint._llm import SemanticDupDetector
 
 __all__ = [
     # Core
