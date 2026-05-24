@@ -156,6 +156,54 @@ def _resolve_node_refs_in_html(
     return resolved, unresolved
 
 
+_INLINE_CODE_NODE_REF_RE = re.compile(
+    r"<code>([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+)</code>"
+)
+_PRE_BLOCK_RE = re.compile(r"<pre\b[^>]*>.*?</pre>", flags=re.DOTALL | re.IGNORECASE)
+_ANCHOR_BLOCK_RE = re.compile(r"<a\b[^>]*>.*?</a>", flags=re.DOTALL | re.IGNORECASE)
+
+
+def _autolink_bare_node_refs_in_html(
+    html: str,
+    all_nodes: dict[str, Node],
+    from_topic: str | None = None,
+) -> str:
+    """Auto-link `<code>some.node.id</code>` spans to their canonical pages.
+
+    Skips content already inside `<pre>` blocks (intentional verbatim code)
+    and inside existing `<a>` tags (the explicit `[[node:id]]` syntax has
+    already produced those). Unknown ids are left untouched.
+    """
+    if not all_nodes:
+        return html
+
+    masks: list[str] = []
+
+    def _mask(match: re.Match[str]) -> str:
+        masks.append(match.group(0))
+        return f"\x00AUTOLINKMASK{len(masks) - 1}\x00"
+
+    masked = _PRE_BLOCK_RE.sub(_mask, html)
+    masked = _ANCHOR_BLOCK_RE.sub(_mask, masked)
+
+    def _link(match: re.Match[str]) -> str:
+        node_id = match.group(1)
+        if node_id not in all_nodes:
+            return match.group(0)
+        href = escape(_node_href(node_id, from_topic=from_topic))
+        return (
+            f'<a class="node-ref" data-node-id="{escape(node_id)}" '
+            f'href="{href}"><code>{escape(node_id)}</code></a>'
+        )
+
+    linked = _INLINE_CODE_NODE_REF_RE.sub(_link, masked)
+
+    def _restore(match: re.Match[str]) -> str:
+        return masks[int(match.group(1))]
+
+    return re.sub(r"\x00AUTOLINKMASK(\d+)\x00", _restore, linked)
+
+
 def _render_body(
     md: markdown.Markdown,
     body: str,
@@ -171,8 +219,10 @@ def _render_body(
         proof_html = _convert_markdown_preserving_tex(md, proof_md)
     if all_nodes is not None:
         statement_html, _ = _resolve_node_refs_in_html(statement_html, all_nodes, from_topic)
+        statement_html = _autolink_bare_node_refs_in_html(statement_html, all_nodes, from_topic)
         if proof_html is not None:
             proof_html, _ = _resolve_node_refs_in_html(proof_html, all_nodes, from_topic)
+            proof_html = _autolink_bare_node_refs_in_html(proof_html, all_nodes, from_topic)
     return {
         "body_html": statement_html,
         "proof_html": proof_html,
@@ -467,6 +517,9 @@ def render_topic(ctx: "KnowledgeContext", topic_id: str) -> str:
     catalog_html = _load_topic_catalog(ctx.knowledge_root, topic_id, md)
     if catalog_html:
         catalog_html, _ = _resolve_node_refs_in_html(
+            catalog_html, ctx.nodes_by_id, from_topic=topic_id,
+        )
+        catalog_html = _autolink_bare_node_refs_in_html(
             catalog_html, ctx.nodes_by_id, from_topic=topic_id,
         )
 

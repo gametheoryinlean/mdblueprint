@@ -52,6 +52,79 @@ class TestDevModeFlag:
         assert "EventSource('/_dev/events')" in html
 
 
+class TestAutolinkBareNodeRefs:
+    """Issue #134: <code>known.node.id</code> spans should auto-link."""
+
+    def test_known_id_autolinks(self):
+        from tools.knowledge.models import Node
+        from tools.knowledge.renderer import _autolink_bare_node_refs_in_html
+
+        nodes = {
+            "topic.foo": Node(id="topic.foo", title="Foo", kind="definition", status="admitted"),
+        }
+        html = "<p>See <code>topic.foo</code> for details.</p>"
+        result = _autolink_bare_node_refs_in_html(html, nodes)
+        assert 'href=' in result
+        assert 'class="node-ref"' in result
+        assert 'data-node-id="topic.foo"' in result
+        assert "<code>topic.foo</code>" in result  # the <code> styling stays
+
+    def test_unknown_id_is_left_alone(self):
+        from tools.knowledge.models import Node
+        from tools.knowledge.renderer import _autolink_bare_node_refs_in_html
+
+        nodes = {
+            "topic.foo": Node(id="topic.foo", title="Foo", kind="definition", status="admitted"),
+        }
+        html = "<p>See <code>topic.bar</code> for details.</p>"
+        result = _autolink_bare_node_refs_in_html(html, nodes)
+        # Unknown id stays as bare <code>; no anchor wrapper.
+        assert result == html
+
+    def test_pre_block_content_is_not_autolinked(self):
+        from tools.knowledge.models import Node
+        from tools.knowledge.renderer import _autolink_bare_node_refs_in_html
+
+        nodes = {
+            "topic.foo": Node(id="topic.foo", title="Foo", kind="definition", status="admitted"),
+        }
+        html = "<pre><code>topic.foo</code></pre>"
+        result = _autolink_bare_node_refs_in_html(html, nodes)
+        # The fenced code block stays untouched — no anchor wrapper.
+        assert result == html
+
+    def test_already_anchored_content_is_not_double_wrapped(self):
+        from tools.knowledge.models import Node
+        from tools.knowledge.renderer import _autolink_bare_node_refs_in_html
+
+        nodes = {
+            "topic.foo": Node(id="topic.foo", title="Foo", kind="definition", status="admitted"),
+        }
+        html = '<p>See <a class="node-ref" href="topic/foo.html"><code>topic.foo</code></a></p>'
+        result = _autolink_bare_node_refs_in_html(html, nodes)
+        # The existing anchor stays exactly as is.
+        assert result == html
+
+    def test_single_segment_id_does_not_autolink(self):
+        # The id pattern requires at least one dot, so bare `wsum` stays plain.
+        from tools.knowledge.models import Node
+        from tools.knowledge.renderer import _autolink_bare_node_refs_in_html
+
+        nodes = {
+            "wsum": Node(id="wsum", title="WSum", kind="definition", status="admitted"),
+        }
+        html = "<p>The <code>wsum</code> operator.</p>"
+        result = _autolink_bare_node_refs_in_html(html, nodes)
+        # No dot ⇒ not eligible for autolinking; stays as bare <code>.
+        assert result == html
+
+    def test_no_nodes_short_circuits(self):
+        from tools.knowledge.renderer import _autolink_bare_node_refs_in_html
+
+        html = "<p>See <code>topic.foo</code> here.</p>"
+        assert _autolink_bare_node_refs_in_html(html, {}) == html
+
+
 class TestBoundaryConditions:
     def test_render_node_unknown_raises(self, ctx):
         with pytest.raises(KeyError):
