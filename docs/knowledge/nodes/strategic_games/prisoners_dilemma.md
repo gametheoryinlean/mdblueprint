@@ -4,7 +4,6 @@ title: Prisoner's Dilemma
 kind: example
 status: admitted
 uses:
-  - strategic_games.strategic_game
   - strategic_games.nash_equilibrium
   - strategic_games.weakly_dominant_strategy
 lean:

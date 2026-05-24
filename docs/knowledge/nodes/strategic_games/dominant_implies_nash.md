@@ -6,7 +6,6 @@ status: admitted
 uses:
   - strategic_games.nash_equilibrium
   - strategic_games.weakly_dominant_strategy
-  - strategic_games.best_response
 lean:
   modules:
     - GameTheoryLib.StrategicGame.NashEquilibrium
