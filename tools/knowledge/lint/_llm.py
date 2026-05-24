@@ -170,7 +170,11 @@ class SemanticDupDetector:
 
 # ── Lean alignment detector constants and helpers ─────────────────────────────
 
-_PROMPT_VERSION_LEAN_ALIGN = "v1"
+# Bumped from "v1" when the prompt switched from binary {aligned: bool} to the
+# 8-class taxonomy mirrored from tools.knowledge.lean_alignment.CLASSIFICATIONS
+# (see README "MD-Lean Alignment Verifier Contract"). Cached v1 cells become
+# irrelevant because the cache key folds in this version string.
+_PROMPT_VERSION_LEAN_ALIGN = "v2"
 _BUDGET_INFO_MESSAGE_LEAN_ALIGN = (
     "LLM budget exhausted; skipped remaining LINT_LEAN_ALIGN candidates"
 )
@@ -186,6 +190,38 @@ _ELIGIBLE_KINDS_FOR_ALIGN = (
     _THEOREM_LIKE_KINDS_FOR_ALIGN | _DEFINITION_LIKE_KINDS_FOR_ALIGN
 )
 
+# Mirrors tools.knowledge.lean_alignment.CLASSIFICATIONS so that the lint
+# detector and the bounded alignment-report tool share one vocabulary. Keep in
+# sync if that set ever changes.
+_LEAN_ALIGN_LABELS: frozenset[str] = frozenset(
+    {
+        "aligned",
+        "lean_stronger",
+        "lean_weaker",
+        "lean_special_case",
+        "lean_extra_hypotheses",
+        "lean_missing_hypotheses",
+        "definition_mismatch",
+        "uncertain",
+    }
+)
+
+# Per-label severity mapping. `aligned` and `lean_stronger` are silent because
+# README's verifier contract treats both as acceptable outcomes; `uncertain`
+# surfaces as `info` so it shows up in audits without failing
+# --strict-warnings; every other label is a `warning` because it signals a
+# semantic mismatch the author should resolve.
+_LEAN_ALIGN_SEVERITY: dict[str, str | None] = {
+    "aligned": None,
+    "lean_stronger": None,
+    "lean_weaker": "warning",
+    "lean_special_case": "warning",
+    "lean_extra_hypotheses": "warning",
+    "lean_missing_hypotheses": "warning",
+    "definition_mismatch": "warning",
+    "uncertain": "info",
+}
+
 
 def _lean_align_prompt(node: Node, decl_name: str, decl: LeanDeclaration) -> str:
     """Build the per-pair prompt for the Lean alignment detector.
@@ -199,8 +235,34 @@ def _lean_align_prompt(node: Node, decl_name: str, decl: LeanDeclaration) -> str
     docstring = decl.docstring or ""
     module = decl.module or ""
     return (
-        "You are checking whether a Markdown knowledge-base node and its "
-        "claimed Lean declaration describe the same theorem or definition.\n\n"
+        "You are the MD-Lean Alignment Verifier described in the "
+        "mdblueprint README. Compare a Markdown knowledge-base node "
+        "against its claimed Lean declaration and return one of the "
+        "eight allowed classification labels.\n\n"
+        "Labels (return exactly one):\n"
+        "- aligned: the Markdown statement and the Lean declaration "
+        "express the same claim under the same hypotheses.\n"
+        "- lean_stronger: the Lean declaration proves strictly more "
+        "than the Markdown statement asserts (acceptable).\n"
+        "- lean_weaker: the Lean declaration is strictly weaker — the "
+        "Markdown asserts clauses, quantitative identities, or "
+        "characterizations that the Lean signature does not carry.\n"
+        "- lean_special_case: the Lean declaration only handles a "
+        "specialization of the Markdown claim.\n"
+        "- lean_extra_hypotheses: the Lean declaration assumes "
+        "hypotheses the Markdown does not.\n"
+        "- lean_missing_hypotheses: the Markdown statement omits "
+        "hypotheses the Lean declaration requires.\n"
+        "- definition_mismatch: a defined term is interpreted "
+        "differently on the two sides.\n"
+        "- uncertain: you cannot tell from the inputs alone.\n\n"
+        "Procedure: read the Markdown `## Statement` section "
+        "clause-by-clause. For each clause check whether the Lean "
+        "signature plus docstring already entails it. If any clause "
+        "is unsupported, prefer `lean_weaker` (or "
+        "`lean_missing_hypotheses` if the unsupported part is a "
+        "hypothesis). Do not treat existence of the declaration as "
+        "evidence that the statements match.\n\n"
         f"Markdown node id: {node.id}\n"
         f"Title: {node.title}\n"
         f"Kind: {node.kind}\n"
@@ -212,7 +274,7 @@ def _lean_align_prompt(node: Node, decl_name: str, decl: LeanDeclaration) -> str
         f"Signature:\n{signature}\n"
         f"Docstring:\n{docstring}\n\n"
         "Reply with a single JSON object of the form "
-        '{"aligned": <bool>, "reason": "<one-sentence justification>"}.\n'
+        '{"classification": "<one-of-8>", "reason": "<one-sentence justification>"}.\n'
         "Return only the JSON object."
     )
 
@@ -228,28 +290,41 @@ def _lean_align_cache_key(node: Node, decl_name: str, decl: LeanDeclaration) -> 
     return _content_hash(body)
 
 
-def _parse_lean_align_response(raw: str) -> tuple[bool | None, str]:
-    """Return ``(aligned | None on parse failure, reason)``."""
+def _parse_lean_align_response(raw: str) -> tuple[str | None, str]:
+    """Return ``(classification | None on parse failure, reason)``.
+
+    ``None`` is returned both for invalid JSON and for labels outside the
+    eight-class vocabulary, so callers treat unknown labels the same way as
+    malformed responses (single ``info`` diagnostic).
+    """
     try:
         payload = _json_stdlib.loads(raw)
     except Exception:
         return None, raw[:200]
-    if not isinstance(payload, dict) or "aligned" not in payload:
+    if not isinstance(payload, dict) or "classification" not in payload:
         return None, raw[:200]
-    aligned = payload.get("aligned")
-    if not isinstance(aligned, bool):
+    classification = payload.get("classification")
+    if not isinstance(classification, str) or classification not in _LEAN_ALIGN_LABELS:
         return None, raw[:200]
     reason = payload.get("reason", "")
     if not isinstance(reason, str):
         reason = ""
-    return aligned, reason
+    return classification, reason
 
 
 # ── LeanAlignmentLlmDetector ──────────────────────────────────────────────────
 
 @dataclass
 class LeanAlignmentLlmDetector:
-    """Ask an LLM whether each (node, Lean declaration) pair really aligns."""
+    """Ask an LLM how each (node, Lean declaration) pair aligns.
+
+    The LLM returns one of the eight labels from
+    :mod:`tools.knowledge.lean_alignment.CLASSIFICATIONS` (see the
+    README "MD-Lean Alignment Verifier Contract" section). Each label
+    maps to a fixed lint severity via :data:`_LEAN_ALIGN_SEVERITY`:
+    ``aligned`` and ``lean_stronger`` are silent; ``uncertain`` is
+    surfaced as ``info``; every other label emits a ``warning``.
+    """
 
     cache: _LintCache
     budget: _BudgetTracker
@@ -312,13 +387,17 @@ class LeanAlignmentLlmDetector:
                             budget_already_reported = True
                         return out
                     raw = llm(_lean_align_prompt(node, decl_name, resolved))
-                    aligned, reason = _parse_lean_align_response(raw)
-                    cached = {"aligned": aligned, "reason": reason, "raw": raw[:2000]}
+                    classification, reason = _parse_lean_align_response(raw)
+                    cached = {
+                        "classification": classification,
+                        "reason": reason,
+                        "raw": raw[:2000],
+                    }
                     self.cache.put(self.code, key, cached)
 
-                aligned = cached.get("aligned")
+                classification = cached.get("classification")
                 reason = cached.get("reason", "")
-                if aligned is None:
+                if classification is None or classification not in _LEAN_ALIGN_LABELS:
                     out.append(Diagnostic(
                         level="info",
                         node_id=node.id,
@@ -331,16 +410,18 @@ class LeanAlignmentLlmDetector:
                         related=(decl_name,),
                     ))
                     continue
-                if aligned is False:
-                    out.append(Diagnostic(
-                        level="warning",
-                        node_id=node.id,
-                        message=(
-                            f"LLM judged {node.id!r} and Lean declaration {decl_name!r} "
-                            f"as misaligned: {reason}"
-                        ),
-                        file_path=node.file_path,
-                        code=self.code,
-                        related=(decl_name,),
-                    ))
+                severity = _LEAN_ALIGN_SEVERITY[classification]
+                if severity is None:
+                    continue
+                out.append(Diagnostic(
+                    level=severity,
+                    node_id=node.id,
+                    message=(
+                        f"LLM classified {node.id!r} vs Lean declaration "
+                        f"{decl_name!r} as {classification!r}: {reason}"
+                    ),
+                    file_path=node.file_path,
+                    code=self.code,
+                    related=(decl_name,),
+                ))
         return out
