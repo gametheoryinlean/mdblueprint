@@ -13,13 +13,16 @@ from __future__ import annotations
 
 import argparse
 import json as _json
+import re
 import subprocess
 import sys
+from dataclasses import dataclass
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Callable, Protocol
 
 from tools.knowledge.graph import KnowledgeGraph, build_graph
-from tools.knowledge.models import Node
+from tools.knowledge.models import ADMITTED_STATUSES, STAGED_STATUSES, Node
 from tools.knowledge.parser import scan_directory
 from tools.knowledge.validator import Diagnostic
 
@@ -69,6 +72,92 @@ class Linter:
             if d.exists():
                 nodes.extend(scan_directory(d))
         return nodes
+
+
+_WHITESPACE_RE = re.compile(r"\s+")
+_LEADING_TRAILING_PUNCT_RE = re.compile(r"^[\s\W_]+|[\s\W_]+$", flags=re.UNICODE)
+
+
+def _normalize(text: str) -> str:
+    """Lowercase, collapse internal whitespace, strip leading/trailing punctuation.
+
+    Internal punctuation is preserved so semantically distinct sentences with
+    similar surface words still stay apart.
+    """
+    if text is None:
+        return ""
+    lowered = text.lower()
+    stripped = _LEADING_TRAILING_PUNCT_RE.sub("", lowered)
+    return _WHITESPACE_RE.sub(" ", stripped).strip()
+
+
+def _ratio(a: str, b: str) -> float:
+    """SequenceMatcher ratio over already-normalized strings."""
+    if not a or not b:
+        return 0.0
+    return SequenceMatcher(None, a, b).ratio()
+
+
+_STATEMENT_HEADING_RE = re.compile(r"^##\s+statement\b", flags=re.IGNORECASE | re.MULTILINE)
+_HEADING_RE = re.compile(r"^#+\s", flags=re.MULTILINE)
+
+
+def _statement_text(node: Node) -> str:
+    """Return the body text under a `## Statement` section if present, else `""`.
+
+    Used as a secondary similarity signal when titles alone don't trigger.
+    """
+    body = node.body or ""
+    match = _STATEMENT_HEADING_RE.search(body)
+    if match is None:
+        return ""
+    start = match.end()
+    # Stop at the next heading of any level.
+    next_heading = _HEADING_RE.search(body, pos=start)
+    end = next_heading.start() if next_heading else len(body)
+    return body[start:end].strip()
+
+
+@dataclass
+class FuzzyTitleDupDetector:
+    """Flag admitted node pairs with near-duplicate titles or statements."""
+
+    threshold: float = 0.92
+    code: str = "LINT_FUZZY_DUP"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        admitted = sorted(
+            (n for n in nodes if n.status in ADMITTED_STATUSES),
+            key=lambda n: n.id,
+        )
+        out: list[Diagnostic] = []
+        for index, a in enumerate(admitted):
+            a_title = _normalize(a.title)
+            a_stmt = _normalize(_statement_text(a))
+            for b in admitted[index + 1:]:
+                b_title = _normalize(b.title)
+                score = _ratio(a_title, b_title)
+                if score < self.threshold:
+                    b_stmt = _normalize(_statement_text(b))
+                    if a_stmt and b_stmt:
+                        score = max(score, _ratio(a_stmt, b_stmt))
+                if score >= self.threshold:
+                    out.append(Diagnostic(
+                        level="warning",
+                        node_id=a.id,
+                        message=f"near-duplicate of {b.id!r} (similarity {score:.2f})",
+                        file_path=a.file_path,
+                        code=self.code,
+                        related=(b.id,),
+                    ))
+        return out
 
 
 def render_text(diags: list[Diagnostic]) -> str:
