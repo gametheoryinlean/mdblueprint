@@ -275,28 +275,26 @@ def _boundary_topic_entry(topic_id: str, role: str, node_count: int) -> dict:
 
 
 def _child_topic_edges(g: KnowledgeGraph, topic_id: str) -> list[dict]:
+    # Each node contributes exactly one canonical endpoint — its home topic —
+    # when participating in the child-topic edge set. Secondary `topics:[]`
+    # entries are discoverability tags and must not fabricate phantom child
+    # topic edges. See #131 / #135 for the rationale.
     edge_counts: Counter[tuple[str, str]] = Counter()
     for dependent_id in sorted(g.edges):
         if dependent_id not in g.nodes or g.nodes[dependent_id].kind == "proof-plan":
             continue
-        dependent_children = {
-            child
-            for leaf_topic in leaf_topic_ids_for_node(g.nodes[dependent_id])
-            if (child := child_topic_id(topic_id, leaf_topic)) is not None
-        }
+        dependent_home = home_topic_for_node(g.nodes[dependent_id])
+        dependent_child = child_topic_id(topic_id, dependent_home)
+        if dependent_child is None:
+            continue
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes or g.nodes[dependency_id].kind == "proof-plan":
                 continue
-            dependency_children = {
-                child
-                for leaf_topic in leaf_topic_ids_for_node(g.nodes[dependency_id])
-                if (child := child_topic_id(topic_id, leaf_topic)) is not None
-            }
-            for dependent_child in dependent_children:
-                for dependency_child in dependency_children:
-                    if dependency_child == dependent_child:
-                        continue
-                    edge_counts[(dependency_child, dependent_child)] += 1
+            dependency_home = home_topic_for_node(g.nodes[dependency_id])
+            dependency_child = child_topic_id(topic_id, dependency_home)
+            if dependency_child is None or dependency_child == dependent_child:
+                continue
+            edge_counts[(dependency_child, dependent_child)] += 1
 
     return [
         {
@@ -310,6 +308,10 @@ def _child_topic_edges(g: KnowledgeGraph, topic_id: str) -> list[dict]:
 
 
 def _topic_layer_boundary(g: KnowledgeGraph, topic_id: str, topic_counts: dict[str, int]) -> tuple[list[dict], list[dict]]:
+    # Each node contributes exactly one canonical endpoint — its home topic —
+    # when participating in the boundary set. Secondary `topics:[]` entries
+    # are discoverability tags and must not fabricate phantom boundary topics
+    # under the same root. See #131 / #135.
     boundary_roles: dict[str, set[str]] = defaultdict(set)
     edge_counts: Counter[tuple[str, str, str, str]] = Counter()
 
@@ -319,45 +321,37 @@ def _topic_layer_boundary(g: KnowledgeGraph, topic_id: str, topic_counts: dict[s
     for dependent_id in sorted(g.edges):
         if dependent_id not in g.nodes or g.nodes[dependent_id].kind == "proof-plan":
             continue
-        dependent_topics = leaf_topic_ids_for_node(g.nodes[dependent_id])
-        dependent_inside_topics = [topic for topic in dependent_topics if inside_current(topic)]
-        dependent_children = {
-            child
-            for topic in dependent_inside_topics
-            if (child := child_topic_id(topic_id, topic)) is not None
-        }
+        dependent_home = home_topic_for_node(g.nodes[dependent_id])
+        dependent_inside = inside_current(dependent_home)
+        dependent_child = (
+            child_topic_id(topic_id, dependent_home) if dependent_inside else None
+        )
 
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes or g.nodes[dependency_id].kind == "proof-plan":
                 continue
-            dependency_topics = leaf_topic_ids_for_node(g.nodes[dependency_id])
-            dependency_inside_topics = [topic for topic in dependency_topics if inside_current(topic)]
-            dependency_children = {
-                child
-                for topic in dependency_inside_topics
-                if (child := child_topic_id(topic_id, topic)) is not None
-            }
+            dependency_home = home_topic_for_node(g.nodes[dependency_id])
+            dependency_inside = inside_current(dependency_home)
+            dependency_child = (
+                child_topic_id(topic_id, dependency_home) if dependency_inside else None
+            )
 
-            for dependency_topic in dependency_topics:
-                if dependent_children and not inside_current(dependency_topic):
-                    for dependent_child in dependent_children:
-                        boundary_roles[dependency_topic].add("dependency")
-                        edge_counts[(
-                            f"topic:{dependency_topic}",
-                            f"topic:{dependent_child}",
-                            "boundary_dependency",
-                            dependency_topic,
-                        )] += 1
-            for dependent_topic in dependent_topics:
-                if dependency_children and not inside_current(dependent_topic):
-                    for dependency_child in dependency_children:
-                        boundary_roles[dependent_topic].add("dependent")
-                        edge_counts[(
-                            f"topic:{dependency_child}",
-                            f"topic:{dependent_topic}",
-                            "boundary_dependent",
-                            dependent_topic,
-                        )] += 1
+            if dependent_child is not None and not dependency_inside:
+                boundary_roles[dependency_home].add("dependency")
+                edge_counts[(
+                    f"topic:{dependency_home}",
+                    f"topic:{dependent_child}",
+                    "boundary_dependency",
+                    dependency_home,
+                )] += 1
+            if dependency_child is not None and not dependent_inside:
+                boundary_roles[dependent_home].add("dependent")
+                edge_counts[(
+                    f"topic:{dependency_child}",
+                    f"topic:{dependent_home}",
+                    "boundary_dependent",
+                    dependent_home,
+                )] += 1
 
     boundary_topics = []
     for boundary_topic in sorted(boundary_roles):

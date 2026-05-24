@@ -530,6 +530,88 @@ class TestExportTopicSubgraphJson:
             },
         ]
 
+    def test_boundary_topics_do_not_duplicate_when_node_carries_secondary_same_root_tag(self):
+        """Regression for #135.
+
+        A node tagged with `primary_topic: linear_algebra` and
+        `topics: [linear_algebra, linear_algebra.alternatives]` must
+        contribute exactly one boundary topic (`linear_algebra`) when
+        seen from a different-root topic's subgraph view — the
+        secondary tag is a discoverability label, not a second
+        graph endpoint.
+        """
+        from tools.knowledge.models import Node
+
+        la = Node(
+            id="linear_algebra.theorem_of_alternative",
+            title="Theorem of Alternative",
+            kind="theorem",
+            status="admitted",
+            primary_topic="linear_algebra",
+            topics=["linear_algebra", "linear_algebra.alternatives"],
+        )
+        duality = Node(
+            id="linear_programming.duality.strong",
+            title="Strong Duality",
+            kind="theorem",
+            status="admitted",
+            primary_topic="linear_programming.duality",
+            uses=["linear_algebra.theorem_of_alternative"],
+        )
+        graph, diags = build_graph([la, duality])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "linear_programming.duality")
+        boundary_ids = [t["id"] for t in data["boundary_topics"]]
+        # Exactly one boundary, named by the home topic — not by every
+        # `topics:[]` entry.
+        assert boundary_ids == ["linear_algebra"]
+        # Edge endpoints likewise use the home topic, not the secondary tag.
+        boundary_edge_sources = {e["from"] for e in data["boundary_edges"]}
+        assert "topic:linear_algebra.alternatives" not in boundary_edge_sources
+
+    def test_child_topic_edges_do_not_duplicate_under_secondary_same_root_tag(self):
+        """Regression for #135 (child-topic edge half).
+
+        Inside a parent topic's subgraph, a child node that carries a
+        sibling-child `topics:[]` tag must not generate a phantom child-
+        topic edge to that sibling.
+        """
+        from tools.knowledge.models import Node
+
+        # Both nodes live under `algebra` parent topic, in different
+        # child topics. The first node carries a secondary tag that
+        # also names the second node's child topic — this used to
+        # fabricate a self-loop-like edge.
+        a = Node(
+            id="algebra.groups.identity_unique",
+            title="Group Identity Unique",
+            kind="theorem",
+            status="admitted",
+            primary_topic="algebra.groups",
+            topics=["algebra.groups", "algebra.monoids"],
+            uses=["algebra.groups.group"],
+        )
+        b = Node(
+            id="algebra.groups.group",
+            title="Group",
+            kind="definition",
+            status="admitted",
+            primary_topic="algebra.groups",
+        )
+        graph, diags = build_graph([a, b])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+        # No phantom edge from `algebra.monoids` to `algebra.groups`
+        # induced by the secondary tag on node `a`.
+        child_edges = [
+            (e["from"], e["to"])
+            for e in data["edges"]
+            if e["from"].startswith("topic:") and e["to"].startswith("topic:")
+        ]
+        assert ("topic:algebra.monoids", "topic:algebra.groups") not in child_edges
+
     def test_topic_subgraph_keeps_proof_plan_attachments_separate_from_uses_edges(self):
         from tools.knowledge.models import Node
 
