@@ -16,6 +16,7 @@ import json as _json
 import re
 import subprocess
 import sys
+from collections import deque
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -210,6 +211,84 @@ class StagedAdmittedOverlapDetector:
                         related=(existing.id,),
                     ))
         return out
+
+
+@dataclass
+class RedundantDepDetector:
+    """Flag direct `uses` edges that are already implied by a transitive path."""
+
+    code: str = "LINT_REDUNDANT_DEP"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        out: list[Diagnostic] = []
+        # Iterate in deterministic order so diagnostic ordering is stable.
+        for dependent_id in sorted(graph.edges):
+            direct_deps = sorted(graph.edges.get(dependent_id, ()))
+            if len(direct_deps) < 2:
+                # A node with at most one direct dependency cannot have a
+                # redundant direct edge: there is no second path candidate.
+                continue
+            for prereq in direct_deps:
+                if _path_exists_excluding_direct(
+                    graph,
+                    start=dependent_id,
+                    goal=prereq,
+                    excluded_first_hop=prereq,
+                ):
+                    node = graph.nodes.get(dependent_id)
+                    out.append(Diagnostic(
+                        level="info",
+                        node_id=dependent_id,
+                        message=(
+                            f"direct dependency on {prereq!r} is redundant; "
+                            f"{dependent_id!r} already reaches it transitively"
+                        ),
+                        file_path=node.file_path if node is not None else None,
+                        code=self.code,
+                        related=(prereq,),
+                    ))
+        return out
+
+
+def _path_exists_excluding_direct(
+    graph: KnowledgeGraph,
+    *,
+    start: str,
+    goal: str,
+    excluded_first_hop: str,
+) -> bool:
+    """Return True iff there is a path start -> ... -> goal in the `uses` graph
+    that does not begin with the direct edge start -> excluded_first_hop.
+
+    The `uses` graph stores ``edges[u]`` as the prerequisites of ``u``.
+    BFS therefore walks toward the start node's transitive prerequisites.
+    """
+    seen: set[str] = {start}
+    queue: deque[str] = deque()
+    for neighbor in graph.edges.get(start, ()):
+        if neighbor == excluded_first_hop:
+            continue
+        if neighbor == goal:
+            return True
+        if neighbor not in seen:
+            seen.add(neighbor)
+            queue.append(neighbor)
+    while queue:
+        current = queue.popleft()
+        for neighbor in graph.edges.get(current, ()):
+            if neighbor == goal:
+                return True
+            if neighbor not in seen:
+                seen.add(neighbor)
+                queue.append(neighbor)
+    return False
 
 
 def render_text(diags: list[Diagnostic]) -> str:
