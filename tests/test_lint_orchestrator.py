@@ -302,7 +302,7 @@ class TestDefaultDetectorsWiring:
             ),
         )
         codes = {d.code for d in detectors}
-        # PR 3..8 contributors:
+        # PR 3..8 contributors plus #137/#138 hierarchy detectors:
         assert codes >= {
             "LINT_FUZZY_DUP",
             "LINT_STAGED_OVERLAP",
@@ -312,6 +312,8 @@ class TestDefaultDetectorsWiring:
             "LINT_SEMANTIC_DUP",
             "LINT_LEAN_ALIGN",
             "LINT_PLAN_PROMOTE",
+            "LINT_HIERARCHY_INVERSION",
+            "LINT_TOPIC_CYCLE",
         }
 
         fuzzy = next(d for d in detectors if isinstance(d, FuzzyTitleDupDetector))

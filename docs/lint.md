@@ -31,9 +31,10 @@ dedupe still works).
 
 ```yaml
 lint:
-  fuzzy_threshold: 0.92               # LINT_FUZZY_DUP / LINT_STAGED_OVERLAP
-  semantic_candidate_threshold: 0.75  # LINT_SEMANTIC_DUP candidate selection
-  plan_promote_severity: info         # LINT_PLAN_PROMOTE level: info | warning
+  fuzzy_threshold: 0.92                  # LINT_FUZZY_DUP / LINT_STAGED_OVERLAP
+  semantic_candidate_threshold: 0.75     # LINT_SEMANTIC_DUP candidate selection
+  plan_promote_severity: info            # LINT_PLAN_PROMOTE level: info | warning
+  hierarchy_inversion_severity: warning  # LINT_HIERARCHY_INVERSION level: info | warning
 ```
 
 ## Rule reference
@@ -121,6 +122,50 @@ docs/knowledge` to auto-write `status: proved` and the
 `proved_via_plan: <plan_id>` marker, or do the same by hand. The
 detector picks the same canonical plan as the CLI (selected plan wins;
 ties break by sorted plan id), so the two stay in agreement.
+
+### `LINT_HIERARCHY_INVERSION` — Parent-topic content depends on a subtopic
+
+**Trigger.** A `uses` edge from a node living in a strict descendant
+subtopic into a node whose home topic is the ancestor — i.e. parent-topic
+content imports specialised subtopic material. Almost always an editorial
+mistake: either the parent-tagged node should move down into the
+relevant subtopic (change its `primary_topic`), or the dependency on the
+specialised material should be removed.
+
+**Level.** `warning` by default. Set `lint.hierarchy_inversion_severity:
+info` in `mdblueprint.yml` to demote.
+
+**Example.** Node `T` has `primary_topic: alg` and `uses:
+[alg.cohomology.cup_product]`. The prereq's home is the strict
+descendant `alg.cohomology`; the detector flags this edge.
+
+**How to fix.** Move `T` to `primary_topic: alg.cohomology` (or to the
+deepest common ancestor of all its dependencies) — or drop the
+subtopic-level dependency.
+
+**Healthy direction stays silent.** A node in `alg.cohomology` depending
+on a node in `alg` (subtopic uses parent's basics) is fine — the
+detector only fires when the arrow points up the hierarchy in the
+unhealthy direction.
+
+### `LINT_TOPIC_CYCLE` — Sibling subtopics aggregate into a cycle
+
+**Trigger.** Two sibling child topics `A` and `B` under a common parent
+each have nodes that depend on nodes in the other, producing an `A ↔ B`
+loop when the topic-level overview is aggregated. The underlying
+node-level DAG stays acyclic; this is purely an aggregation observation.
+
+**Level.** `info` (not configurable; the aggregation cycles are
+by-design allowed but worth surfacing).
+
+**Example.** `extensive_game.core` contains nodes that
+`extensive_game.imperfect_information` depends on, and vice-versa —
+the `extensive_game` topic overview shows both arrows.
+
+**How to fix.** Often nothing needs to change — the cycle reflects
+genuine cross-pollination between the two subtopics. If the cycle is
+unwanted, either merge the two child topics, or relocate the few
+"bridge" nodes so they live above (or beside) the cycle.
 
 ### `LINT_SEMANTIC_DUP` — LLM-judged semantic duplicate (`--llm` only)
 

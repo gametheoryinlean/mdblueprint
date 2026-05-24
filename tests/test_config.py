@@ -474,3 +474,38 @@ def test_load_project_config_rejects_invalid_plan_promote_severity(tmp_path: Pat
     )
     with pytest.raises(ValueError, match="plan_promote_severity"):
         load_project_config(tmp_path)
+
+
+def test_load_project_config_reads_hierarchy_inversion_severity(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Hierarchy Severity Test\n"
+        "lint:\n  hierarchy_inversion_severity: info\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.hierarchy_inversion_severity == "info"
+
+
+def test_load_project_config_uses_default_hierarchy_inversion_severity(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Default Hierarchy Severity\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.hierarchy_inversion_severity == "warning"
+
+
+def test_load_project_config_rejects_invalid_hierarchy_inversion_severity(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Invalid Hierarchy Severity\n"
+        "lint:\n  hierarchy_inversion_severity: critical\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="hierarchy_inversion_severity"):
+        load_project_config(tmp_path)

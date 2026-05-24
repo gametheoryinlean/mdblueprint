@@ -8,6 +8,7 @@ from difflib import SequenceMatcher
 from typing import Callable
 
 from tools.knowledge.blueprint_view import plan_provides_proof
+from tools.knowledge.export import child_topic_id, home_topic_for_node
 from tools.knowledge.graph import KnowledgeGraph
 from tools.knowledge.lean_index import LeanDeclaration, LeanIndex
 from tools.knowledge.models import ADMITTED_STATUSES, STAGED_STATUSES, Node
@@ -448,3 +449,155 @@ class PlanPromoteDetector:
             ))
         return out
 
+
+
+# ── HierarchyInversionDetector (closes #137) ────────────────────────────────
+
+_HIERARCHY_VALID_SEVERITIES = frozenset({"info", "warning"})
+
+
+@dataclass
+class HierarchyInversionDetector:
+    """Flag uses-edges where parent-topic content depends on subtopic content.
+
+    For every uses edge ``u → v`` (i.e. ``v.uses`` lists ``u``), the prereq
+    ``u`` living in a strict descendant of the dependent's home topic is
+    almost always an editorial mistake: the parent-topic node should either
+    live in the subtopic (move its ``primary_topic``) or not depend on the
+    specialised material at all.
+    """
+
+    severity: str = "warning"
+    code: str = "LINT_HIERARCHY_INVERSION"
+    needs_llm: bool = False
+
+    def __post_init__(self) -> None:
+        if self.severity not in _HIERARCHY_VALID_SEVERITIES:
+            raise ValueError(
+                f"HierarchyInversionDetector severity must be 'info' or 'warning', "
+                f"got {self.severity!r}"
+            )
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        out: list[Diagnostic] = []
+        for dependent_id in sorted(graph.edges):
+            dependent = graph.nodes.get(dependent_id)
+            if dependent is None:
+                continue
+            h_v = home_topic_for_node(dependent)
+            for dependency_id in sorted(graph.edges[dependent_id]):
+                dependency = graph.nodes.get(dependency_id)
+                if dependency is None:
+                    continue
+                h_u = home_topic_for_node(dependency)
+                if h_u == h_v:
+                    continue
+                if not h_u.startswith(f"{h_v}."):
+                    continue
+                out.append(Diagnostic(
+                    level=self.severity,
+                    node_id=dependent_id,
+                    message=(
+                        f"node {dependent_id!r} (home: {h_v!r}) depends on "
+                        f"{dependency_id!r} which lives in subtopic {h_u!r}; "
+                        f"consider moving {dependent_id!r} down into {h_u!r} "
+                        f"(or a common ancestor) or removing the dependency"
+                    ),
+                    file_path=dependent.file_path,
+                    code=self.code,
+                    related=(dependency_id,),
+                ))
+        return out
+
+
+# ── TopicCycleDetector (closes #138) ────────────────────────────────────────
+
+
+@dataclass
+class TopicCycleDetector:
+    """Flag aggregation-level symmetric cycles between sibling child topics.
+
+    Walks every parent topic whose nodes have ≥ 2 distinct child-topic homes,
+    rebuilds the per-child uses-edge aggregation, and emits one info-level
+    diagnostic per ``(child_a, child_b)`` symmetric pair. The underlying
+    node-level DAG remains acyclic; the cycle is a property of the rollup.
+    """
+
+    code: str = "LINT_TOPIC_CYCLE"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        # Collect every (parent_topic, child_a, child_b) edge implied by
+        # node-level uses edges.
+        per_parent: dict[str, set[tuple[str, str]]] = {}
+        for dependent_id in sorted(graph.edges):
+            dependent = graph.nodes.get(dependent_id)
+            if dependent is None or dependent.kind == "proof-plan":
+                continue
+            h_v = home_topic_for_node(dependent)
+            for dependency_id in sorted(graph.edges[dependent_id]):
+                dependency = graph.nodes.get(dependency_id)
+                if dependency is None or dependency.kind == "proof-plan":
+                    continue
+                h_u = home_topic_for_node(dependency)
+                if h_u == h_v:
+                    continue
+                # Find every parent topic under which BOTH nodes resolve to
+                # *distinct* immediate children.
+                for parent in _common_strict_prefixes(h_u, h_v):
+                    child_u = child_topic_id(parent, h_u)
+                    child_v = child_topic_id(parent, h_v)
+                    if child_u is None or child_v is None or child_u == child_v:
+                        continue
+                    per_parent.setdefault(parent, set()).add((child_u, child_v))
+
+        out: list[Diagnostic] = []
+        for parent in sorted(per_parent):
+            edge_set = per_parent[parent]
+            seen_pairs: set[tuple[str, str]] = set()
+            for child_u, child_v in sorted(edge_set):
+                if (child_v, child_u) in edge_set:
+                    pair = tuple(sorted([child_u, child_v]))
+                    if pair in seen_pairs:
+                        continue
+                    seen_pairs.add(pair)
+                    a, b = pair
+                    out.append(Diagnostic(
+                        level="info",
+                        node_id="",
+                        message=(
+                            f"sibling subtopics {a!r} and {b!r} of {parent!r} "
+                            f"aggregate into a cycle (a↔b at child-topic level); "
+                            f"the underlying node-level DAG remains acyclic"
+                        ),
+                        code=self.code,
+                    ))
+        return out
+
+
+def _common_strict_prefixes(topic_a: str, topic_b: str) -> list[str]:
+    """Return every topic id ``P`` such that both ``topic_a`` and ``topic_b``
+    are strict descendants of ``P``."""
+    parts_a = topic_a.split(".")
+    parts_b = topic_b.split(".")
+    common: list[str] = []
+    for index in range(min(len(parts_a), len(parts_b))):
+        if parts_a[index] != parts_b[index]:
+            break
+        # We need P such that both a and b strictly descend from P,
+        # meaning P is a STRICT prefix of both — index < len-1 of each.
+        if index < len(parts_a) - 1 and index < len(parts_b) - 1:
+            common.append(".".join(parts_a[: index + 1]))
+    return common
