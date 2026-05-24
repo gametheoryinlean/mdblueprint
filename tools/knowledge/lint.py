@@ -372,12 +372,14 @@ def render_json(diags: list[Diagnostic]) -> str:
 
 
 def _default_detectors(config: "LintConfig | None" = None) -> list[Detector]:
-    """Return the built-in detector list. PR 3 introduces the first two."""
+    """Return the built-in detector list."""
     from tools.knowledge.config import LintConfig as _LintConfig
     cfg = config if config is not None else _LintConfig()
     return [
         FuzzyTitleDupDetector(threshold=cfg.fuzzy_threshold),
         StagedAdmittedOverlapDetector(threshold=cfg.fuzzy_threshold),
+        RedundantDepDetector(),
+        OrphanDetector(),
     ]
 
 
