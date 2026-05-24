@@ -8,6 +8,7 @@ from difflib import SequenceMatcher
 from typing import Callable
 
 from tools.knowledge.graph import KnowledgeGraph
+from tools.knowledge.lean_index import LeanDeclaration, LeanIndex
 from tools.knowledge.models import ADMITTED_STATUSES, STAGED_STATUSES, Node
 from tools.knowledge.validator import Diagnostic
 
@@ -270,4 +271,102 @@ class OrphanDetector:
                 file_path=node.file_path,
                 code=self.code,
             ))
+        return out
+
+
+# ── Lean ref kind detector ────────────────────────────────────────────────────
+
+_LEAN_KINDS_FOR_DEFINITION = frozenset(
+    {"def", "abbrev", "structure", "class", "inductive", "instance"}
+)
+_LEAN_KINDS_FOR_THEOREM = frozenset({"theorem", "lemma"})
+
+_LEAN_KIND_CLASSES: dict[str, frozenset[str]] = {
+    "definition": _LEAN_KINDS_FOR_DEFINITION,
+    "concept": _LEAN_KINDS_FOR_DEFINITION,
+    "lemma": _LEAN_KINDS_FOR_THEOREM,
+    "proposition": _LEAN_KINDS_FOR_THEOREM,
+    "theorem": _LEAN_KINDS_FOR_THEOREM,
+    "external-theorem": _LEAN_KINDS_FOR_THEOREM,
+}
+
+
+def _resolve_declaration(decl: str, index: LeanIndex) -> LeanDeclaration | None:
+    """Resolve a (possibly unqualified) declaration name against an index.
+
+    Mirrors tools.knowledge.lean_check._matching_declarations: prefer an
+    exact qualified-name hit; fall back to suffix matches ending in
+    ``.<decl>``. Returns ``None`` when the lookup is ambiguous or has no
+    match — both cases are handled elsewhere (``check.py`` reports
+    ambiguity / missing names).
+    """
+    exact = index.declarations.get(decl)
+    if exact is not None:
+        return exact
+    suffix = f".{decl}"
+    matches = [d for qn, d in index.declarations.items() if qn.endswith(suffix)]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+@dataclass
+class LeanRefKindDetector:
+    """Flag nodes whose Lean declaration kind contradicts the node's mdblueprint kind."""
+
+    indexes: dict[str, LeanIndex] | None = None
+    code: str = "LINT_LEAN_KIND"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        if not self.indexes:
+            return [Diagnostic(
+                level="info",
+                node_id="",
+                message="lean index not available; skipping LINT_LEAN_KIND",
+                code=self.code,
+            )]
+
+        default_index = self.indexes.get("default") or next(
+            iter(self.indexes.values()), None
+        )
+        out: list[Diagnostic] = []
+        for node_id in sorted(graph.nodes):
+            node = graph.nodes[node_id]
+            expected = _LEAN_KIND_CLASSES.get(node.kind)
+            if expected is None:
+                continue
+            if node.lean is None or not node.lean.declarations:
+                continue
+
+            repo_id = node.lean.repository
+            index = (
+                self.indexes.get(repo_id) if repo_id is not None else default_index
+            )
+            if index is None:
+                continue
+
+            for decl_name in node.lean.declarations:
+                resolved = _resolve_declaration(decl_name, index)
+                if resolved is None:
+                    continue
+                if resolved.kind not in expected:
+                    out.append(Diagnostic(
+                        level="warning",
+                        node_id=node.id,
+                        message=(
+                            f"node kind {node.kind!r} expects a Lean "
+                            f"{'/'.join(sorted(expected))} declaration; "
+                            f"{decl_name!r} is a Lean {resolved.kind!r}"
+                        ),
+                        file_path=node.file_path,
+                        code=self.code,
+                        related=(decl_name,),
+                    ))
         return out

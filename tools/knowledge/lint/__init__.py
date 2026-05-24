@@ -18,6 +18,7 @@ from tools.knowledge.lint._core import (
 )
 from tools.knowledge.lint._detectors import (
     FuzzyTitleDupDetector,
+    LeanRefKindDetector,
     OrphanDetector,
     RedundantDepDetector,
     StagedAdmittedOverlapDetector,
@@ -41,6 +42,7 @@ __all__ = [
     "StagedAdmittedOverlapDetector",
     "RedundantDepDetector",
     "OrphanDetector",
+    "LeanRefKindDetector",
     # Private helpers re-exported for tests
     "_normalize",
     "_ratio",
