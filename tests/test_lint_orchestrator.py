@@ -171,7 +171,8 @@ class TestCli:
         self, tmp_path, capsys, monkeypatch
     ):
         root = _make_minimal_knowledge_root(tmp_path)
-        # The default detector list (built inside main) is empty in PR 2.
+        # The default detectors (FuzzyTitleDup + StagedAdmittedOverlap) need at
+        # least two nodes to surface anything; the single-node minimal kb is quiet.
         rc = main([str(root)])
         out = capsys.readouterr().out
         assert rc == 0
@@ -184,7 +185,7 @@ class TestCli:
         # Inject a default-detector list with one warning emitter for this test.
         det = _emit_one_warning()
         monkeypatch.setattr(
-            "tools.knowledge.lint._default_detectors", lambda: [det]
+            "tools.knowledge.lint._default_detectors", lambda *_a, **_kw: [det]
         )
         rc = main([str(root), "--strict-warnings"])
         out = capsys.readouterr().out
@@ -197,7 +198,7 @@ class TestCli:
         root = _make_minimal_knowledge_root(tmp_path)
         det = _emit_one_warning()
         monkeypatch.setattr(
-            "tools.knowledge.lint._default_detectors", lambda: [det]
+            "tools.knowledge.lint._default_detectors", lambda *_a, **_kw: [det]
         )
         rc = main([str(root)])
         assert rc == 0
@@ -206,7 +207,7 @@ class TestCli:
         root = _make_minimal_knowledge_root(tmp_path)
         det = _emit_one_warning()
         monkeypatch.setattr(
-            "tools.knowledge.lint._default_detectors", lambda: [det]
+            "tools.knowledge.lint._default_detectors", lambda *_a, **_kw: [det]
         )
         main([str(root), "--json"])
         out = capsys.readouterr().out
@@ -224,7 +225,7 @@ class TestCli:
             _emit=(Diagnostic("warning", "n.a", "should be skipped", code="LINT_LLM_ONLY"),),
         )
         monkeypatch.setattr(
-            "tools.knowledge.lint._default_detectors", lambda: [det]
+            "tools.knowledge.lint._default_detectors", lambda *_a, **_kw: [det]
         )
         rc = main([str(root)])
         assert rc == 0
@@ -262,3 +263,34 @@ class TestClaudeRunnerFactory:
         runner = _make_claude_cli_runner(model="claude-sonnet-4-6")
         assert callable(runner)
         # Calling runner() would actually invoke `claude`; we only verify shape.
+
+
+class TestDefaultDetectorsWiring:
+    def test_default_detectors_use_threshold_from_config(self, tmp_path: Path):
+        from tools.knowledge.config import LintConfig
+        from tools.knowledge.lint import (
+            FuzzyTitleDupDetector,
+            StagedAdmittedOverlapDetector,
+            _default_detectors,
+        )
+
+        detectors = _default_detectors(LintConfig(fuzzy_threshold=0.77))
+        codes = {d.code for d in detectors}
+        assert "LINT_FUZZY_DUP" in codes
+        assert "LINT_STAGED_OVERLAP" in codes
+
+        fuzzy = next(d for d in detectors if isinstance(d, FuzzyTitleDupDetector))
+        overlap = next(d for d in detectors if isinstance(d, StagedAdmittedOverlapDetector))
+        assert fuzzy.threshold == 0.77
+        assert overlap.threshold == 0.77
+
+    def test_main_runs_default_detectors_against_bundled_example(self, capsys):
+        from tools.knowledge.lint import main
+
+        exit_code = main(["docs/knowledge"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        # Default detectors must be quiet on the bundled example at the default
+        # threshold. Any change to the example or threshold that surfaces a real
+        # finding here should be addressed in the example/threshold, not the test.
+        assert "No lint findings" in captured.out

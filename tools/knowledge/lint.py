@@ -19,12 +19,15 @@ import sys
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol
 
 from tools.knowledge.graph import KnowledgeGraph, build_graph
 from tools.knowledge.models import ADMITTED_STATUSES, STAGED_STATUSES, Node
 from tools.knowledge.parser import scan_directory
 from tools.knowledge.validator import Diagnostic
+
+if TYPE_CHECKING:
+    from tools.knowledge.config import LintConfig
 
 LlmRunner = Callable[[str], str]
 
@@ -248,9 +251,14 @@ def render_json(diags: list[Diagnostic]) -> str:
     return _json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def _default_detectors() -> list[Detector]:
-    """Return the built-in detector list. Empty in PR 2; PR 3+ populates it."""
-    return []
+def _default_detectors(config: "LintConfig | None" = None) -> list[Detector]:
+    """Return the built-in detector list. PR 3 introduces the first two."""
+    from tools.knowledge.config import LintConfig as _LintConfig
+    cfg = config if config is not None else _LintConfig()
+    return [
+        FuzzyTitleDupDetector(threshold=cfg.fuzzy_threshold),
+        StagedAdmittedOverlapDetector(threshold=cfg.fuzzy_threshold),
+    ]
 
 
 def _make_claude_cli_runner(model: str = "claude-sonnet-4-6") -> LlmRunner:
@@ -301,10 +309,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
+    from tools.knowledge.config import load_project_config
+
+    config = load_project_config(args.knowledge_root)
     llm: LlmRunner | None = None
     if args.llm:
         llm = _make_claude_cli_runner(model=args.model)
-    linter = Linter(detectors=_default_detectors(), llm=llm)
+    linter = Linter(detectors=_default_detectors(config.lint), llm=llm)
     diags = linter.run(args.knowledge_root)
     output = render_json(diags) if args.json else render_text(diags)
     print(output)
