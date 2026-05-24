@@ -398,7 +398,20 @@ def _keyword_entries(nodes: list[Node]) -> list[dict]:
     ]
 
 
-def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
+def export_topic_subgraph_json(
+    g: KnowledgeGraph,
+    topic_id: str,
+    *,
+    graph_config: "GraphDisplayConfig | None" = None,
+) -> dict:
+    from tools.knowledge.config import GraphDisplayConfig as _GraphCfg
+
+    cfg = graph_config if graph_config is not None else _GraphCfg(
+        max_visible_nodes=120,
+        max_expand_nodes=80,
+        proof_plans="selected-only",
+    )
+
     topic_data = _topic_hierarchy_data(g)
     current_topic_data = topic_data.get(topic_id, _empty_topic_data(topic_id))
     child_ids = sorted(current_topic_data["children"])
@@ -411,15 +424,64 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
     internal_nodes = [g.nodes[node_id] for node_id in internal_ids]
     topic_counts = _topic_node_counts(g)
 
-    # `internal_set` drives what nodes the page lists explicitly (one entry per
-    # node whose `topics:[]` names this topic). `family_set` is the broader
-    # universe of "nodes inside this topic's hierarchical scope" — current topic
-    # plus every descendant by home topic. See #136.
+    # `internal_set` drives what nodes the page lists by virtue of their
+    # explicit `topics:[]` tag. `family_set` is the broader universe of
+    # "nodes inside this topic's hierarchical scope" — current topic plus
+    # every descendant by home topic. See #136.
     def _in_family(node: Node) -> bool:
         h = home_topic_for_node(node)
         return h == topic_id or h.startswith(f"{topic_id}.")
 
     family_set = {node.id for node in g.nodes.values() if _in_family(node)}
+
+    # Adaptive inlining (#139): small child topics fold their entire subtree
+    # into this page's flat node list instead of being shown as a single box,
+    # subject to two knobs:
+    #   - graph.inline_child_max_size — per-child eligibility threshold
+    #   - graph.max_page_total — hard cap on visible flat nodes per page
+    # `_count_family_nodes(c)` returns the size of the subtree rooted at c.
+    child_subtree_sizes: dict[str, int] = {
+        child: sum(
+            1 for node in g.nodes.values()
+            if home_topic_for_node(node) == child
+            or home_topic_for_node(node).startswith(f"{child}.")
+        )
+        for child in child_ids
+    }
+    inlined_children: set[str] = set()
+    used_budget = len(internal_ids)
+    candidates = sorted(
+        (
+            (child, size)
+            for child, size in child_subtree_sizes.items()
+            if 0 < size <= cfg.inline_child_max_size
+        ),
+        key=lambda item: (item[1], item[0]),
+    )
+    for child, size in candidates:
+        if used_budget + size <= cfg.max_page_total:
+            inlined_children.add(child)
+            used_budget += size
+
+    # Nodes pulled onto this page by inlining their parent child topic.
+    inlined_node_ids: set[str] = set()
+    for child in inlined_children:
+        for node in g.nodes.values():
+            h = home_topic_for_node(node)
+            if h == child or h.startswith(f"{child}."):
+                inlined_node_ids.add(node.id)
+    inlined_node_ids -= internal_set  # internal nodes are already represented
+
+    # Effective page set governs edge classification: any flat node on the page
+    # — whether tagged-into-topic or pulled-in-by-inlining — counts as
+    # "internal" for the purposes of routing edges through boundary boxes vs.
+    # plain edges.
+    effective_internal_set = internal_set | inlined_node_ids
+
+    # Render-ready node list: internal nodes plus the pulled-in inlined nodes.
+    page_nodes = list(internal_nodes) + [
+        g.nodes[nid] for nid in sorted(inlined_node_ids)
+    ]
 
     edges = []
     boundary_edge_counts: Counter[tuple[str, str, str, str]] = Counter()
@@ -431,8 +493,8 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
                 continue
             dependent_in_family = dependent_id in family_set
             dependency_in_family = dependency_id in family_set
-            dependent_in_internal = dependent_id in internal_set
-            dependency_in_internal = dependency_id in internal_set
+            dependent_in_internal = dependent_id in effective_internal_set
+            dependency_in_internal = dependency_id in effective_internal_set
             edge_kind = (
                 "proof_plan_uses"
                 if g.nodes[dependent_id].kind == "proof-plan" or g.nodes[dependency_id].kind == "proof-plan"
@@ -547,7 +609,7 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
     for plan_id, target_id in sorted(g.proof_plan_targets.items()):
         if plan_id not in g.nodes or target_id not in g.nodes:
             continue
-        if plan_id not in internal_set and target_id not in internal_set:
+        if plan_id not in effective_internal_set and target_id not in effective_internal_set:
             continue
         plan = g.nodes[plan_id]
         # has_plan edges follow the same orientation as every other graph
@@ -563,13 +625,25 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
             attachment["plan_status"] = plan.plan_status
         proof_plan_attachments.append(attachment)
 
-    proof_plan_nodes = [node for node in internal_nodes if node.kind == "proof-plan"]
-    non_proof_plan_count = len(internal_nodes) - len(proof_plan_nodes)
+    proof_plan_nodes = [node for node in page_nodes if node.kind == "proof-plan"]
+    non_proof_plan_count = len(page_nodes) - len(proof_plan_nodes)
     selected_proof_plan_count = sum(1 for node in proof_plan_nodes if node.plan_status == "selected")
 
+    # Inlined children no longer get a separate box on the page — their
+    # contents now appear directly in `nodes`. Drop them from the child topic
+    # list and from `_child_topic_edges` (whose endpoints become flat edges
+    # already accounted for above).
+    visible_child_ids = [c for c in child_ids if c not in inlined_children]
     child_topic_nodes = [
         _topic_entry(child_id, topic_data[child_id])
-        for child_id in child_ids
+        for child_id in visible_child_ids
+    ]
+    raw_child_topic_edges = _child_topic_edges(g, topic_id)
+    child_topic_edges = [
+        edge
+        for edge in raw_child_topic_edges
+        if edge["from"].removeprefix("topic:") not in inlined_children
+        and edge["to"].removeprefix("topic:") not in inlined_children
     ]
     child_boundary_topics, child_boundary_edges = _topic_layer_boundary(g, topic_id, topic_counts)
 
@@ -584,8 +658,10 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
         },
         "counts": {
             "internal_nodes": len(internal_ids),
+            "inlined_nodes": len(inlined_node_ids),
             "descendant_nodes": len(current_topic_data["all_nodes"]),
             "child_topics": len(child_topic_nodes),
+            "inlined_child_topics": len(inlined_children),
             "non_proof_plan_nodes": non_proof_plan_count,
             "proof_plan_nodes": len(proof_plan_nodes),
             "selected_proof_plan_nodes": selected_proof_plan_count,
@@ -594,25 +670,31 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
             "visible_nodes_without_proof_plans": 1 + len(boundary_topics) + non_proof_plan_count,
             "visible_nodes_with_selected_proof_plans": 1 + len(boundary_topics) + non_proof_plan_count + selected_proof_plan_count,
         },
-        "nodes": [_subgraph_node_entry(node) for node in internal_nodes],
+        "nodes": [_subgraph_node_entry(node) for node in page_nodes],
         "edges": edges,
         "boundary_topics": boundary_topics,
         "boundary_edges": boundary_edges,
-        "keywords": _keyword_entries(internal_nodes),
+        "keywords": _keyword_entries(page_nodes),
         "proof_plan_attachments": proof_plan_attachments,
-        "child_topics": child_ids,
+        "child_topics": visible_child_ids,
         "child_topic_nodes": child_topic_nodes,
-        "child_topic_edges": _child_topic_edges(g, topic_id),
+        "child_topic_edges": child_topic_edges,
         "child_boundary_topics": child_boundary_topics,
         "child_boundary_edges": child_boundary_edges,
+        "inlined_child_topics": sorted(inlined_children),
     }
 
 
-def write_topic_subgraph_jsons(g: KnowledgeGraph, output_dir: Path) -> None:
+def write_topic_subgraph_jsons(
+    g: KnowledgeGraph,
+    output_dir: Path,
+    *,
+    graph_config: "GraphDisplayConfig | None" = None,
+) -> None:
     topic_ids = sorted(_topic_hierarchy_data(g))
     output_dir.mkdir(parents=True, exist_ok=True)
     for topic_id in topic_ids:
-        data = export_topic_subgraph_json(g, topic_id)
+        data = export_topic_subgraph_json(g, topic_id, graph_config=graph_config)
         (output_dir / f"{topic_id}.json").write_text(
             json.dumps(data, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",

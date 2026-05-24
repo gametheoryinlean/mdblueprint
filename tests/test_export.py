@@ -317,6 +317,7 @@ class TestExportTopicOverviewJson:
 
 class TestExportTopicSubgraphJson:
     def test_parent_topic_subgraph_contains_immediate_child_topics_and_edges(self):
+        from tools.knowledge.config import GraphDisplayConfig
         from tools.knowledge.models import Node
 
         base = Node(
@@ -342,7 +343,14 @@ class TestExportTopicSubgraphJson:
         graph, diags = build_graph([base, nash, perfect])
         assert diags == []
 
-        data = export_topic_subgraph_json(graph, "game_theory")
+        # Force boxed (no inlining) so the original assertion shape holds.
+        boxed_cfg = GraphDisplayConfig(
+            max_visible_nodes=120,
+            max_expand_nodes=80,
+            proof_plans="selected-only",
+            inline_child_max_size=0,
+        )
+        data = export_topic_subgraph_json(graph, "game_theory", graph_config=boxed_cfg)
 
         assert data["topic"]["id"] == "game_theory"
         assert data["counts"]["descendant_nodes"] == 3
@@ -623,6 +631,7 @@ class TestExportTopicSubgraphJson:
         topic box (which the page already renders via
         ``child_topic_nodes``), avoiding duplicated dashed boxes.
         """
+        from tools.knowledge.config import GraphDisplayConfig
         from tools.knowledge.models import Node
 
         parent_tagged = Node(
@@ -644,7 +653,15 @@ class TestExportTopicSubgraphJson:
         graph, diags = build_graph([parent_tagged, descendant])
         assert diags == []
 
-        data = export_topic_subgraph_json(graph, "algebra")
+        # Force boxed (no inlining) so the boundary path under test fires
+        # instead of #139's inlining absorbing the descendant.
+        boxed_cfg = GraphDisplayConfig(
+            max_visible_nodes=120,
+            max_expand_nodes=80,
+            proof_plans="selected-only",
+            inline_child_max_size=0,
+        )
+        data = export_topic_subgraph_json(graph, "algebra", graph_config=boxed_cfg)
         # Descendant child topic must not appear as a boundary box.
         boundary_ids = {t["id"] for t in data["boundary_topics"]}
         assert "algebra.groups" not in boundary_ids
@@ -652,6 +669,127 @@ class TestExportTopicSubgraphJson:
         # the child_topic_node box rather than from an external label.
         boundary_edge_endpoints = {(e["from"], e["to"]) for e in data["boundary_edges"]}
         assert ("topic:algebra.groups", "algebra.headline_theorem") in boundary_edge_endpoints
+
+    def test_small_child_topic_is_inlined_into_parent_page(self):
+        """Default config (#139): a child topic with <= 8 descendant nodes
+        and budget room is folded into the parent page as flat nodes.
+        Its child_topic_node box vanishes; its uses-edges become regular
+        flat page edges."""
+        from tools.knowledge.models import Node
+
+        parent_node = Node(
+            id="algebra.foundation",
+            title="Foundation",
+            kind="definition",
+            status="admitted",
+            primary_topic="algebra",
+            topics=["algebra"],
+        )
+        # Small child: 3 nodes total — should inline at default settings.
+        groups_a = Node(id="algebra.groups.x", title="x", kind="definition",
+                        status="admitted", primary_topic="algebra.groups")
+        groups_b = Node(id="algebra.groups.y", title="y", kind="theorem",
+                        status="admitted", primary_topic="algebra.groups",
+                        uses=["algebra.groups.x"])
+        groups_c = Node(id="algebra.groups.z", title="z", kind="theorem",
+                        status="admitted", primary_topic="algebra.groups",
+                        uses=["algebra.groups.y", "algebra.foundation"])
+        graph, _ = build_graph([parent_node, groups_a, groups_b, groups_c])
+
+        data = export_topic_subgraph_json(graph, "algebra")
+        page_ids = {n["id"] for n in data["nodes"]}
+        # All four nodes show up on the page (1 internal + 3 inlined).
+        assert page_ids == {
+            "algebra.foundation",
+            "algebra.groups.x",
+            "algebra.groups.y",
+            "algebra.groups.z",
+        }
+        # No box for the inlined child topic.
+        assert [t["id"] for t in data["child_topic_nodes"]] == []
+        # Inlined topic recorded so the renderer / debugger can tell.
+        assert data["inlined_child_topics"] == ["algebra.groups"]
+        assert data["counts"]["inlined_nodes"] == 3
+        assert data["counts"]["inlined_child_topics"] == 1
+        # Edges between inlined nodes become flat edges on the page.
+        flat_pairs = {(e["from"], e["to"]) for e in data["edges"]}
+        assert ("algebra.groups.x", "algebra.groups.y") in flat_pairs
+        assert ("algebra.groups.y", "algebra.groups.z") in flat_pairs
+        # Edge from inlined node to internal node also flat.
+        assert ("algebra.foundation", "algebra.groups.z") in flat_pairs
+
+    def test_large_child_topic_stays_boxed(self):
+        """A child topic with > inline_child_max_size descendants stays as
+        a child_topic_node box (no inlining)."""
+        from tools.knowledge.config import GraphDisplayConfig
+        from tools.knowledge.models import Node
+
+        parent_node = Node(
+            id="algebra.foundation",
+            title="Foundation",
+            kind="definition",
+            status="admitted",
+            primary_topic="algebra",
+            topics=["algebra"],
+        )
+        # Build a child topic with 12 nodes — over the inline_child_max_size
+        # default of 8, so it must stay boxed.
+        large_child_nodes = [
+            Node(
+                id=f"algebra.massive.n{i}",
+                title=f"n{i}",
+                kind="definition",
+                status="admitted",
+                primary_topic="algebra.massive",
+            )
+            for i in range(12)
+        ]
+        graph, _ = build_graph([parent_node, *large_child_nodes])
+
+        data = export_topic_subgraph_json(graph, "algebra")
+        child_ids = [t["id"] for t in data["child_topic_nodes"]]
+        assert "algebra.massive" in child_ids
+        assert data["inlined_child_topics"] == []
+        # Page only renders the original internal node + boundary.
+        assert {n["id"] for n in data["nodes"]} == {"algebra.foundation"}
+
+    def test_inlining_respects_max_page_total_cap(self):
+        """Multiple small children whose combined size exceeds the cap are
+        only partially inlined: greedy smallest-first until the cap fills."""
+        from tools.knowledge.config import GraphDisplayConfig
+        from tools.knowledge.models import Node
+
+        # Three child topics with 5 nodes each. Cap = 8 - already 0 internal.
+        # Budget allows inlining only ONE (5 ≤ 8 - 0; 10 > 8; stop).
+        nodes_for = lambda topic, n: [
+            Node(
+                id=f"{topic}.x{i}",
+                title=f"x{i}",
+                kind="definition",
+                status="admitted",
+                primary_topic=topic,
+            )
+            for i in range(n)
+        ]
+        all_nodes = (
+            nodes_for("alg.a", 5)
+            + nodes_for("alg.b", 5)
+            + nodes_for("alg.c", 5)
+        )
+        graph, _ = build_graph(all_nodes)
+
+        tight_cfg = GraphDisplayConfig(
+            max_visible_nodes=120,
+            max_expand_nodes=80,
+            proof_plans="selected-only",
+            max_page_total=8,
+            inline_child_max_size=8,
+        )
+        data = export_topic_subgraph_json(graph, "alg", graph_config=tight_cfg)
+        # Exactly one child inlined (5 nodes ≤ cap 8); the other two remain boxed.
+        assert len(data["inlined_child_topics"]) == 1
+        assert data["counts"]["inlined_nodes"] == 5
+        assert len(data["child_topic_nodes"]) == 2
 
     def test_topic_subgraph_keeps_proof_plan_attachments_separate_from_uses_edges(self):
         from tools.knowledge.models import Node

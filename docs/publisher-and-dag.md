@@ -128,6 +128,7 @@ The generated site intentionally follows leanblueprint's presentation style with
 - Node pages and graph modals keep proof text in a collapsed `<details>` section by default.
 - `dep_graph_document.html` is the leanblueprint-style graph page; `graph.html` is preserved as a compatibility alias.
 - The default graph view is topic-first. `graph.max_visible_nodes` defaults to `120`, `graph.max_expand_nodes` defaults to `80`, and oversized topic expansion shows a bounded navigation fallback instead of rendering an unreadable graph.
+- **Adaptive child-topic inlining (#139).** A parent-topic page renders small child topics inline as flat nodes instead of as drill-down boxes. The decision is greedy: each child whose full descendant count is `≤ graph.inline_child_max_size` (default `8`) is a candidate; candidates are folded into the parent page in ascending size order until `graph.max_page_total` (default `100`) would be exceeded. Inlined children disappear from `child_topic_nodes`; their uses-edges show up as ordinary flat edges. `counts.inlined_nodes` and `inlined_child_topics` in the subgraph JSON report what was folded in.
 - Topic fallback navigation links to the topic page and to keyword pages derived from the topic's node tags.
 
 ## Topic-First DAG Navigation

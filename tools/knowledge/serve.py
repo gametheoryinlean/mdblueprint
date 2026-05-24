@@ -142,7 +142,9 @@ class DevServer:
             ctx = server.ctx
             if topic_id not in ctx.topics:
                 abort(404)
-            return _json_response(export_topic_subgraph_json(ctx.graph, topic_id))
+            return _json_response(
+                export_topic_subgraph_json(ctx.graph, topic_id, graph_config=ctx.config.graph)
+            )
 
         @app.get("/node_payloads/<node_filename>.json")
         def node_payload_json(node_filename: str):

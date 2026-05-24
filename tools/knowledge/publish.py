@@ -72,7 +72,9 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     write_graph_json(g, output_dir / "graph.json")
     write_topic_overview_json(g, output_dir / "graph_topics.json")
     write_topic_hierarchy_json(g, output_dir / "graph_topics_hierarchy.json")
-    write_topic_subgraph_jsons(g, output_dir / "subgraphs" / "topics")
+    write_topic_subgraph_jsons(
+        g, output_dir / "subgraphs" / "topics", graph_config=config.graph
+    )
 
     payload_dir = output_dir / "node_payloads"
     payload_dir.mkdir(parents=True, exist_ok=True)

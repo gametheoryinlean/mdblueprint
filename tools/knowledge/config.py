@@ -17,6 +17,8 @@ DEFAULT_DISPLAY_DELIMITERS = ((r"$$", r"$$"), (r"\[", r"\]"))
 DEFAULT_INLINE_DELIMITERS = ((r"$", r"$"), (r"\(", r"\)"))
 DEFAULT_GRAPH_MAX_VISIBLE_NODES = 120
 DEFAULT_GRAPH_MAX_EXPAND_NODES = 80
+DEFAULT_GRAPH_MAX_PAGE_TOTAL = 100
+DEFAULT_GRAPH_INLINE_CHILD_MAX_SIZE = 8
 DEFAULT_GRAPH_PROOF_PLANS = "selected-only"
 GRAPH_PROOF_PLAN_POLICIES = {"hidden", "selected-only", "all"}
 
@@ -56,6 +58,8 @@ class GraphDisplayConfig:
     max_visible_nodes: int
     max_expand_nodes: int
     proof_plans: str
+    max_page_total: int = DEFAULT_GRAPH_MAX_PAGE_TOTAL
+    inline_child_max_size: int = DEFAULT_GRAPH_INLINE_CHILD_MAX_SIZE
 
 
 @dataclass(frozen=True)
@@ -126,6 +130,8 @@ def _default_graph_config() -> GraphDisplayConfig:
         max_visible_nodes=DEFAULT_GRAPH_MAX_VISIBLE_NODES,
         max_expand_nodes=DEFAULT_GRAPH_MAX_EXPAND_NODES,
         proof_plans=DEFAULT_GRAPH_PROOF_PLANS,
+        max_page_total=DEFAULT_GRAPH_MAX_PAGE_TOTAL,
+        inline_child_max_size=DEFAULT_GRAPH_INLINE_CHILD_MAX_SIZE,
     )
 
 
@@ -162,6 +168,18 @@ def _parse_graph_config(raw: Any, *, path: Path) -> GraphDisplayConfig:
             default=DEFAULT_GRAPH_MAX_EXPAND_NODES,
         ),
         proof_plans=proof_plans.strip(),
+        max_page_total=_parse_positive_int(
+            raw.get("max_page_total"),
+            path=path,
+            field="max_page_total",
+            default=DEFAULT_GRAPH_MAX_PAGE_TOTAL,
+        ),
+        inline_child_max_size=_parse_positive_int(
+            raw.get("inline_child_max_size"),
+            path=path,
+            field="inline_child_max_size",
+            default=DEFAULT_GRAPH_INLINE_CHILD_MAX_SIZE,
+        ),
     )
 
 
