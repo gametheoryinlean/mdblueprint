@@ -15,6 +15,7 @@ from tools.knowledge.validator import Diagnostic
 
 if TYPE_CHECKING:
     from tools.knowledge.config import LintConfig
+    from tools.knowledge.lean_index import LeanIndex
 
 LlmRunner = Callable[[str], str]
 
@@ -103,11 +104,16 @@ def render_json(diags: list[Diagnostic]) -> str:
     return _json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def _default_detectors(config: "LintConfig | None" = None) -> list[Detector]:
+def _default_detectors(
+    config: "LintConfig | None" = None,
+    *,
+    lean_indexes: "dict[str, LeanIndex] | None" = None,
+) -> list[Detector]:
     """Return the built-in detector list."""
     from tools.knowledge.config import LintConfig as _LintConfig
     from tools.knowledge.lint._detectors import (
         FuzzyTitleDupDetector,
+        LeanRefKindDetector,
         OrphanDetector,
         RedundantDepDetector,
         StagedAdmittedOverlapDetector,
@@ -119,6 +125,7 @@ def _default_detectors(config: "LintConfig | None" = None) -> list[Detector]:
         StagedAdmittedOverlapDetector(threshold=cfg.fuzzy_threshold),
         RedundantDepDetector(),
         OrphanDetector(),
+        LeanRefKindDetector(indexes=lean_indexes),
     ]
 
 
@@ -171,13 +178,43 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     from tools.knowledge.config import load_project_config
+    from tools.knowledge.lean_index import index_lean_project
     import tools.knowledge.lint as _lint_pkg
 
     config = load_project_config(args.knowledge_root)
+
+    lean_indexes: dict[str, "LeanIndex"] = {}
+    for repo_id, repo in config.lean.repositories.items():
+        if not repo.local_path.exists():
+            continue
+        try:
+            lean_indexes[repo_id] = index_lean_project(repo.local_path, repository=repo)
+        except Exception:
+            # Indexing failures are not lint errors — they belong to
+            # `mdblueprint-check`. Skip the repo silently here; the
+            # LeanRefKindDetector falls back to "no index" behavior
+            # when none of the configured repos resolved.
+            continue
+    if (
+        config.lean.default_repository
+        and config.lean.default_repository in lean_indexes
+    ):
+        # Alias the chosen default under the literal "default" key so the
+        # detector's lookup `indexes.get("default") or next(...)` finds it
+        # for nodes whose lean.repository is unset.
+        lean_indexes.setdefault(
+            "default", lean_indexes[config.lean.default_repository]
+        )
+
     llm: LlmRunner | None = None
     if args.llm:
         llm = _make_claude_cli_runner(model=args.model)
-    linter = Linter(detectors=_lint_pkg._default_detectors(config.lint), llm=llm)
+    linter = Linter(
+        detectors=_lint_pkg._default_detectors(
+            config.lint, lean_indexes=lean_indexes or None
+        ),
+        llm=llm,
+    )
     diags = linter.run(args.knowledge_root)
     output = render_json(diags) if args.json else render_text(diags)
     print(output)
