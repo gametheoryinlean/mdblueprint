@@ -411,6 +411,16 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
     internal_nodes = [g.nodes[node_id] for node_id in internal_ids]
     topic_counts = _topic_node_counts(g)
 
+    # `internal_set` drives what nodes the page lists explicitly (one entry per
+    # node whose `topics:[]` names this topic). `family_set` is the broader
+    # universe of "nodes inside this topic's hierarchical scope" — current topic
+    # plus every descendant by home topic. See #136.
+    def _in_family(node: Node) -> bool:
+        h = home_topic_for_node(node)
+        return h == topic_id or h.startswith(f"{topic_id}.")
+
+    family_set = {node.id for node in g.nodes.values() if _in_family(node)}
+
     edges = []
     boundary_edge_counts: Counter[tuple[str, str, str, str]] = Counter()
     boundary_roles: dict[str, set[str]] = defaultdict(set)
@@ -419,15 +429,18 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes or dependent_id not in g.nodes:
                 continue
-            dependent_internal = dependent_id in internal_set
-            dependency_internal = dependency_id in internal_set
+            dependent_in_family = dependent_id in family_set
+            dependency_in_family = dependency_id in family_set
+            dependent_in_internal = dependent_id in internal_set
+            dependency_in_internal = dependency_id in internal_set
             edge_kind = (
                 "proof_plan_uses"
                 if g.nodes[dependent_id].kind == "proof-plan" or g.nodes[dependency_id].kind == "proof-plan"
                 else "uses"
             )
 
-            if dependent_internal and dependency_internal:
+            # Both endpoints rendered as page items → flat internal edge.
+            if dependent_in_internal and dependency_in_internal:
                 edges.append({
                     "from": dependency_id,
                     "to": dependent_id,
@@ -435,7 +448,40 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
                 })
                 continue
 
-            if dependent_internal and not dependency_internal:
+            # Both endpoints inside the topic family but at least one is a
+            # descendant not listed as a page item (the descendant gets shown
+            # as a child_topic_node box). Aggregate per the child topic. Pure
+            # descendant↔descendant cases are also covered by _child_topic_edges;
+            # we still emit here so child_topic↔internal_node edges render.
+            if dependent_in_family and dependency_in_family:
+                if not dependent_in_internal:
+                    # Dependent lives in a descendant child topic; arrow ends
+                    # at that child_topic_node box.
+                    dep_child = child_topic_id(topic_id, home_topic_for_node(g.nodes[dependent_id]))
+                    if dep_child is not None and dependency_in_internal:
+                        boundary_edge_counts[(
+                            dependency_id,
+                            f"topic:{dep_child}",
+                            "boundary_dependent" if edge_kind == "uses" else "boundary_proof_plan_dependent",
+                            dep_child,
+                        )] += 1
+                if not dependency_in_internal:
+                    # Dependency lives in a descendant; arrow starts from that
+                    # child_topic_node box.
+                    dep_child = child_topic_id(topic_id, home_topic_for_node(g.nodes[dependency_id]))
+                    if dep_child is not None and dependent_in_internal:
+                        boundary_edge_counts[(
+                            f"topic:{dep_child}",
+                            dependent_id,
+                            "boundary_dependency" if edge_kind == "uses" else "boundary_proof_plan_dependency",
+                            dep_child,
+                        )] += 1
+                # Pure descendant↔descendant edges are already aggregated by
+                # _child_topic_edges; no extra emission here.
+                continue
+
+            # True boundary edge: exactly one endpoint outside the family.
+            if dependent_in_family and not dependency_in_family:
                 boundary_topic = home_topic_for_node(g.nodes[dependency_id])
                 boundary_roles[boundary_topic].add("dependency")
                 boundary_kind = (
@@ -445,13 +491,14 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
                 )
                 boundary_edge_counts[(
                     f"topic:{boundary_topic}",
-                    dependent_id,
+                    dependent_id if dependent_in_internal
+                    else f"topic:{child_topic_id(topic_id, home_topic_for_node(g.nodes[dependent_id]))}",
                     boundary_kind,
                     boundary_topic,
                 )] += 1
                 continue
 
-            if dependency_internal and not dependent_internal:
+            if dependency_in_family and not dependent_in_family:
                 boundary_topic = home_topic_for_node(g.nodes[dependent_id])
                 boundary_roles[boundary_topic].add("dependent")
                 boundary_kind = (
@@ -460,7 +507,8 @@ def export_topic_subgraph_json(g: KnowledgeGraph, topic_id: str) -> dict:
                     else "boundary_dependent"
                 )
                 boundary_edge_counts[(
-                    dependency_id,
+                    dependency_id if dependency_in_internal
+                    else f"topic:{child_topic_id(topic_id, home_topic_for_node(g.nodes[dependency_id]))}",
                     f"topic:{boundary_topic}",
                     boundary_kind,
                     boundary_topic,

@@ -612,6 +612,47 @@ class TestExportTopicSubgraphJson:
         ]
         assert ("topic:algebra.monoids", "topic:algebra.groups") not in child_edges
 
+    def test_descendant_subtopic_node_is_not_rendered_as_boundary_topic(self):
+        """Regression for #136.
+
+        When viewing parent topic ``P``, a node whose home topic is a
+        descendant of ``P`` (e.g. ``P.child.X``) must NOT appear as a
+        boundary_topic — it is conceptually inside ``P``'s hierarchical
+        scope. Its edges to internal ``P``-tagged nodes still render,
+        but as boundary_edges whose external endpoint is the child
+        topic box (which the page already renders via
+        ``child_topic_nodes``), avoiding duplicated dashed boxes.
+        """
+        from tools.knowledge.models import Node
+
+        parent_tagged = Node(
+            id="algebra.headline_theorem",
+            title="Headline Theorem",
+            kind="theorem",
+            status="admitted",
+            primary_topic="algebra",
+            topics=["algebra"],
+            uses=["algebra.groups.special_lemma"],
+        )
+        descendant = Node(
+            id="algebra.groups.special_lemma",
+            title="Special Group Lemma",
+            kind="lemma",
+            status="admitted",
+            primary_topic="algebra.groups",
+        )
+        graph, diags = build_graph([parent_tagged, descendant])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "algebra")
+        # Descendant child topic must not appear as a boundary box.
+        boundary_ids = {t["id"] for t in data["boundary_topics"]}
+        assert "algebra.groups" not in boundary_ids
+        # The edge from the descendant must still be present, drawn from
+        # the child_topic_node box rather than from an external label.
+        boundary_edge_endpoints = {(e["from"], e["to"]) for e in data["boundary_edges"]}
+        assert ("topic:algebra.groups", "algebra.headline_theorem") in boundary_edge_endpoints
+
     def test_topic_subgraph_keeps_proof_plan_attachments_separate_from_uses_edges(self):
         from tools.knowledge.models import Node
 
