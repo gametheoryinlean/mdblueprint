@@ -288,16 +288,21 @@ class TestDefaultDetectorsWiring:
             FuzzyTitleDupDetector,
             LeanAlignmentLlmDetector,
             LeanRefKindDetector,
+            PlanPromoteDetector,
             SemanticDupDetector,
             StagedAdmittedOverlapDetector,
             _default_detectors,
         )
 
         detectors = _default_detectors(
-            LintConfig(fuzzy_threshold=0.77, semantic_candidate_threshold=0.6)
+            LintConfig(
+                fuzzy_threshold=0.77,
+                semantic_candidate_threshold=0.6,
+                plan_promote_severity="warning",
+            ),
         )
         codes = {d.code for d in detectors}
-        # PR 3..7 contributors:
+        # PR 3..8 contributors:
         assert codes >= {
             "LINT_FUZZY_DUP",
             "LINT_STAGED_OVERLAP",
@@ -306,6 +311,7 @@ class TestDefaultDetectorsWiring:
             "LINT_LEAN_KIND",
             "LINT_SEMANTIC_DUP",
             "LINT_LEAN_ALIGN",
+            "LINT_PLAN_PROMOTE",
         }
 
         fuzzy = next(d for d in detectors if isinstance(d, FuzzyTitleDupDetector))
@@ -325,6 +331,9 @@ class TestDefaultDetectorsWiring:
         # Without an explicit lean_indexes kwarg it falls back to None
         # and will emit a single info when run.
         assert align.indexes is None
+
+        promote = next(d for d in detectors if isinstance(d, PlanPromoteDetector))
+        assert promote.severity == "warning"
 
     def test_default_detectors_accept_lean_indexes_kwarg(self):
         from tools.knowledge.config import LintConfig

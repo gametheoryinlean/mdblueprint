@@ -122,6 +122,7 @@ def _default_detectors(
         FuzzyTitleDupDetector,
         LeanRefKindDetector,
         OrphanDetector,
+        PlanPromoteDetector,
         RedundantDepDetector,
         StagedAdmittedOverlapDetector,
     )
@@ -139,6 +140,7 @@ def _default_detectors(
         RedundantDepDetector(),
         OrphanDetector(),
         LeanRefKindDetector(indexes=lean_indexes),
+        PlanPromoteDetector(severity=cfg.plan_promote_severity),
         SemanticDupDetector(
             cache=cache,
             budget=budget,
