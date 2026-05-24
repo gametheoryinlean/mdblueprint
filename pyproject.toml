@@ -33,6 +33,7 @@ mdblueprint-lean-linking = "tools.knowledge.lean_linking:main"
 mdblueprint-lint = "tools.knowledge.lint:main"
 mdblueprint-proof-fill = "tools.knowledge.proof_fill:main"
 mdblueprint-serve = "tools.knowledge.serve:main"
+mdblueprint-stats = "tools.knowledge.stats:main"
 
 [tool.setuptools.packages.find]
 include = ["tools*"]
