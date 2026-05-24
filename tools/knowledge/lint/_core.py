@@ -16,6 +16,7 @@ from tools.knowledge.validator import Diagnostic
 if TYPE_CHECKING:
     from tools.knowledge.config import LintConfig
     from tools.knowledge.lean_index import LeanIndex
+    from tools.knowledge.lint._cache import _BudgetTracker, _LintCache
 
 LlmRunner = Callable[[str], str]
 
@@ -108,24 +109,38 @@ def _default_detectors(
     config: "LintConfig | None" = None,
     *,
     lean_indexes: "dict[str, LeanIndex] | None" = None,
+    cache: "_LintCache | None" = None,
+    budget: "_BudgetTracker | None" = None,
 ) -> list[Detector]:
     """Return the built-in detector list."""
     from tools.knowledge.config import LintConfig as _LintConfig
+    from tools.knowledge.lint._cache import (
+        _BudgetTracker as _BT,
+        _LintCache as _LC,
+    )
     from tools.knowledge.lint._detectors import (
         FuzzyTitleDupDetector,
         LeanRefKindDetector,
         OrphanDetector,
         RedundantDepDetector,
+        SemanticDupDetector,
         StagedAdmittedOverlapDetector,
     )
 
     cfg = config if config is not None else _LintConfig()
+    cache = cache if cache is not None else _LC(cache_dir=None)
+    budget = budget if budget is not None else _BT(budget=None)
     return [
         FuzzyTitleDupDetector(threshold=cfg.fuzzy_threshold),
         StagedAdmittedOverlapDetector(threshold=cfg.fuzzy_threshold),
         RedundantDepDetector(),
         OrphanDetector(),
         LeanRefKindDetector(indexes=lean_indexes),
+        SemanticDupDetector(
+            cache=cache,
+            budget=budget,
+            candidate_threshold=cfg.semantic_candidate_threshold,
+        ),
     ]
 
 
@@ -179,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     from tools.knowledge.config import load_project_config
     from tools.knowledge.lean_index import index_lean_project
+    from tools.knowledge.lint._cache import _BudgetTracker, _LintCache
     import tools.knowledge.lint as _lint_pkg
 
     config = load_project_config(args.knowledge_root)
@@ -206,12 +222,19 @@ def main(argv: list[str] | None = None) -> int:
             "default", lean_indexes[config.lean.default_repository]
         )
 
+    cache_dir = None if args.no_cache else args.cache_dir
+    cache = _LintCache(cache_dir=cache_dir)
+    budget = _BudgetTracker(budget=args.llm_budget)
+
     llm: LlmRunner | None = None
     if args.llm:
         llm = _make_claude_cli_runner(model=args.model)
     linter = Linter(
         detectors=_lint_pkg._default_detectors(
-            config.lint, lean_indexes=lean_indexes or None
+            config.lint,
+            lean_indexes=lean_indexes or None,
+            cache=cache,
+            budget=budget,
         ),
         llm=llm,
     )

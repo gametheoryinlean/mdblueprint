@@ -287,25 +287,31 @@ class TestDefaultDetectorsWiring:
         from tools.knowledge.lint import (
             FuzzyTitleDupDetector,
             LeanRefKindDetector,
+            SemanticDupDetector,
             StagedAdmittedOverlapDetector,
             _default_detectors,
         )
 
-        detectors = _default_detectors(LintConfig(fuzzy_threshold=0.77))
+        detectors = _default_detectors(
+            LintConfig(fuzzy_threshold=0.77, semantic_candidate_threshold=0.6)
+        )
         codes = {d.code for d in detectors}
-        # PR 3 contributors:
-        assert "LINT_FUZZY_DUP" in codes
-        assert "LINT_STAGED_OVERLAP" in codes
-        # PR 4 contributors:
-        assert "LINT_REDUNDANT_DEP" in codes
-        assert "LINT_ORPHAN" in codes
-        # PR 5 contributor:
-        assert "LINT_LEAN_KIND" in codes
+        # PR 3..6 contributors:
+        assert codes >= {
+            "LINT_FUZZY_DUP",
+            "LINT_STAGED_OVERLAP",
+            "LINT_REDUNDANT_DEP",
+            "LINT_ORPHAN",
+            "LINT_LEAN_KIND",
+            "LINT_SEMANTIC_DUP",
+        }
 
         fuzzy = next(d for d in detectors if isinstance(d, FuzzyTitleDupDetector))
         overlap = next(d for d in detectors if isinstance(d, StagedAdmittedOverlapDetector))
+        semantic = next(d for d in detectors if isinstance(d, SemanticDupDetector))
         assert fuzzy.threshold == 0.77
         assert overlap.threshold == 0.77
+        assert semantic.candidate_threshold == 0.6
 
         lean_kind = next(d for d in detectors if isinstance(d, LeanRefKindDetector))
         # Without explicit lean_indexes, the detector is constructed in
@@ -322,6 +328,18 @@ class TestDefaultDetectorsWiring:
         detectors = _default_detectors(LintConfig(), lean_indexes=indexes)
         lean_kind = next(d for d in detectors if isinstance(d, LeanRefKindDetector))
         assert lean_kind.indexes is indexes
+
+    def test_default_detectors_accept_cache_and_budget(self, tmp_path: Path):
+        from tools.knowledge.config import LintConfig
+        from tools.knowledge.lint import SemanticDupDetector, _default_detectors
+        from tools.knowledge.lint._cache import _BudgetTracker, _LintCache
+
+        cache = _LintCache(tmp_path)
+        budget = _BudgetTracker(budget=42)
+        detectors = _default_detectors(LintConfig(), cache=cache, budget=budget)
+        semantic = next(d for d in detectors if isinstance(d, SemanticDupDetector))
+        assert semantic.cache is cache
+        assert semantic.budget is budget
 
     def test_main_runs_default_detectors_against_bundled_example(self, capsys):
         from tools.knowledge.lint import main
