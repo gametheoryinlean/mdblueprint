@@ -226,6 +226,44 @@ class TestExportTopicOverviewJson:
             }
         ]
 
+    def test_secondary_topics_tag_does_not_fabricate_cross_topic_edge(self):
+        """Regression for #131.
+
+        A node tagged with a secondary topic from a different root for
+        navigation purposes (e.g. primary_topic: zero_sum, topics:
+        [zero_sum, mixed_strategy]) must not produce a phantom
+        zero_sum <-> mixed_strategy overview edge when its only `uses:`
+        target is internal to zero_sum.
+        """
+        from tools.knowledge.models import Node
+
+        prereq = Node(
+            id="zero_sum.value_function",
+            title="Value Function",
+            kind="definition",
+            status="admitted",
+            primary_topic="zero_sum",
+            topics=["zero_sum"],
+        )
+        consumer = Node(
+            id="zero_sum.minimax",
+            title="Minimax",
+            kind="theorem",
+            status="admitted",
+            primary_topic="zero_sum",
+            # Secondary tag from a different root — discoverability only.
+            topics=["zero_sum", "mixed_strategy"],
+            uses=["zero_sum.value_function"],
+        )
+        graph, diags = build_graph([prereq, consumer])
+        assert diags == []
+
+        data = export_topic_overview_json(graph)
+
+        # No cross-topic edges should be emitted; both nodes are home-rooted in zero_sum.
+        cross_topic_edges = [e for e in data["edges"] if e["from"] != e["to"]]
+        assert cross_topic_edges == []
+
     def test_same_topic_edges_do_not_become_topic_self_edges(self):
         from tools.knowledge.models import Node
 
@@ -683,7 +721,12 @@ class TestMultiTopicMembership:
         assert zs["node_count"] == 1
         assert lp["node_count"] == 1
 
-    def test_topic_overview_edges_use_all_explicit_memberships(self):
+    def test_topic_overview_edges_use_home_topic_not_secondary_memberships(self):
+        """Updated for #131: overview edges follow each node's single
+        canonical (home) topic — derived from ``primary_topic`` when set,
+        otherwise from the node id. Secondary entries in ``topics:`` are
+        discoverability tags and must not fabricate cross-topic edges.
+        """
         from tools.knowledge.graph import build_graph
         from tools.knowledge.export import export_topic_overview_json
 
@@ -702,9 +745,11 @@ class TestMultiTopicMembership:
 
         data = export_topic_overview_json(graph)
 
+        # Edge is derived from the home topics only:
+        #   legacy.duality (home root: legacy) -> zero_sum.minimax (home root: zero_sum)
+        # No phantom linear_programming / game_theory edges from secondary tags.
         assert data["edges"] == [
-            {"from": "linear_programming", "to": "game_theory", "count": 1},
-            {"from": "linear_programming", "to": "zero_sum", "count": 1},
+            {"from": "legacy", "to": "zero_sum", "count": 1},
         ]
 
     def test_subgraph_links_and_boundary_topics_use_home_topic(self):

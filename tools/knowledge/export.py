@@ -184,28 +184,24 @@ def export_topic_overview_json(g: KnowledgeGraph) -> dict:
     for topic_id in root_ids:
         topics.append(_topic_entry(topic_id, topic_data[topic_id]))
 
+    # Topic-overview edges are derived from each node's single canonical
+    # (home) topic, not from every entry in its `topics:` field. The
+    # `topics:` field is a discoverability tag — adding a secondary tag
+    # for navigation must not fabricate a cross-topic dependency edge.
     edge_counts: Counter[tuple[str, str]] = Counter()
     for dependent_id in sorted(g.edges):
         if g.nodes[dependent_id].kind == "proof-plan":
             continue
-        dependent_topics = {
-            root_topic_id(topic)
-            for topic in leaf_topic_ids_for_node(g.nodes[dependent_id])
-        }
+        dependent_topic = root_topic_id(home_topic_for_node(g.nodes[dependent_id]))
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes:
                 continue
             if g.nodes[dependency_id].kind == "proof-plan":
                 continue
-            dependency_topics = {
-                root_topic_id(topic)
-                for topic in leaf_topic_ids_for_node(g.nodes[dependency_id])
-            }
-            for dependent_topic in dependent_topics:
-                for dependency_topic in dependency_topics:
-                    if dependency_topic == dependent_topic:
-                        continue
-                    edge_counts[(dependency_topic, dependent_topic)] += 1
+            dependency_topic = root_topic_id(home_topic_for_node(g.nodes[dependency_id]))
+            if dependency_topic == dependent_topic:
+                continue
+            edge_counts[(dependency_topic, dependent_topic)] += 1
 
     edges = [
         {
