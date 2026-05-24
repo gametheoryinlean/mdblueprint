@@ -21,6 +21,7 @@ from tools.knowledge.lint._detectors import (
     LeanRefKindDetector,
     OrphanDetector,
     RedundantDepDetector,
+    SemanticDupDetector,
     StagedAdmittedOverlapDetector,
     _normalize,
     _ratio,
@@ -43,6 +44,7 @@ __all__ = [
     "RedundantDepDetector",
     "OrphanDetector",
     "LeanRefKindDetector",
+    "SemanticDupDetector",
     # Private helpers re-exported for tests
     "_normalize",
     "_ratio",
