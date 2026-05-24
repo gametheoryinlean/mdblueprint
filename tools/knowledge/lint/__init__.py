@@ -25,7 +25,7 @@ from tools.knowledge.lint._detectors import (
     _normalize,
     _ratio,
 )
-from tools.knowledge.lint._llm import SemanticDupDetector
+from tools.knowledge.lint._llm import LeanAlignmentLlmDetector, SemanticDupDetector
 
 __all__ = [
     # Core
@@ -45,6 +45,7 @@ __all__ = [
     "OrphanDetector",
     "LeanRefKindDetector",
     "SemanticDupDetector",
+    "LeanAlignmentLlmDetector",
     # Private helpers re-exported for tests
     "_normalize",
     "_ratio",
