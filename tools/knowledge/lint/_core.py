@@ -124,6 +124,7 @@ def _default_detectors(
         LeanRefKindDetector,
         OrphanDetector,
         PlanPromoteDetector,
+        ProseDepConsistencyDetector,
         RedundantDepDetector,
         StagedAdmittedOverlapDetector,
         TopicCycleDetector,
@@ -143,6 +144,7 @@ def _default_detectors(
         OrphanDetector(),
         LeanRefKindDetector(indexes=lean_indexes),
         PlanPromoteDetector(severity=cfg.plan_promote_severity),
+        ProseDepConsistencyDetector(),
         HierarchyInversionDetector(severity=cfg.hierarchy_inversion_severity),
         TopicCycleDetector(),
         SemanticDupDetector(

@@ -12,6 +12,7 @@ from tools.knowledge.export import child_topic_id, home_topic_for_node
 from tools.knowledge.graph import KnowledgeGraph
 from tools.knowledge.lean_index import LeanDeclaration, LeanIndex
 from tools.knowledge.models import ADMITTED_STATUSES, STAGED_STATUSES, Node
+from tools.knowledge.node_refs import NODE_REF_RE
 from tools.knowledge.validator import Diagnostic
 
 LlmRunner = Callable[[str], str]
@@ -449,6 +450,68 @@ class PlanPromoteDetector:
             ))
         return out
 
+
+
+# ── ProseDepConsistencyDetector (closes #121 item 5) ─────────────────────────
+
+
+@dataclass
+class ProseDepConsistencyDetector:
+    """Flag body ``[[node:X]]`` references whose target is not in the node's
+    ``uses`` field.
+
+    Covers all node kinds and the full body text (not just proof sections).
+    The existing ``check_node_body_refs`` already handles theorem-kind nodes'
+    proof sections as an *error* in the publish gate; this detector is a
+    softer *warning* over the full body for all kinds, running on the lint
+    surface in parallel.
+
+    Deduplicates within a single run: at most one diagnostic per
+    ``(node.id, target_id)`` pair, even when the ref appears multiple times.
+    """
+
+    code: str = "LINT_PROSE_DEP"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        all_ids: frozenset[str] = frozenset(n.id for n in nodes)
+        out: list[Diagnostic] = []
+        for node in sorted(nodes, key=lambda n: n.id):
+            if not node.body:
+                continue
+            uses_set: set[str] = set(node.uses or [])
+            seen: set[str] = set()
+            for m in NODE_REF_RE.finditer(node.body):
+                target = m.group(1)
+                if target == node.id:
+                    continue
+                if target not in all_ids:
+                    # Unknown ref — check.py already errors on these; don't
+                    # double-report here.
+                    continue
+                if target in uses_set:
+                    continue
+                if target in seen:
+                    continue
+                seen.add(target)
+                out.append(Diagnostic(
+                    level="warning",
+                    node_id=node.id,
+                    message=(
+                        f"body references [[node:{target}]] but "
+                        f"{target!r} is not listed in uses"
+                    ),
+                    file_path=node.file_path,
+                    code=self.code,
+                    related=(target,),
+                ))
+        return out
 
 
 # ── HierarchyInversionDetector (closes #137) ────────────────────────────────

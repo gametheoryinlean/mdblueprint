@@ -123,6 +123,36 @@ docs/knowledge` to auto-write `status: proved` and the
 detector picks the same canonical plan as the CLI (selected plan wins;
 ties break by sorted plan id), so the two stay in agreement.
 
+### `LINT_PROSE_DEP` — Body reference not declared in `uses`
+
+**Trigger.** A node whose body contains a `[[node:X]]` reference where
+`X` is a known node but is not listed in the node's `uses` field.
+Applies to all node kinds and the full body text.
+
+**Level.** `warning`. `related` carries the referenced node id.
+
+**Example.**
+
+```
+node.y  body: "This follows from [[node:node.x]]."
+        uses: []          # node.x is missing from uses
+```
+
+**How to fix.** Either add `X` to the node's `uses:` list (if it is a
+genuine prerequisite), replace the `[[node:X]]` reference with plain
+prose that does not create an implicit dependency, or accept the finding
+case-by-case if the reference is purely expository (e.g. a "see also"
+pointer). The detector emits a warning rather than an error because
+expository cross-links are not always structural dependencies.
+
+**Relationship to `mdblueprint-check`.** The publish gate's
+`check_node_body_refs` function already emits a `warning` for
+theorem-kind nodes' *proof sections* when a referenced node is absent
+from `uses`. This detector extends that coverage to all node kinds and
+the full body, but runs on the lint surface in parallel — both tools
+may flag the same node, which is intentional (they are independent
+gates).
+
 ### `LINT_HIERARCHY_INVERSION` — Parent-topic content depends on a subtopic
 
 **Trigger.** A `uses` edge from a node living in a strict descendant
