@@ -68,6 +68,7 @@ class SourcesConfig:
 class LintConfig:
     fuzzy_threshold: float = 0.92
     semantic_candidate_threshold: float = 0.75
+    plan_promote_severity: str = "info"
 
 
 @dataclass(frozen=True)
@@ -423,9 +424,17 @@ def _parse_lint_config(raw: Any, *, path: Path) -> LintConfig:
         path=path,
         field="semantic_candidate_threshold",
     )
+    severity = raw.get("plan_promote_severity", "info")
+    if severity not in {"info", "warning"}:
+        raise ValueError(
+            f"Project config lint.plan_promote_severity must be 'info' or 'warning', "
+            f"got {severity!r}: {path}"
+        )
+
     return LintConfig(
         fuzzy_threshold=fuzzy_threshold,
         semantic_candidate_threshold=semantic_candidate_threshold,
+        plan_promote_severity=severity,
     )
 
 

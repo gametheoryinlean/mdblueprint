@@ -439,3 +439,38 @@ def test_load_project_config_rejects_bad_semantic_threshold(tmp_path: Path) -> N
     )
     with pytest.raises(ValueError, match="semantic_candidate_threshold"):
         load_project_config(tmp_path)
+
+
+def test_load_project_config_reads_plan_promote_severity(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Plan Promote Severity Test\n"
+        "lint:\n  plan_promote_severity: warning\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.plan_promote_severity == "warning"
+
+
+def test_load_project_config_uses_default_plan_promote_severity(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Default Plan Promote Severity\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.plan_promote_severity == "info"
+
+
+def test_load_project_config_rejects_invalid_plan_promote_severity(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Invalid Plan Promote Severity\n"
+        "lint:\n  plan_promote_severity: shout\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="plan_promote_severity"):
+        load_project_config(tmp_path)
