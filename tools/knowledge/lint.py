@@ -160,6 +160,55 @@ class FuzzyTitleDupDetector:
         return out
 
 
+@dataclass
+class StagedAdmittedOverlapDetector:
+    """Flag staged candidate nodes that re-state an already-admitted node."""
+
+    threshold: float = 0.92
+    code: str = "LINT_STAGED_OVERLAP"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        staged = sorted(
+            (n for n in nodes if n.status in STAGED_STATUSES),
+            key=lambda n: n.id,
+        )
+        admitted = sorted(
+            (n for n in nodes if n.status in ADMITTED_STATUSES),
+            key=lambda n: n.id,
+        )
+        out: list[Diagnostic] = []
+        for candidate in staged:
+            c_title = _normalize(candidate.title)
+            c_stmt = _normalize(_statement_text(candidate))
+            for existing in admitted:
+                e_title = _normalize(existing.title)
+                score = _ratio(c_title, e_title)
+                if score < self.threshold:
+                    e_stmt = _normalize(_statement_text(existing))
+                    if c_stmt and e_stmt:
+                        score = max(score, _ratio(c_stmt, e_stmt))
+                if score >= self.threshold:
+                    out.append(Diagnostic(
+                        level="warning",
+                        node_id=candidate.id,
+                        message=(
+                            f"staged candidate appears to overlap with admitted "
+                            f"{existing.id!r} (similarity {score:.2f})"
+                        ),
+                        file_path=candidate.file_path,
+                        code=self.code,
+                        related=(existing.id,),
+                    ))
+        return out
+
+
 def render_text(diags: list[Diagnostic]) -> str:
     """Render diagnostics as a human-readable, code-grouped text block."""
     if not diags:

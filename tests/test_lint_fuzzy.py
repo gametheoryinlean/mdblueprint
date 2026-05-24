@@ -8,6 +8,7 @@ import pytest
 from tools.knowledge.graph import build_graph
 from tools.knowledge.lint import (
     FuzzyTitleDupDetector,
+    StagedAdmittedOverlapDetector,
     _normalize,
     _ratio,
 )
@@ -111,3 +112,53 @@ class TestFuzzyTitleDupDetector:
         ids_seen = [(d.node_id, d.related) for d in diags]
         assert len(ids_seen) == 1
         assert ids_seen[0] == ("alg.x", ("alg.y",))
+
+
+class TestStagedAdmittedOverlapDetector:
+    def test_emits_warning_when_staged_matches_admitted(self):
+        admitted = _node("alg.x", "Group Identity Is Unique")
+        staged = _node("alg.candidate", "Group Identity Is Unique.", status="staged")
+        graph, _ = build_graph([admitted, staged])
+        det = StagedAdmittedOverlapDetector(threshold=0.92)
+        diags = det.run([admitted, staged], graph, llm=None)
+        assert len(diags) == 1
+        d = diags[0]
+        assert d.level == "warning"
+        assert d.code == "LINT_STAGED_OVERLAP"
+        # The staged node is the source of the diagnostic; `related` holds the
+        # admitted node that the candidate appears to duplicate.
+        assert d.node_id == "alg.candidate"
+        assert d.related == ("alg.x",)
+
+    def test_does_not_emit_for_two_admitted_nodes(self):
+        # Two admitted near-duplicates are FuzzyTitleDupDetector's job, not this one.
+        a = _node("alg.x", "Group Identity Is Unique")
+        b = _node("alg.y", "Group Identity Is Unique.")
+        graph, _ = build_graph([a, b])
+        assert StagedAdmittedOverlapDetector(threshold=0.92).run([a, b], graph, llm=None) == []
+
+    def test_does_not_emit_for_two_staged_nodes(self):
+        a = _node("alg.x", "Group Identity Is Unique", status="staged")
+        b = _node("alg.y", "Group Identity Is Unique.", status="staged")
+        graph, _ = build_graph([a, b])
+        assert StagedAdmittedOverlapDetector(threshold=0.92).run([a, b], graph, llm=None) == []
+
+    def test_ignores_unrelated_staged_candidate(self):
+        admitted = _node("alg.x", "Group Identity Is Unique")
+        staged = _node("ana.cauchy", "Cauchy Schwarz Inequality", status="needs_statement_review")
+        graph, _ = build_graph([admitted, staged])
+        assert StagedAdmittedOverlapDetector(threshold=0.92).run([admitted, staged], graph, llm=None) == []
+
+    def test_handles_all_needs_review_statuses(self):
+        admitted = _node("alg.x", "Group Identity Is Unique")
+        staged_variants = [
+            _node("alg.s1", "Group Identity Is Unique.", status="staged"),
+            _node("alg.s2", "Group Identity Is Unique.", status="needs_statement_review"),
+            _node("alg.s3", "Group Identity Is Unique.", status="needs_definition_review"),
+            _node("alg.s4", "Group Identity Is Unique.", status="needs_proof_review"),
+        ]
+        graph, _ = build_graph([admitted, *staged_variants])
+        det = StagedAdmittedOverlapDetector(threshold=0.92)
+        diags = det.run([admitted, *staged_variants], graph, llm=None)
+        assert {d.node_id for d in diags} == {"alg.s1", "alg.s2", "alg.s3", "alg.s4"}
+        assert all(d.related == ("alg.x",) for d in diags)
