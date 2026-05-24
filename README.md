@@ -114,6 +114,9 @@ uv run --extra dev python -m pytest tests/test_export.py tests/test_publish.py t
 # Structural check for the example knowledge base
 uv run python -m tools.knowledge.check docs/knowledge
 
+# Structural + semantic lint (see docs/lint.md for the rule reference)
+uv run mdblueprint-lint docs/knowledge
+
 # Publish a local preview outside the source tree
 uv run python -m tools.knowledge.publish docs/knowledge /tmp/mdblueprint-site
 

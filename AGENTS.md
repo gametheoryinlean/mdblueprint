@@ -261,6 +261,7 @@ rendering, or navigation changes.
 | EconCSLib gate | `tools/knowledge/econcslib_gate.py` | `uv run --extra browser python -m tools.knowledge.econcslib_gate --render-mode smoke` |
 | Local dev server | `tools/knowledge/serve.py`, `tools/knowledge/context.py` | `uv run --extra dev --extra serve python -m pytest tests/test_serve.py tests/test_serve_integration.py -q` |
 | Auto-promote `status: proved` when a plan supplies the proof | `tools/knowledge/promote_via_plan.py`, `docs/node-format.md` (Proved-via-plan Marker, Auto-promotion) | `uv run --extra dev python -m pytest tests/test_promote_via_plan.py tests/test_blueprint_view.py -q`, then `uv run python -m tools.knowledge.promote_via_plan docs/knowledge --dry-run` |
+| Run blueprint-lint over a knowledge base | `tools/knowledge/lint/`, `docs/lint.md` | `uv run --extra dev python -m pytest tests/test_lint_orchestrator.py tests/test_lint_fuzzy.py tests/test_lint_structure.py tests/test_lint_lean_kind.py tests/test_lint_cache.py tests/test_lint_llm_semantic.py tests/test_lint_llm_lean_align.py tests/test_lint_plan_promote.py -q`, then `uv run mdblueprint-lint docs/knowledge` (add `--llm` to enable LINT_SEMANTIC_DUP / LINT_LEAN_ALIGN) |
 
 ## Knowledge Node Rules
 
