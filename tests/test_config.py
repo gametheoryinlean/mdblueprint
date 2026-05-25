@@ -538,3 +538,33 @@ def test_load_project_config_rejects_invalid_hierarchy_inversion_severity(tmp_pa
     )
     with pytest.raises(ValueError, match="hierarchy_inversion_severity"):
         load_project_config(tmp_path)
+
+
+def test_load_project_config_reads_topic_lean_aliases(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Alias Config Test\n"
+        "lint:\n  topic_lean_aliases:\n    linear_algebra: linear_programming\n",
+        encoding="utf-8",
+    )
+    cfg = load_project_config(tmp_path)
+    assert cfg.lint.topic_lean_aliases == {"linear_algebra": "linear_programming"}
+
+
+def test_load_project_config_rejects_non_mapping_topic_lean_aliases(tmp_path: Path) -> None:
+    from tools.knowledge.config import load_project_config
+
+    (tmp_path / "mdblueprint.yml").write_text(
+        "site:\n  title: Bad Alias Config\n"
+        'lint:\n  topic_lean_aliases: "wat"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="topic_lean_aliases"):
+        load_project_config(tmp_path)
+
+
+def test_default_topic_lean_aliases_is_empty(tmp_path: Path) -> None:
+    from tools.knowledge.config import LintConfig
+
+    assert LintConfig().topic_lean_aliases == {}
