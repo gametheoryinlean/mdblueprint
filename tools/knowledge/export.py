@@ -289,39 +289,6 @@ def _boundary_topic_entry(topic_id: str, role: str, node_count: int) -> dict:
     }
 
 
-def _child_topic_edges(g: KnowledgeGraph, topic_id: str) -> list[dict]:
-    # Each node contributes exactly one canonical endpoint — its home topic —
-    # when participating in the child-topic edge set. Secondary `topics:[]`
-    # entries are discoverability tags and must not fabricate phantom child
-    # topic edges. See #131 / #135 for the rationale.
-    edge_counts: Counter[tuple[str, str]] = Counter()
-    for dependent_id in sorted(g.edges):
-        if dependent_id not in g.nodes or g.nodes[dependent_id].kind == "proof-plan":
-            continue
-        dependent_home = home_topic_for_node(g.nodes[dependent_id])
-        dependent_child = child_topic_id(topic_id, dependent_home)
-        if dependent_child is None:
-            continue
-        for dependency_id in sorted(g.edges[dependent_id]):
-            if dependency_id not in g.nodes or g.nodes[dependency_id].kind == "proof-plan":
-                continue
-            dependency_home = home_topic_for_node(g.nodes[dependency_id])
-            dependency_child = child_topic_id(topic_id, dependency_home)
-            if dependency_child is None or dependency_child == dependent_child:
-                continue
-            edge_counts[(dependency_child, dependent_child)] += 1
-
-    return [
-        {
-            "from": f"topic:{source}",
-            "to": f"topic:{target}",
-            "kind": "topic_dependency",
-            "count": count,
-        }
-        for (source, target), count in sorted(edge_counts.items())
-    ]
-
-
 def _topic_layer_boundary(g: KnowledgeGraph, topic_id: str, topic_counts: dict[str, int]) -> tuple[list[dict], list[dict]]:
     # Each node contributes exactly one canonical endpoint — its home topic —
     # when participating in the boundary set. Secondary `topics:[]` entries
