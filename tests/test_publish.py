@@ -201,7 +201,10 @@ class TestExampleCorpusPublish:
         assert "topicCache" in graph_js
         assert "expanded" in graph_js
 
-    def test_topic_subgraph_includes_child_topics_field(self, tmp_path):
+    def test_topic_subgraph_includes_child_topics_field_when_over_cap(self, tmp_path):
+        """child_topics is populated when subdivision is triggered by exceeding
+        max_page_total. Under the new algorithm (#145), boxing happens only
+        when over the cap, not based on inline_child_max_size."""
         from tools.knowledge.config import GraphDisplayConfig
         from tools.knowledge.export import export_topic_subgraph_json
         from tools.knowledge.graph import build_graph
@@ -213,15 +216,15 @@ class TestExampleCorpusPublish:
         graph, diags = build_graph([parent, child1, child2])
         assert diags == []
 
-        # Force boxed children (no inlining) so child_topics is populated.
-        boxed_cfg = GraphDisplayConfig(
+        # Force boxing by setting max_page_total below node count.
+        tight_cfg = GraphDisplayConfig(
             max_visible_nodes=120,
             max_expand_nodes=80,
             proof_plans="selected-only",
-            inline_child_max_size=0,
+            max_page_total=1,
         )
         data = export_topic_subgraph_json(
-            graph, "game_theory.strategic", graph_config=boxed_cfg
+            graph, "game_theory.strategic", graph_config=tight_cfg
         )
         assert "child_topics" in data
         assert sorted(data["child_topics"]) == ["game_theory.strategic.nash"]

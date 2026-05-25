@@ -64,6 +64,21 @@ def topic_prefixes(topic_id: str) -> list[str]:
     return [".".join(parts[:index]) for index in range(1, len(parts) + 1)]
 
 
+def memberships(node: Node) -> list[str]:
+    """Return the list of topics this node logically belongs to for page placement.
+
+    When ``topics:[]`` is non-empty, use it exactly — it represents explicit
+    multi-topic membership chosen by the author. Otherwise fall back to the
+    full chain of ID-derived prefixes of the node's own ID (e.g.
+    ``foo.bar.baz`` → ``["foo", "foo.bar", "foo.bar.baz"]``).
+
+    ``primary_topic`` is URL/file-path only and intentionally excluded here.
+    """
+    if node.topics:
+        return list(node.topics)
+    return topic_prefixes(node.id)
+
+
 def root_topic_id(topic_id: str) -> str:
     return topic_id.split(".", 1)[0]
 
@@ -398,6 +413,32 @@ def _keyword_entries(nodes: list[Node]) -> list[dict]:
     ]
 
 
+def _anchor_child(topic_id: str, node: Node) -> str | None:
+    """Return the immediate child of ``topic_id`` that anchors ``node``,
+    looking through ``memberships`` rather than ``home_topic``.
+
+    If the node has any membership that is a strict descendant of ``topic_id``,
+    return the immediate child of ``topic_id`` that leads to it. If all
+    memberships are exactly ``topic_id`` (direct membership), return ``None``
+    (the node is directly tagged to this page).
+
+    When a node has both a direct ``topic_id`` membership AND a subtopic
+    membership (e.g. ``topics: [core, core.subA]``), the subtopic wins — it
+    provides the more specific anchor for subdivision decisions.
+    """
+    prefix = f"{topic_id}."
+    child_anchor: str | None = None
+    for m in memberships(node):
+        if m.startswith(prefix):
+            remainder = m[len(prefix):]
+            child_slug = remainder.split(".", 1)[0]
+            candidate = f"{topic_id}.{child_slug}"
+            # Keep the first (most-specific in iteration order) subtopic child.
+            if child_anchor is None:
+                child_anchor = candidate
+    return child_anchor
+
+
 def export_topic_subgraph_json(
     g: KnowledgeGraph,
     topic_id: str,
@@ -414,95 +455,127 @@ def export_topic_subgraph_json(
 
     topic_data = _topic_hierarchy_data(g)
     current_topic_data = topic_data.get(topic_id, _empty_topic_data(topic_id))
-    child_ids = sorted(current_topic_data["children"])
-    internal_ids = sorted(
+    topic_counts = _topic_node_counts(g)
+
+    # Step 1: Collect P = all nodes whose memberships include T or a subtopic of T.
+    # memberships() drives every size / anchor decision; primary_topic is URL-only.
+    def _in_page_scope(node: Node) -> bool:
+        t_prefix = f"{topic_id}."
+        for m in memberships(node):
+            if m == topic_id or m.startswith(t_prefix):
+                return True
+        return False
+
+    page_scope_ids = sorted(node.id for node in g.nodes.values() if _in_page_scope(node))
+    page_scope_set = set(page_scope_ids)
+
+    # For counting and metadata we also need the old-style "internal" (direct
+    # topic-tagged) count used in `counts.internal_nodes`.
+    internal_ids_for_counts = sorted(
         node.id
         for node in g.nodes.values()
         if topic_id in leaf_topic_ids_for_node(node)
     )
-    internal_set = set(internal_ids)
-    internal_nodes = [g.nodes[node_id] for node_id in internal_ids]
-    topic_counts = _topic_node_counts(g)
 
-    # `internal_set` drives what nodes the page lists by virtue of their
-    # explicit `topics:[]` tag. `family_set` is the broader universe of
-    # "nodes inside this topic's hierarchical scope" — current topic plus
-    # every descendant by home topic. See #136.
-    def _in_family(node: Node) -> bool:
+    # Step 2 / Step 3: Decide which nodes render flat and which fold into boxes.
+    # Default is fully flat. We only fold when |page_scope_set| > max_page_total.
+
+    # Per-child subtree sizes via memberships (not home_topic).
+    # anchor_child_for_node maps node.id -> immediate child of topic_id (or None).
+    anchor_child_for_node: dict[str, str | None] = {}
+    for node in g.nodes.values():
+        if node.id in page_scope_set:
+            anchor_child_for_node[node.id] = _anchor_child(topic_id, node)
+
+    # Nodes directly tagged to topic_id (anchor = None) are always flat.
+    directly_tagged_ids = {
+        nid for nid, anchor in anchor_child_for_node.items() if anchor is None
+    }
+    # Group the rest by their anchor child.
+    child_members: dict[str, set[str]] = defaultdict(set)
+    for nid, anchor in anchor_child_for_node.items():
+        if anchor is not None:
+            child_members[anchor].add(nid)
+
+    if len(page_scope_set) <= cfg.max_page_total:
+        # Under cap — render everything flat, no child boxes.
+        flat_set = page_scope_set
+        folded_children: dict[str, set[str]] = {}
+    else:
+        # Over cap — greedy-fold the largest child groups until under cap.
+        # Start with all in flat_set; move the biggest children into boxes.
+        flat_set = set(page_scope_set)
+        folded_children = {}
+        # Sort candidates by descending size (then id for determinism).
+        fold_candidates = sorted(
+            child_members.items(),
+            key=lambda item: (-len(item[1]), item[0]),
+        )
+        for child, members in fold_candidates:
+            if len(flat_set) <= cfg.max_page_total:
+                break
+            flat_set -= members
+            folded_children[child] = members
+
+    # Nodes explicitly inlined (were in child_members, now in flat_set).
+    # For the `inlined_child_topics` field, these are children whose members
+    # ended up flat even though they have a subtopic anchor.
+    inlined_children: set[str] = {
+        child for child, members in child_members.items()
+        if child not in folded_children
+        and members  # non-empty child group
+    }
+
+    # Legacy compat: separate "internal_set" (direct topic-tagged) vs
+    # nodes pulled in because their subtopic was inlined.
+    internal_set = {
+        nid for nid in flat_set
+        if anchor_child_for_node.get(nid) is None
+    }
+    inlined_node_ids = flat_set - internal_set
+
+    # Render-ready node list (sorted for determinism).
+    page_nodes = [g.nodes[nid] for nid in sorted(flat_set)]
+
+    # The family set for external-boundary detection: home_topic still used here
+    # because boundary topics for the cross-topic view are URL-keyed.
+    def _in_family_home(node: Node) -> bool:
         h = home_topic_for_node(node)
         return h == topic_id or h.startswith(f"{topic_id}.")
 
-    family_set = {node.id for node in g.nodes.values() if _in_family(node)}
+    family_set = {node.id for node in g.nodes.values() if _in_family_home(node)}
+    # Also include memberships-based scope for internal edge routing.
+    family_set |= page_scope_set
 
-    # Adaptive inlining (#139): small child topics fold their entire subtree
-    # into this page's flat node list instead of being shown as a single box,
-    # subject to two knobs:
-    #   - graph.inline_child_max_size — per-child eligibility threshold
-    #   - graph.max_page_total — hard cap on visible flat nodes per page
-    # `_count_family_nodes(c)` returns the size of the subtree rooted at c.
-    child_subtree_sizes: dict[str, int] = {
-        child: sum(
-            1 for node in g.nodes.values()
-            if home_topic_for_node(node) == child
-            or home_topic_for_node(node).startswith(f"{child}.")
-        )
-        for child in child_ids
-    }
-    inlined_children: set[str] = set()
-    used_budget = len(internal_ids)
-    candidates = sorted(
-        (
-            (child, size)
-            for child, size in child_subtree_sizes.items()
-            if 0 < size <= cfg.inline_child_max_size
-        ),
-        key=lambda item: (item[1], item[0]),
-    )
-    for child, size in candidates:
-        if used_budget + size <= cfg.max_page_total:
-            inlined_children.add(child)
-            used_budget += size
-
-    # Nodes pulled onto this page by inlining their parent child topic.
-    inlined_node_ids: set[str] = set()
-    for child in inlined_children:
-        for node in g.nodes.values():
-            h = home_topic_for_node(node)
-            if h == child or h.startswith(f"{child}."):
-                inlined_node_ids.add(node.id)
-    inlined_node_ids -= internal_set  # internal nodes are already represented
-
-    # Effective page set governs edge classification: any flat node on the page
-    # — whether tagged-into-topic or pulled-in-by-inlining — counts as
-    # "internal" for the purposes of routing edges through boundary boxes vs.
-    # plain edges.
-    effective_internal_set = internal_set | inlined_node_ids
-
-    # Render-ready node list: internal nodes plus the pulled-in inlined nodes.
-    page_nodes = list(internal_nodes) + [
-        g.nodes[nid] for nid in sorted(inlined_node_ids)
-    ]
-
+    # Edge emission.
     edges = []
     boundary_edge_counts: Counter[tuple[str, str, str, str]] = Counter()
     boundary_roles: dict[str, set[str]] = defaultdict(set)
+
+    # topic_dep_edge_counts aggregates box→box edges for folded children.
+    topic_dep_counts: Counter[tuple[str, str]] = Counter()
 
     for dependent_id in sorted(g.edges):
         for dependency_id in sorted(g.edges[dependent_id]):
             if dependency_id not in g.nodes or dependent_id not in g.nodes:
                 continue
-            dependent_in_family = dependent_id in family_set
-            dependency_in_family = dependency_id in family_set
-            dependent_in_internal = dependent_id in effective_internal_set
-            dependency_in_internal = dependency_id in effective_internal_set
+
+            dep_node = g.nodes[dependent_id]
+            dep_cy_node = g.nodes[dependency_id]
+
+            dependent_flat = dependent_id in flat_set
+            dependency_flat = dependency_id in flat_set
+            dependent_in_scope = dependent_id in page_scope_set
+            dependency_in_scope = dependency_id in page_scope_set
+
             edge_kind = (
                 "proof_plan_uses"
-                if g.nodes[dependent_id].kind == "proof-plan" or g.nodes[dependency_id].kind == "proof-plan"
+                if dep_node.kind == "proof-plan" or dep_cy_node.kind == "proof-plan"
                 else "uses"
             )
 
-            # Both endpoints rendered as page items → flat internal edge.
-            if dependent_in_internal and dependency_in_internal:
+            # Both flat → flat internal edge.
+            if dependent_flat and dependency_flat:
                 edges.append({
                     "from": dependency_id,
                     "to": dependent_id,
@@ -510,67 +583,74 @@ def export_topic_subgraph_json(
                 })
                 continue
 
-            # Both endpoints inside the topic family but at least one is a
-            # descendant not listed as a page item (the descendant gets shown
-            # as a child_topic_node box). Aggregate per the child topic. Pure
-            # descendant↔descendant cases are also covered by _child_topic_edges;
-            # we still emit here so child_topic↔internal_node edges render.
-            if dependent_in_family and dependency_in_family:
-                if not dependent_in_internal:
-                    # Dependent lives in a descendant child topic; arrow ends
-                    # at that child_topic_node box.
-                    dep_child = child_topic_id(topic_id, home_topic_for_node(g.nodes[dependent_id]))
-                    if dep_child is not None and dependency_in_internal:
-                        boundary_edge_counts[(
-                            dependency_id,
-                            f"topic:{dep_child}",
-                            "boundary_dependent" if edge_kind == "uses" else "boundary_proof_plan_dependent",
-                            dep_child,
-                        )] += 1
-                if not dependency_in_internal:
-                    # Dependency lives in a descendant; arrow starts from that
-                    # child_topic_node box.
-                    dep_child = child_topic_id(topic_id, home_topic_for_node(g.nodes[dependency_id]))
-                    if dep_child is not None and dependent_in_internal:
-                        boundary_edge_counts[(
-                            f"topic:{dep_child}",
-                            dependent_id,
-                            "boundary_dependency" if edge_kind == "uses" else "boundary_proof_plan_dependency",
-                            dep_child,
-                        )] += 1
-                # Pure descendant↔descendant edges are already aggregated by
-                # _child_topic_edges; no extra emission here.
+            # Both in page scope (flat or folded).
+            if dependent_in_scope and dependency_in_scope:
+                dep_box = anchor_child_for_node.get(dependent_id)
+                decy_box = anchor_child_for_node.get(dependency_id)
+                dep_folded = dep_box is not None and dep_box in folded_children
+                decy_folded = decy_box is not None and decy_box in folded_children
+
+                if dep_folded and decy_folded:
+                    if dep_box != decy_box:
+                        # Cross-box edge — aggregate as topic_dependency.
+                        topic_dep_counts[(decy_box, dep_box)] += 1  # type: ignore[index]
+                    # Same-box → suppress.
+                    continue
+
+                if dep_folded and dependency_flat:
+                    # Dependent in a folded box; dependency is flat.
+                    boundary_edge_counts[(
+                        dependency_id,
+                        f"topic:{dep_box}",
+                        "boundary_dependent" if edge_kind == "uses" else "boundary_proof_plan_dependent",
+                        dep_box,  # type: ignore[arg-type]
+                    )] += 1
+                    continue
+
+                if decy_folded and dependent_flat:
+                    # Dependency in a folded box; dependent is flat.
+                    boundary_edge_counts[(
+                        f"topic:{decy_box}",
+                        dependent_id,
+                        "boundary_dependency" if edge_kind == "uses" else "boundary_proof_plan_dependency",
+                        decy_box,  # type: ignore[arg-type]
+                    )] += 1
+                    continue
+
+                # Both flat (already handled above) or other combo — skip.
                 continue
 
-            # True boundary edge: exactly one endpoint outside the family.
-            if dependent_in_family and not dependency_in_family:
-                boundary_topic = home_topic_for_node(g.nodes[dependency_id])
+            # True boundary edge: exactly one endpoint outside page scope.
+            if dependent_in_scope and not dependency_in_scope:
+                boundary_topic = home_topic_for_node(dep_cy_node)
                 boundary_roles[boundary_topic].add("dependency")
                 boundary_kind = (
                     "boundary_proof_plan_dependency"
                     if edge_kind == "proof_plan_uses"
                     else "boundary_dependency"
                 )
+                dep_box = anchor_child_for_node.get(dependent_id)
+                dep_folded = dep_box is not None and dep_box in folded_children
                 boundary_edge_counts[(
                     f"topic:{boundary_topic}",
-                    dependent_id if dependent_in_internal
-                    else f"topic:{child_topic_id(topic_id, home_topic_for_node(g.nodes[dependent_id]))}",
+                    dependent_id if not dep_folded else f"topic:{dep_box}",
                     boundary_kind,
                     boundary_topic,
                 )] += 1
                 continue
 
-            if dependency_in_family and not dependent_in_family:
-                boundary_topic = home_topic_for_node(g.nodes[dependent_id])
+            if dependency_in_scope and not dependent_in_scope:
+                boundary_topic = home_topic_for_node(dep_node)
                 boundary_roles[boundary_topic].add("dependent")
                 boundary_kind = (
                     "boundary_proof_plan_dependent"
                     if edge_kind == "proof_plan_uses"
                     else "boundary_dependent"
                 )
+                decy_box = anchor_child_for_node.get(dependency_id)
+                decy_folded = decy_box is not None and decy_box in folded_children
                 boundary_edge_counts[(
-                    dependency_id if dependency_in_internal
-                    else f"topic:{child_topic_id(topic_id, home_topic_for_node(g.nodes[dependency_id]))}",
+                    dependency_id if not decy_folded else f"topic:{decy_box}",
                     f"topic:{boundary_topic}",
                     boundary_kind,
                     boundary_topic,
@@ -609,7 +689,7 @@ def export_topic_subgraph_json(
     for plan_id, target_id in sorted(g.proof_plan_targets.items()):
         if plan_id not in g.nodes or target_id not in g.nodes:
             continue
-        if plan_id not in effective_internal_set and target_id not in effective_internal_set:
+        if plan_id not in flat_set and target_id not in flat_set:
             continue
         plan = g.nodes[plan_id]
         # has_plan edges follow the same orientation as every other graph
@@ -629,22 +709,37 @@ def export_topic_subgraph_json(
     non_proof_plan_count = len(page_nodes) - len(proof_plan_nodes)
     selected_proof_plan_count = sum(1 for node in proof_plan_nodes if node.plan_status == "selected")
 
-    # Inlined children no longer get a separate box on the page — their
-    # contents now appear directly in `nodes`. Drop them from the child topic
-    # list and from `_child_topic_edges` (whose endpoints become flat edges
-    # already accounted for above).
-    visible_child_ids = [c for c in child_ids if c not in inlined_children]
-    child_topic_nodes = [
-        _topic_entry(child_id, topic_data[child_id])
-        for child_id in visible_child_ids
-    ]
-    raw_child_topic_edges = _child_topic_edges(g, topic_id)
+    # Build visible child topic nodes — only folded children with ≥1 member.
+    # topic_data may not have entries for all child anchors if they only exist
+    # by memberships() (not home_topic), so we build a synthetic entry when needed.
+    visible_child_ids = sorted(folded_children.keys())
+    child_topic_nodes = []
+    for child_id in visible_child_ids:
+        member_count = len(folded_children[child_id])
+        if member_count == 0:
+            continue  # Never render empty boxes.
+        if child_id in topic_data:
+            child_topic_nodes.append(_topic_entry(child_id, topic_data[child_id]))
+        else:
+            # Synthetic entry for a child that only exists via memberships.
+            synthetic = _empty_topic_data(child_id)
+            synthetic["all_nodes"] = [g.nodes[nid] for nid in folded_children[child_id] if nid in g.nodes]
+            synthetic["direct_nodes"] = synthetic["all_nodes"]
+            child_topic_nodes.append(_topic_entry(child_id, synthetic))
+
+    # topic_dependency edges between folded boxes.
     child_topic_edges = [
-        edge
-        for edge in raw_child_topic_edges
-        if edge["from"].removeprefix("topic:") not in inlined_children
-        and edge["to"].removeprefix("topic:") not in inlined_children
+        {
+            "from": f"topic:{source}",
+            "to": f"topic:{target}",
+            "kind": "topic_dependency",
+            "count": count,
+        }
+        for (source, target), count in sorted(topic_dep_counts.items())
     ]
+
+    # child_boundary edges (the per-layer boundary, used by the child-topic
+    # overview view). Still derived via home_topic for the cross-topic surface.
     child_boundary_topics, child_boundary_edges = _topic_layer_boundary(g, topic_id, topic_counts)
 
     return {
@@ -653,11 +748,11 @@ def export_topic_subgraph_json(
             "title": titleize_topic(topic_id),
             "href": f"{topic_path(topic_id)}/index.html",
             "parent": parent_topic_id(topic_id),
-            "node_count": len(internal_ids),
+            "node_count": len(internal_ids_for_counts),
             "descendant_node_count": len(current_topic_data["all_nodes"]),
         },
         "counts": {
-            "internal_nodes": len(internal_ids),
+            "internal_nodes": len(internal_ids_for_counts),
             "inlined_nodes": len(inlined_node_ids),
             "descendant_nodes": len(current_topic_data["all_nodes"]),
             "child_topics": len(child_topic_nodes),
