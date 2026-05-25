@@ -223,8 +223,20 @@ def check_node_math(node: Node, *, declared_macros: Collection[str] | None = Non
     for env, line in env_stack:
         err(f"line {line}: unmatched \\begin{{{env}}}")
 
-    for line_number, line in enumerate(node.body.splitlines(), start=1):
-        if "|" in line and (r"\[" in line or "$$" in line or r"\begin{" in line):
+    # Detect display math inside actual Markdown table cells (rows like
+    # `| ... $$ ... $$ ... |`). Previous check was over-eager: any line with
+    # `|` anywhere (e.g. `\phi_E|_{K_{x,+}}`) plus a `$$` anywhere would
+    # trigger, even when both were in body prose outside any table.
+    body_lines = node.body.splitlines()
+    for line_number, line in enumerate(body_lines, start=1):
+        stripped = line.lstrip()
+        # A markdown table row starts with `|` (after optional indentation)
+        # and ends with `|`. We require both to consider it an actual table row.
+        if not (stripped.startswith("|") and stripped.rstrip().endswith("|")):
+            continue
+        # Inside such a row, display math `$$...$$` or `\[...\]` or
+        # `\begin{...}` does render poorly.
+        if r"\[" in line or "$$" in line or r"\begin{" in line:
             warn(f"line {line_number}: display math inside a Markdown table cell may render poorly")
 
     for match in MACRO_RE.finditer(node.body):
