@@ -341,3 +341,132 @@ class TestLeanModuleFragmentedDetector:
         det = LeanModuleFragmentedDetector()
         diags = det.run(all_nodes, graph, llm=None)
         assert len(diags) == 1
+
+
+# ── Built-in singular/plural alias tests ─────────────────────────────────────
+
+
+class TestBuiltinSingularPluralAliases:
+    """Tests that the 7 built-in game-theory plural↔singular aliases work."""
+
+    @pytest.mark.parametrize("singular,plural", [
+        ("strategic_game", "strategic_games"),
+        ("extensive_game", "extensive_games"),
+        ("repeated_game", "repeated_games"),
+        ("stochastic_game", "stochastic_games"),
+        ("coalitional_game", "coalitional_games"),
+        ("bayesian_game", "bayesian_games"),
+        ("differential_game", "differential_games"),
+    ])
+    def test_default_alias_maps_singular_lean_to_plural_blueprint(
+        self, singular: str, plural: str
+    ) -> None:
+        """Blueprint root '<plural>', Lean module 'SomeLib.<Singular>.X' → no finding."""
+        # Convert snake_case singular to PascalCase for the module name
+        pascal = "".join(w.title() for w in singular.split("_"))
+        node = _node(
+            f"{plural}.core.some_theorem",
+            lean_modules=[f"SomeLib.{pascal}.Core"],
+        )
+        graph, _ = build_graph([node])
+        det = TopicLeanAlignmentDetector()
+        assert det.run([node], graph, llm=None) == [], (
+            f"Expected no finding for blueprint root {plural!r} with "
+            f"Lean module root {singular!r} (built-in alias should handle it)"
+        )
+
+
+# ── extra_aliases: merge and override tests ───────────────────────────────────
+
+
+class TestExtraAliases:
+    """Tests for project-level extra_aliases on both detectors."""
+
+    def test_extra_alias_merges_with_default(self) -> None:
+        """Pass extra_aliases={'linear_algebra': 'linear_programming'};
+        node blueprint root 'linear_programming', Lean 'EconCSLib.LinearAlgebra.X'
+        → no finding.
+        """
+        node = _node(
+            "linear_programming.farkas.lemma",
+            lean_modules=["EconCSLib.LinearAlgebra.Farkas"],
+        )
+        graph, _ = build_graph([node])
+        det = TopicLeanAlignmentDetector(
+            extra_aliases={"linear_algebra": "linear_programming"}
+        )
+        assert det.run([node], graph, llm=None) == []
+
+    def test_extra_alias_overrides_default(self) -> None:
+        """extra_aliases={'strategic_game': 'games'} overrides the built-in
+        'strategic_game' → 'strategic_games' mapping.
+
+        - blueprint root 'games', Lean 'EconCSLib.StrategicGame.X' → no finding
+          (alias remaps to 'games').
+        - blueprint root 'strategic_games', Lean 'EconCSLib.StrategicGame.X' → fires
+          (alias now maps to 'games', not 'strategic_games').
+        """
+        extra = {"strategic_game": "games"}
+
+        # With override: 'games' blueprint root aligns
+        node_ok = _node(
+            "games.core.nash_equilibrium",
+            lean_modules=["EconCSLib.StrategicGame.Core"],
+        )
+        graph_ok, _ = build_graph([node_ok])
+        det = TopicLeanAlignmentDetector(extra_aliases=extra)
+        assert det.run([node_ok], graph_ok, llm=None) == []
+
+        # With override: 'strategic_games' blueprint root no longer aligns
+        node_fail = _node(
+            "strategic_games.core.nash_equilibrium",
+            lean_modules=["EconCSLib.StrategicGame.Core"],
+        )
+        graph_fail, _ = build_graph([node_fail])
+        diags = det.run([node_fail], graph_fail, llm=None)
+        assert len(diags) == 1
+        assert diags[0].code == "LINT_TOPIC_LEAN_ALIGNMENT"
+
+    def test_lean_module_fragmented_respects_extra_aliases(self) -> None:
+        """When extra_aliases maps a Lean root to a single blueprint root,
+        nodes that previously appeared to span two blueprint roots are now
+        consolidated and the fragmented finding is suppressed.
+
+        Without extra alias: nodes in 'linear_programming' and 'linear_algebra'
+        blueprint roots would both normalise their Lean root to 'linear_algebra'
+        → fragmented finding.
+
+        With extra_aliases={'linear_algebra': 'linear_programming'}: both
+        blueprint roots now canonicalise to 'linear_programming' before
+        comparison, so they're seen as the same root → no fragmented finding.
+        """
+        nodes_a = [
+            _node(
+                f"linear_programming.farkas.lemma{i}",
+                lean_modules=["EconCSLib.LinearAlgebra.Farkas"],
+            )
+            for i in range(3)
+        ]
+        nodes_b = [
+            _node(
+                f"linear_algebra.core.lemma{i}",
+                lean_modules=["EconCSLib.LinearAlgebra.Core"],
+            )
+            for i in range(3)
+        ]
+        all_nodes = nodes_a + nodes_b
+        graph, _ = build_graph(all_nodes)
+
+        # Without alias: fragmented (two distinct blueprint roots)
+        det_no_alias = LeanModuleFragmentedDetector()
+        diags_no_alias = det_no_alias.run(all_nodes, graph, llm=None)
+        assert len(diags_no_alias) >= 1, (
+            "Expected fragmented finding without alias"
+        )
+
+        # With alias: both roots canonicalise to 'linear_programming' → silent
+        det_with_alias = LeanModuleFragmentedDetector(
+            extra_aliases={"linear_algebra": "linear_programming"}
+        )
+        diags_with_alias = det_with_alias.run(all_nodes, graph, llm=None)
+        assert diags_with_alias == []

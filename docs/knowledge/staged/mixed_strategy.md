@@ -22,7 +22,6 @@ source:
 tags:
   - strategic-game
   - mixed-strategy
-topic_lean_alignment: divergent
 ---
 
 # Mixed Strategy

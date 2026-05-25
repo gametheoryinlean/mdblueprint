@@ -30,7 +30,6 @@ tags:
   - strategic-game
   - example
   - classic
-topic_lean_alignment: divergent
 ---
 
 # Prisoner's Dilemma
