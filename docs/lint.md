@@ -35,7 +35,29 @@ lint:
   semantic_candidate_threshold: 0.75     # LINT_SEMANTIC_DUP candidate selection
   plan_promote_severity: info            # LINT_PLAN_PROMOTE level: info | warning
   hierarchy_inversion_severity: warning  # LINT_HIERARCHY_INVERSION level: info | warning
+  topic_lean_aliases:                    # project-level Lean root → blueprint root overrides
+    linear_algebra: linear_programming   # example: EconCSLib.LinearAlgebra.* → linear_programming.*
 ```
+
+### `lint.topic_lean_aliases` — project-level Lean/blueprint root overrides
+
+Use this field when a Lean module belongs to a different blueprint topic
+than its module name suggests. Each entry maps a snake_case Lean module
+root (first segment after stripping the project prefix) to the blueprint
+topic root it should be compared against.
+
+```yaml
+lint:
+  topic_lean_aliases:
+    linear_algebra: linear_programming
+    # Declares: nodes whose Lean lives in <Project>.LinearAlgebra.*
+    # should align with blueprint root "linear_programming", not "linear_algebra".
+```
+
+These project-level entries are merged on top of the built-in
+singular/plural table (project config wins on conflict). See the
+`_BLUEPRINT_LEAN_ROOT_ALIASES` table in `_detectors.py` for the
+built-in defaults.
 
 ## Rule reference
 
@@ -214,10 +236,18 @@ No match → 1 warning. Resolution options:
 - B) Move Lean module to `EconCSLib.Core.LinearAlgebra.Farkas`
 - C) Add `topic_lean_alignment: divergent` to frontmatter
 
-**Alias table.** The `_BLUEPRINT_LEAN_ROOT_ALIASES` dict in `_detectors.py`
-maps Lean singular-convention roots to blueprint plural-convention roots (e.g.
-`strategic_game` → `strategic_games`). Add project-specific pairs there to
-suppress aliased-name false positives.
+**Built-in alias table.** The `_BLUEPRINT_LEAN_ROOT_ALIASES` dict in
+`_detectors.py` ships with seven built-in singular/plural pairs covering
+common Lean idiom (e.g. `strategic_game` → `strategic_games`,
+`extensive_game` → `extensive_games`, etc.). These handle the most common
+false positives arising from the Lean singular-module-name convention.
+
+**Project-level overrides.** Set `lint.topic_lean_aliases` in
+`mdblueprint.yml` to add project-specific mappings (e.g.
+`linear_algebra: linear_programming`). Config entries are merged on top
+of the built-in table; config wins on conflict. Both detectors
+(`LINT_TOPIC_LEAN_ALIGNMENT` and `LINT_LEAN_MODULE_FRAGMENTED`) read the
+merged table.
 
 ### `LINT_LEAN_MODULE_FRAGMENTED` — Lean module root spread across multiple blueprint roots
 

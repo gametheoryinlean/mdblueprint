@@ -78,6 +78,14 @@ class LintConfig:
     semantic_candidate_threshold: float = 0.75
     plan_promote_severity: str = "info"
     hierarchy_inversion_severity: str = "warning"
+    # Project-level Lean module root → blueprint topic root override.
+    # Use when a Lean module belongs (per project organization) to a
+    # different blueprint topic than its module name suggests. E.g.
+    # {"linear_algebra": "linear_programming"} declares that nodes whose
+    # Lean lives in EconCSLib.LinearAlgebra.* should be aligned with
+    # blueprint root "linear_programming". Merged on top of the built-in
+    # plural/singular table (config wins on conflicts).
+    topic_lean_aliases: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -464,11 +472,29 @@ def _parse_lint_config(raw: Any, *, path: Path) -> LintConfig:
             f"got {hierarchy_severity!r}: {path}"
         )
 
+    aliases_raw = raw.get("topic_lean_aliases", {})
+    if aliases_raw is None:
+        aliases: dict[str, str] = {}
+    elif not isinstance(aliases_raw, dict):
+        raise ValueError(
+            f"Project config lint.topic_lean_aliases must be a mapping: {path}"
+        )
+    else:
+        aliases = {}
+        for key, value in aliases_raw.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                raise ValueError(
+                    f"Project config lint.topic_lean_aliases keys and values "
+                    f"must be strings: {path}"
+                )
+            aliases[key] = value
+
     return LintConfig(
         fuzzy_threshold=fuzzy_threshold,
         semantic_candidate_threshold=semantic_candidate_threshold,
         plan_promote_severity=severity,
         hierarchy_inversion_severity=hierarchy_severity,
+        topic_lean_aliases=aliases,
     )
 
 
