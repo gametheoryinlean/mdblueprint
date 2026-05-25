@@ -192,6 +192,27 @@ A node should not carry both `statement` and `definition`. Use the field that ma
 the kind. Use `not_applicable` for `proof` only when the node kind cannot have a proof
 (e.g. a topic-level node, a pure definition, a concept, or an example).
 
+## Lean Topic Alignment Field
+
+The optional `topic_lean_alignment` field controls how the
+`LINT_TOPIC_LEAN_ALIGNMENT` linter treats the node.
+
+```yaml
+topic_lean_alignment: divergent
+```
+
+Valid values:
+
+| Value | Meaning |
+|-------|---------|
+| `aligned` | Author asserts blueprint and Lean hierarchy match (no linter skip; the linter still validates and will flag if they actually differ). |
+| `divergent` | Intentional divergence; linter skips this node. Use when the blueprint and Lean hierarchies are known to differ and the difference is by design. |
+| `unknown` | Alignment not yet reviewed (semantically equivalent to omitting the field). |
+
+Omitting the field is treated as `unknown`.
+
+The field is purely advisory for the linter. It does not affect publishing, rendering, or the mathematical dependency graph.
+
 ## Body Rule
 
 The body must not contain operational sections such as:

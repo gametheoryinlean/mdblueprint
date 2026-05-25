@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from collections import deque
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Callable
@@ -664,3 +664,225 @@ def _common_strict_prefixes(topic_a: str, topic_b: str) -> list[str]:
         if index < len(parts_a) - 1 and index < len(parts_b) - 1:
             common.append(".".join(parts_a[: index + 1]))
     return common
+
+
+# ── Lean/blueprint root alias table ──────────────────────────────────────────
+
+# Maps Lean singular-convention roots to blueprint plural-convention roots.
+# The normalization function canonicalises both sides to the blueprint form
+# (plural) before comparison.
+#
+# Populate this dict with project-specific singular/plural pairs.
+# Example entry pattern (not pre-populated to keep this tool domain-agnostic):
+#   "<lean_singular_root>": "<blueprint_plural_root>",
+#
+# EconCSLib users: add game-theory pairs in an extension or config layer.
+_BLUEPRINT_LEAN_ROOT_ALIASES: dict[str, str] = {}
+
+# Reverse mapping (plural → singular) derived from the table above.
+_LEAN_BLUEPRINT_ROOT_ALIASES_REVERSE: dict[str, str] = {
+    v: k for k, v in _BLUEPRINT_LEAN_ROOT_ALIASES.items()
+}
+
+
+def _canonical_root(root: str) -> str:
+    """Canonicalise a root to blueprint plural form using the alias table.
+
+    If the root is a known Lean-singular form, return the plural.
+    If the root is already a plural form, return it as-is.
+    """
+    return _BLUEPRINT_LEAN_ROOT_ALIASES.get(root, root)
+
+
+_PASCAL_SPLIT_RE = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+
+
+def _pascal_to_snake(name: str) -> str:
+    """Convert PascalCase to snake_case, e.g. 'LinearAlgebra' → 'linear_algebra'."""
+    return _PASCAL_SPLIT_RE.sub("_", name).lower()
+
+
+def _lean_module_to_normalized_root(module: str) -> str | None:
+    """Derive the normalised topic root from a Lean module name.
+
+    Steps:
+    1. Strip the first segment (project prefix): ``EconCSLib.LinearAlgebra.Farkas``
+       → ``LinearAlgebra.Farkas``.
+    2. Convert PascalCase to snake_case: ``LinearAlgebra.Farkas``
+       → ``linear_algebra.farkas``.
+    3. Drop the last segment (file/declaration name): ``linear_algebra.farkas``
+       → ``linear_algebra``.
+    4. Take the first segment as ``lean_root``: ``linear_algebra``.
+    5. Canonicalise via alias table.
+
+    Returns ``None`` when the module has fewer than 2 segments after stripping
+    the project prefix (nothing meaningful to compare).
+    """
+    parts = module.split(".")
+    if len(parts) < 2:
+        return None
+    # Strip project prefix (first segment)
+    without_prefix = parts[1:]
+    if not without_prefix:
+        return None
+    # Convert each segment to snake_case
+    snake_parts = [_pascal_to_snake(p) for p in without_prefix]
+    # Drop the last segment (declaration/file name)
+    if len(snake_parts) == 1:
+        # Only one segment after the project prefix → that IS the root already
+        lean_root = snake_parts[0]
+    else:
+        lean_root = snake_parts[0]
+    return _canonical_root(lean_root)
+
+
+# ── TopicLeanAlignmentDetector ────────────────────────────────────────────────
+
+
+@dataclass
+class TopicLeanAlignmentDetector:
+    """Flag nodes whose blueprint topic root does not match the Lean module root.
+
+    For each node with at least one ``lean.modules`` entry, computes the
+    blueprint root (first segment of the node's home topic) and the Lean root
+    (first meaningful PascalCase segment of the Lean module, snake-cased and
+    alias-normalised). If *none* of the node's Lean modules produces a
+    matching root, a warning is emitted.
+
+    Opt-out: set ``topic_lean_alignment: divergent`` in the node frontmatter
+    to suppress the check for that node.
+    """
+
+    code: str = "LINT_TOPIC_LEAN_ALIGNMENT"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        out: list[Diagnostic] = []
+        for node in sorted(nodes, key=lambda n: n.id):
+            # Opt-out
+            if node.topic_lean_alignment == "divergent":
+                continue
+            # Only check nodes with at least one Lean module
+            if node.lean is None or not node.lean.modules:
+                continue
+
+            home_topic = home_topic_for_node(node)
+            blueprint_root = _canonical_root(home_topic.split(".")[0])
+
+            # Check whether any Lean module matches
+            mismatched_modules: list[str] = []
+            for module in node.lean.modules:
+                lean_root = _lean_module_to_normalized_root(module)
+                if lean_root is None:
+                    continue
+                if lean_root == blueprint_root:
+                    # At least one match — node is aligned
+                    mismatched_modules = []
+                    break
+                mismatched_modules.append(module)
+
+            if not mismatched_modules:
+                continue
+
+            # Emit one warning per mismatched module
+            for module in mismatched_modules:
+                lean_root = _lean_module_to_normalized_root(module) or "?"
+                out.append(Diagnostic(
+                    level="warning",
+                    node_id=node.id,
+                    message=(
+                        f"blueprint root {blueprint_root!r} but Lean module "
+                        f"{module!r} normalises to root {lean_root!r} — "
+                        f"move blueprint to {lean_root!r}.*, "
+                        f"move Lean to project prefix + {blueprint_root!r}.*, "
+                        f"or add topic_lean_alignment: divergent"
+                    ),
+                    file_path=node.file_path,
+                    code=self.code,
+                    related=(module,),
+                ))
+        return out
+
+
+# ── LeanModuleFragmentedDetector ──────────────────────────────────────────────
+
+
+@dataclass
+class LeanModuleFragmentedDetector:
+    """Flag Lean module roots whose nodes are spread across multiple blueprint roots.
+
+    After scanning all nodes, groups nodes by the normalised Lean module root
+    (first meaningful snake_case segment after stripping the project prefix).
+    For each Lean root covering ≥ 2 nodes that span more than one blueprint
+    root, emits a single ``info`` diagnostic.
+
+    Suppression: if *all* nodes under that Lean root declare
+    ``topic_lean_alignment: divergent``, the finding is suppressed.
+    """
+
+    code: str = "LINT_LEAN_MODULE_FRAGMENTED"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        # Group nodes by lean_root → list of (blueprint_root, node_id, divergent)
+        lean_root_map: dict[str, list[tuple[str, str, bool]]] = defaultdict(list)
+        for node in nodes:
+            if node.lean is None or not node.lean.modules:
+                continue
+            for module in node.lean.modules:
+                lean_root = _lean_module_to_normalized_root(module)
+                if lean_root is None:
+                    continue
+                home_topic = home_topic_for_node(node)
+                blueprint_root = _canonical_root(home_topic.split(".")[0])
+                is_divergent = node.topic_lean_alignment == "divergent"
+                lean_root_map[lean_root].append((blueprint_root, node.id, is_divergent))
+
+        out: list[Diagnostic] = []
+        for lean_root in sorted(lean_root_map):
+            entries = lean_root_map[lean_root]
+            if len(entries) < 2:
+                continue
+
+            # Check suppression: all must be divergent
+            if all(div for _, _, div in entries):
+                continue
+
+            # Group by blueprint root
+            per_bp_root: dict[str, list[str]] = defaultdict(list)
+            for bp_root, node_id, _ in entries:
+                per_bp_root[bp_root].append(node_id)
+
+            if len(per_bp_root) <= 1:
+                continue
+
+            # Build counts description
+            counts_parts = ", ".join(
+                f"{bp_root} ({len(nids)}): {', '.join(sorted(nids)[:3])}"
+                + ("..." if len(nids) > 3 else "")
+                for bp_root, nids in sorted(per_bp_root.items())
+            )
+            total = len(entries)
+            out.append(Diagnostic(
+                level="info",
+                node_id="",
+                message=(
+                    f"Lean module root {lean_root!r} has {total} node(s) spread "
+                    f"across {len(per_bp_root)} blueprint roots: {counts_parts}"
+                ),
+                code=self.code,
+                related=(lean_root,),
+            ))
+        return out

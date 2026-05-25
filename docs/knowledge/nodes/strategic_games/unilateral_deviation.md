@@ -30,6 +30,7 @@ generality:
 tags:
   - strategic-game
   - foundational
+topic_lean_alignment: divergent
 ---
 
 # Unilateral Deviation

@@ -121,6 +121,7 @@ def _default_detectors(
     from tools.knowledge.lint._detectors import (
         FuzzyTitleDupDetector,
         HierarchyInversionDetector,
+        LeanModuleFragmentedDetector,
         LeanRefKindDetector,
         OrphanDetector,
         PlanPromoteDetector,
@@ -128,6 +129,7 @@ def _default_detectors(
         RedundantDepDetector,
         StagedAdmittedOverlapDetector,
         TopicCycleDetector,
+        TopicLeanAlignmentDetector,
     )
     from tools.knowledge.lint._llm import (
         LeanAlignmentLlmDetector,
@@ -142,11 +144,13 @@ def _default_detectors(
         StagedAdmittedOverlapDetector(threshold=cfg.fuzzy_threshold),
         RedundantDepDetector(),
         OrphanDetector(),
+        LeanModuleFragmentedDetector(),
         LeanRefKindDetector(indexes=lean_indexes),
         PlanPromoteDetector(severity=cfg.plan_promote_severity),
         ProseDepConsistencyDetector(),
         HierarchyInversionDetector(severity=cfg.hierarchy_inversion_severity),
         TopicCycleDetector(),
+        TopicLeanAlignmentDetector(),
         SemanticDupDetector(
             cache=cache,
             budget=budget,

@@ -32,6 +32,7 @@ tags:
   - strategic-game
   - equilibrium
   - dominance
+topic_lean_alignment: divergent
 ---
 
 # Dominant Strategy Profile is a Nash Equilibrium
