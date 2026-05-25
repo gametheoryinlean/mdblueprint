@@ -96,6 +96,7 @@ def parse_node(text: str, file_path: Path | None = None) -> Node:
         topics=fm.get("topics") or [],
         body=body.strip(),
         file_path=file_path,
+        topic_lean_alignment=fm.get("topic_lean_alignment") or None,
     )
 
 

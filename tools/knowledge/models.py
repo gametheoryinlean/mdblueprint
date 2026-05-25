@@ -123,3 +123,4 @@ class Node:
     topics: list[str] = field(default_factory=list)
     body: str = ""
     file_path: Path | None = None
+    topic_lean_alignment: str | None = None

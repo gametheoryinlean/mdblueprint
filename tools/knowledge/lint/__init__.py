@@ -19,6 +19,7 @@ from tools.knowledge.lint._core import (
 from tools.knowledge.lint._detectors import (
     FuzzyTitleDupDetector,
     HierarchyInversionDetector,
+    LeanModuleFragmentedDetector,
     LeanRefKindDetector,
     OrphanDetector,
     PlanPromoteDetector,
@@ -26,6 +27,7 @@ from tools.knowledge.lint._detectors import (
     RedundantDepDetector,
     StagedAdmittedOverlapDetector,
     TopicCycleDetector,
+    TopicLeanAlignmentDetector,
     _normalize,
     _ratio,
 )
@@ -47,11 +49,13 @@ __all__ = [
     "StagedAdmittedOverlapDetector",
     "RedundantDepDetector",
     "OrphanDetector",
+    "LeanModuleFragmentedDetector",
     "LeanRefKindDetector",
     "PlanPromoteDetector",
     "ProseDepConsistencyDetector",
     "HierarchyInversionDetector",
     "TopicCycleDetector",
+    "TopicLeanAlignmentDetector",
     "SemanticDupDetector",
     "LeanAlignmentLlmDetector",
     # Private helpers re-exported for tests

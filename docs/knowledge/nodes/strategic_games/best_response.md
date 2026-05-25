@@ -30,6 +30,7 @@ generality:
 tags:
   - strategic-game
   - solution-concept
+topic_lean_alignment: divergent
 ---
 
 # Best Response

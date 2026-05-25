@@ -178,6 +178,73 @@ on a node in `alg` (subtopic uses parent's basics) is fine — the
 detector only fires when the arrow points up the hierarchy in the
 unhealthy direction.
 
+### `LINT_TOPIC_LEAN_ALIGNMENT` — Blueprint topic root does not match Lean module root
+
+**Trigger.** For each node with at least one `lean.modules` entry:
+
+1. Compute `blueprint_root` as the first segment of the node's home topic
+   (from `primary_topic` if set, otherwise derived from the node id).
+2. For each `lean.modules` entry, strip the project prefix (first
+   `.`-separated segment), convert the next segment from PascalCase to
+   snake_case, and treat the result as `lean_root`.
+3. Apply the `_BLUEPRINT_LEAN_ROOT_ALIASES` table (see `_detectors.py`) for
+   known singular/plural variants. Both sides are canonicalised to the
+   blueprint form before comparison.
+4. If **none** of the node's Lean modules has a `lean_root` matching
+   `blueprint_root` (after alias normalisation), emit a `warning`.
+
+**Level.** `warning`. `related` carries the first mismatched Lean module name.
+
+**Opt-out.** Set `topic_lean_alignment: divergent` in the node frontmatter
+to skip the check for that node. This is the correct declaration for nodes
+whose blueprint and Lean hierarchies are intentionally different.
+
+**Example.**
+
+```
+node id: core.linear_algebra.farkas_lemma
+lean:
+  modules: [EconCSLib.LinearAlgebra.Farkas]
+```
+
+`blueprint_root` is `core`; Lean module normalises to root `linear_algebra`.
+No match → 1 warning. Resolution options:
+
+- A) Move blueprint node to `linear_algebra.farkas_lemma`
+- B) Move Lean module to `EconCSLib.Core.LinearAlgebra.Farkas`
+- C) Add `topic_lean_alignment: divergent` to frontmatter
+
+**Alias table.** The `_BLUEPRINT_LEAN_ROOT_ALIASES` dict in `_detectors.py`
+maps Lean singular-convention roots to blueprint plural-convention roots (e.g.
+`strategic_game` → `strategic_games`). Add project-specific pairs there to
+suppress aliased-name false positives.
+
+### `LINT_LEAN_MODULE_FRAGMENTED` — Lean module root spread across multiple blueprint roots
+
+**Trigger.** After scanning all nodes, groups nodes by their normalised Lean
+module root (first snake_case segment after stripping the project prefix). If
+a Lean root has ≥ 2 nodes and those nodes span more than one blueprint root,
+a single `info` diagnostic is emitted for that Lean root (not per-node).
+
+**Level.** `info`. `related` carries the Lean module root string.
+
+**Suppression.** If *all* nodes under that Lean root declare
+`topic_lean_alignment: divergent`, the finding is suppressed.
+
+**Example.**
+
+```
+Lean root 'linear_algebra' covers:
+  - core.linear_algebra.farkas_lemma         → blueprint root 'core'
+  - zero_sum.applications.perron_frobenius   → blueprint root 'zero_sum'
+```
+
+The two nodes live under different blueprint roots → 1 info diagnostic.
+
+**How to fix.** Either migrate all blueprint nodes under the Lean root to a
+common blueprint root, migrate the Lean modules, or mark the divergence
+intentional with `topic_lean_alignment: divergent` on each node.
+
 ### `LINT_TOPIC_CYCLE` — Sibling subtopics aggregate into a cycle
 
 **Trigger.** Two sibling child topics `A` and `B` under a common parent

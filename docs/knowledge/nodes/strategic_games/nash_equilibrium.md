@@ -31,6 +31,7 @@ tags:
   - strategic-game
   - solution-concept
   - equilibrium
+topic_lean_alignment: divergent
 ---
 
 # Nash Equilibrium

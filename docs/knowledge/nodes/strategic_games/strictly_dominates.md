@@ -30,6 +30,7 @@ generality:
 tags:
   - strategic-game
   - dominance
+topic_lean_alignment: divergent
 ---
 
 # Strict Dominance

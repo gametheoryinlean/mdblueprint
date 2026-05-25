@@ -176,6 +176,15 @@ def validate_node(
         if node.source is None or not node.source.spans:
             warn(f"math node of kind {node.kind!r} has no source.spans (project requires sources)")
 
+    # topic_lean_alignment field
+    _VALID_TOPIC_LEAN_ALIGNMENT_VALUES = frozenset({"aligned", "divergent", "unknown"})
+    if node.topic_lean_alignment is not None:
+        if node.topic_lean_alignment not in _VALID_TOPIC_LEAN_ALIGNMENT_VALUES:
+            err(
+                f"invalid topic_lean_alignment value: {node.topic_lean_alignment!r}; "
+                f"must be one of {sorted(_VALID_TOPIC_LEAN_ALIGNMENT_VALUES)}"
+            )
+
     # Topic membership consistency
     if node.topics:
         for t in node.topics:
