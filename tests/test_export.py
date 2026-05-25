@@ -453,38 +453,18 @@ class TestExportTopicSubgraphJson:
 
         data = export_topic_subgraph_json(graph, "algebra")
 
-        assert data["child_boundary_topics"] == [
-            {
-                "id": "logic.order",
-                "title": "Logic.Order",
-                "href": "logic/order/index.html",
-                "role": "dependency",
-                "node_count": 1,
-            },
-            {
-                "id": "topology.groups",
-                "title": "Topology.Groups",
-                "href": "topology/groups/index.html",
-                "role": "dependent",
-                "node_count": 1,
-            },
-        ]
-        assert data["child_boundary_edges"] == [
-            {
-                "from": "topic:logic.order",
-                "to": "topic:algebra.groups",
-                "kind": "boundary_dependency",
-                "topic": "logic.order",
-                "count": 1,
-            },
-            {
-                "from": "topic:algebra.groups",
-                "to": "topic:topology.groups",
-                "kind": "boundary_dependent",
-                "topic": "topology.groups",
-                "count": 1,
-            },
-        ]
+        # child_boundary_topics and child_boundary_edges have been removed;
+        # the unified view uses boundary_topics and boundary_edges for all
+        # external cross-topic connections.
+        assert "child_boundary_topics" not in data
+        assert "child_boundary_edges" not in data
+        assert "child_topic_edges" not in data
+
+        # Both algebra.groups nodes are flat (under cap) — external deps land
+        # in boundary_topics / boundary_edges as concrete node endpoints.
+        boundary_ids = {t["id"] for t in data["boundary_topics"]}
+        assert "logic.order" in boundary_ids
+        assert "topology.groups" in boundary_ids
 
     def test_topic_subgraph_contains_internal_nodes_and_edges(self):
         from tools.knowledge.models import Node
@@ -1323,3 +1303,115 @@ class TestSizeDrivenSubdivision:
                 assert edge["to"] in flat_ids, (
                     f"Edge target {edge['to']} not in flat node set"
                 )
+
+
+class TestUnifiedTopicView:
+    """Regression tests for the unified topic view (Plan B fix).
+
+    A topic page with a mix of folded child boxes and flat nodes must:
+    - include both flat nodes and folded child boxes in the JSON
+    - NOT include the old layer-mode fields (child_boundary_topics,
+      child_boundary_edges, child_topic_edges)
+    - have no phantom endpoints in edges or boundary_edges
+    """
+
+    def test_unified_view_no_phantom_endpoints(self):
+        """Parent topic with 1 folded child + flat nodes + 1 external boundary.
+
+        All edge endpoints must be declared in nodes, child_topic_nodes, or
+        boundary_topics. No undeclared 'topic:*' endpoints.
+        """
+        from tools.knowledge.config import GraphDisplayConfig
+        from tools.knowledge.models import Node
+
+        # Parent: game_theory
+        # Folded child: game_theory.strategic (3 nodes, will be folded)
+        # Flat node: game_theory.zero_sum.minimax (1 node, stays flat)
+        # External: logic.preorder (boundary dependency)
+        s1 = Node(id="game_theory.strategic.nash", title="Nash", kind="theorem", status="admitted",
+                  uses=["logic.preorder"])
+        s2 = Node(id="game_theory.strategic.subgame", title="Subgame Perfect", kind="theorem",
+                  status="admitted", uses=["game_theory.strategic.nash"])
+        s3 = Node(id="game_theory.strategic.trembling", title="Trembling Hand", kind="theorem",
+                  status="admitted", uses=["game_theory.strategic.nash"])
+        flat = Node(id="game_theory.zero_sum.minimax", title="Minimax", kind="theorem",
+                    status="admitted", uses=["game_theory.strategic.nash"])
+        external = Node(id="logic.preorder", title="Preorder", kind="definition", status="admitted")
+
+        graph, diags = build_graph([s1, s2, s3, flat, external])
+        assert diags == []
+
+        # Force folding: max_page_total=2 so strategic (3 nodes) gets boxed.
+        cfg = GraphDisplayConfig(max_visible_nodes=120, max_expand_nodes=80,
+                                 proof_plans="selected-only", max_page_total=2)
+        data = export_topic_subgraph_json(graph, "game_theory", graph_config=cfg)
+
+        # Flat nodes present
+        flat_ids = {n["id"] for n in data["nodes"]}
+        assert "game_theory.zero_sum.minimax" in flat_ids
+
+        # Folded child box present
+        child_topic_ids = {c["id"] for c in data["child_topic_nodes"]}
+        assert "game_theory.strategic" in child_topic_ids
+
+        # External boundary present
+        boundary_ids = {b["id"] for b in data["boundary_topics"]}
+        assert "logic" in boundary_ids
+
+        # Old layer-mode fields must not appear
+        assert "child_boundary_topics" not in data
+        assert "child_boundary_edges" not in data
+        assert "child_topic_edges" not in data
+
+        # No phantom endpoints: every endpoint must be declared
+        declared_topics = {c["id"] for c in data["child_topic_nodes"]} | {b["id"] for b in data["boundary_topics"]}
+        declared_nodes = {n["id"] for n in data["nodes"]}
+        declared_all = declared_topics | declared_nodes
+        for edge_field in ["edges", "boundary_edges"]:
+            for edge in data.get(edge_field, []):
+                for endpoint in [edge.get("from"), edge.get("to")]:
+                    if endpoint is None:
+                        continue
+                    if endpoint.startswith("topic:"):
+                        bare = endpoint[len("topic:"):]
+                        assert bare in declared_topics, (
+                            f"Phantom topic endpoint {endpoint!r} in {edge_field}"
+                        )
+                    else:
+                        assert endpoint in declared_nodes, (
+                            f"Phantom node endpoint {endpoint!r} in {edge_field}"
+                        )
+
+    def test_unified_view_fields_present_and_absent(self):
+        """Smoke test: required fields are present, removed fields are absent."""
+        from tools.knowledge.config import GraphDisplayConfig
+        from tools.knowledge.models import Node
+
+        a = Node(id="math.algebra.group", title="Group", kind="definition", status="admitted")
+        b = Node(id="math.algebra.ring", title="Ring", kind="definition", status="admitted",
+                 uses=["math.algebra.group"])
+        c = Node(id="math.topology.space", title="Space", kind="definition", status="admitted",
+                 uses=["math.algebra.ring"])
+        ext = Node(id="logic.exists", title="Exists", kind="theorem", status="admitted")
+        d = Node(id="math.algebra.field", title="Field", kind="definition", status="admitted",
+                 uses=["logic.exists"])
+
+        graph, diags = build_graph([a, b, c, d, ext])
+        assert diags == []
+
+        cfg = GraphDisplayConfig(max_visible_nodes=120, max_expand_nodes=80,
+                                 proof_plans="selected-only", max_page_total=2)
+        data = export_topic_subgraph_json(graph, "math.algebra", graph_config=cfg)
+
+        # Required fields
+        assert "nodes" in data
+        assert "edges" in data
+        assert "child_topic_nodes" in data
+        assert "boundary_topics" in data
+        assert "boundary_edges" in data
+        assert "counts" in data
+
+        # Removed fields
+        assert "child_topic_edges" not in data
+        assert "child_boundary_topics" not in data
+        assert "child_boundary_edges" not in data

@@ -188,10 +188,7 @@ class TestExampleCorpusPublish:
         assert "topicSubgraphBaseUrl" in graph_page
         assert "graphState" in graph_js
         assert "expandedTopic" in graph_js
-        assert "currentTopicLayer" in graph_js
         assert "fetchTopicSubgraph" in graph_js
-        assert "topicLayerToDot" in graph_js
-        assert "renderTopicLayer" in graph_js
         assert "goToParentTopic" in graph_js
         assert "updateGraphBreadcrumbs" in graph_js
         assert "topicSubgraphToDot" in graph_js
@@ -200,6 +197,10 @@ class TestExampleCorpusPublish:
         assert "updateGraphNavigationControls" in graph_js
         assert "topicCache" in graph_js
         assert "expanded" in graph_js
+        # Layer mode deleted — these must NOT appear in the unified renderer
+        assert "topicLayerToDot" not in graph_js
+        assert "renderTopicLayer" not in graph_js
+        assert "currentTopicLayer" not in graph_js
 
     def test_topic_subgraph_includes_child_topics_field_when_over_cap(self, tmp_path):
         """child_topics is populated when subdivision is triggered by exceeding
