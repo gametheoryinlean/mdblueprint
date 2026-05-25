@@ -17,7 +17,11 @@ DEFAULT_DISPLAY_DELIMITERS = ((r"$$", r"$$"), (r"\[", r"\]"))
 DEFAULT_INLINE_DELIMITERS = ((r"$", r"$"), (r"\(", r"\)"))
 DEFAULT_GRAPH_MAX_VISIBLE_NODES = 120
 DEFAULT_GRAPH_MAX_EXPAND_NODES = 80
-DEFAULT_GRAPH_MAX_PAGE_TOTAL = 100
+# Matched to the browser-side renderer's maxExpandNodes (see graph.js:39-40)
+# so that any subgraph that Python emits as flat can actually render in the
+# browser. Mismatch causes pages with 81-100 internal nodes to silently fall
+# back to an "oversized topic" text placeholder instead of drawing the DAG.
+DEFAULT_GRAPH_MAX_PAGE_TOTAL = 80
 DEFAULT_GRAPH_INLINE_CHILD_MAX_SIZE = 8
 DEFAULT_GRAPH_PROOF_PLANS = "selected-only"
 GRAPH_PROOF_PLAN_POLICIES = {"hidden", "selected-only", "all"}

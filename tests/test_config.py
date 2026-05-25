@@ -166,7 +166,36 @@ def test_project_config_uses_graph_display_defaults(tmp_path):
 
     assert config.graph.max_visible_nodes == 120
     assert config.graph.max_expand_nodes == 80
+    assert config.graph.max_page_total == 80
     assert config.graph.proof_plans == "selected-only"
+
+
+def test_max_page_total_does_not_exceed_max_expand_nodes_default() -> None:
+    """Render-cap invariant: Python must never emit a flat subgraph larger
+    than what the browser-side renderer can draw.
+
+    Browser-side (graph.js maxExpandNodes) refuses to expand any topic
+    page whose internal_nodes count exceeds its cap; it falls back to a
+    text-only "oversized topic" placeholder. If Python's max_page_total
+    (the cap that triggers boxing/folding) is larger than that, pages
+    sized between the two limits emit JSON that the browser silently
+    refuses to render.
+
+    Keep `max_page_total <= max_expand_nodes` so every flat-rendered
+    page reaches the renderer.
+    """
+    from tools.knowledge.config import (
+        DEFAULT_GRAPH_MAX_EXPAND_NODES,
+        DEFAULT_GRAPH_MAX_PAGE_TOTAL,
+    )
+
+    assert DEFAULT_GRAPH_MAX_PAGE_TOTAL <= DEFAULT_GRAPH_MAX_EXPAND_NODES, (
+        f"DEFAULT_GRAPH_MAX_PAGE_TOTAL ({DEFAULT_GRAPH_MAX_PAGE_TOTAL}) must "
+        f"be <= DEFAULT_GRAPH_MAX_EXPAND_NODES ({DEFAULT_GRAPH_MAX_EXPAND_NODES}). "
+        "Raising the page total without raising the render cap (and the "
+        "matching browser-side maxExpandNodes in graph.js) produces "
+        "subgraphs the renderer silently refuses to draw."
+    )
 
 
 def test_project_config_parses_graph_display_limits(tmp_path):

@@ -325,8 +325,15 @@
   }
 
   function exceedsTopicExpansionLimits(data) {
-    const internalNodes = data.counts?.internal_nodes ?? (data.nodes || []).length;
-    return internalNodes > graphLimit("maxExpandNodes")
+    // Count what the renderer will actually draw: flat page nodes plus
+    // child-topic boxes. `counts.internal_nodes` is the pre-fold tally
+    // (every node tagged into this topic, including those hidden behind
+    // a folded child box) — using it here causes pages Python has
+    // already folded under the cap to be wrongly rejected by the gate.
+    const renderedNodes =
+      (data.nodes || []).length +
+      (data.child_topic_nodes || []).length;
+    return renderedNodes > graphLimit("maxExpandNodes")
       || visibleSubgraphNodeCount(data) > graphLimit("maxVisibleNodes");
   }
 
