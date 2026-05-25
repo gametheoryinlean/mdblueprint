@@ -18,6 +18,7 @@ from tools.knowledge.export import (
 )
 
 NODES_DIR = Path(__file__).parent / "fixtures" / "generic_knowledge" / "nodes" / "algebra"
+ECONCS_SHAPE_DIR = Path(__file__).parent / "fixtures" / "econcs_shape_knowledge"
 
 
 class TestTopicPathHelpers:
@@ -1093,3 +1094,140 @@ class TestMultiTopicMembership:
         zs_data = export_topic_subgraph_json(graph, "zero_sum")
         ids = [n["id"] for n in zs_data["nodes"]]
         assert ids.count("zero_sum.minimax") == 1
+
+
+class TestSizeDrivenSubdivision:
+    """Regression tests for issue #145: size-driven subdivision.
+
+    Topics are pagination, not taxonomy. Default behaviour is flat; child
+    boxes appear only when the page would exceed max_page_total.
+    """
+
+    def _build_econcs_graph(self):
+        """Build graph from the econcs_shape fixture."""
+        from tools.knowledge.parser import scan_directory
+        nodes = scan_directory(ECONCS_SHAPE_DIR / "nodes")
+        graph, diags = build_graph(nodes)
+        assert diags == []
+        return graph
+
+    def test_memberships_helper_uses_topics_when_present_else_id_chain(self):
+        """Pure unit test for the memberships(node) helper."""
+        from tools.knowledge.models import Node
+        from tools.knowledge.export import memberships
+
+        # Node with explicit topics — use exactly those
+        node_with_topics = Node(
+            id="foo.bar.baz",
+            title="Baz",
+            kind="definition",
+            status="admitted",
+            topics=["a", "a.b"],
+        )
+        assert memberships(node_with_topics) == ["a", "a.b"]
+
+        # Node without topics — fall back to ID-derived chain (all prefixes)
+        node_no_topics = Node(
+            id="foo.bar.baz",
+            title="Baz",
+            kind="definition",
+            status="admitted",
+        )
+        assert memberships(node_no_topics) == ["foo", "foo.bar", "foo.bar.baz"]
+
+        # primary_topic is URL-only, not membership-driving
+        node_primary_only = Node(
+            id="foo.bar.baz",
+            title="Baz",
+            kind="definition",
+            status="admitted",
+            primary_topic="some.other.topic",
+            topics=[],
+        )
+        # topics=[] means fall back to ID chain, primary_topic ignored
+        assert memberships(node_primary_only) == ["foo", "foo.bar", "foo.bar.baz"]
+
+    def test_small_page_renders_flat_no_child_boxes(self):
+        """With 5 nodes under 100 cap, all render flat, no child boxes."""
+        graph = self._build_econcs_graph()
+
+        data = export_topic_subgraph_json(graph, "core")
+
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert node_ids == {
+            "core.subA.foo",
+            "core.subA.bar",
+            "core.subB.baz",
+            "core.subB.qux",
+            "core.subC.quux",
+        }
+        assert len(data["nodes"]) == 5
+        assert data["child_topic_nodes"] == []
+
+        # All edges must be flat uses-kind with both endpoints in the node set
+        for edge in data["edges"]:
+            assert edge["kind"] == "uses", f"Expected 'uses' kind, got {edge['kind']}"
+            assert edge["from"] in node_ids or edge["to"] in node_ids
+
+    def test_no_empty_child_boxes_rendered(self):
+        """Even though topic registry has core.subA/subB/subC, they must not
+        appear as child_topic_nodes when subdivision isn't triggered."""
+        graph = self._build_econcs_graph()
+
+        data = export_topic_subgraph_json(graph, "core")
+
+        child_ids = [c["id"] for c in data["child_topic_nodes"]]
+        assert "core.subA" not in child_ids
+        assert "core.subB" not in child_ids
+        assert "core.subC" not in child_ids
+        assert child_ids == []
+
+    def test_subdivision_triggers_when_over_max_page_total(self):
+        """When max_page_total=3, greedy folding kicks in: some nodes are
+        collapsed into child boxes, every box has ≥1 member, edges aggregate
+        from real node-node edges."""
+        from tools.knowledge.config import GraphDisplayConfig
+
+        graph = self._build_econcs_graph()
+        tight_cfg = GraphDisplayConfig(
+            max_visible_nodes=120,
+            max_expand_nodes=80,
+            proof_plans="selected-only",
+            max_page_total=3,
+        )
+
+        data = export_topic_subgraph_json(graph, "core", graph_config=tight_cfg)
+
+        # Flat node count must not exceed max_page_total
+        assert len(data["nodes"]) <= 3
+
+        # Some child_topic_nodes must have been created
+        assert len(data["child_topic_nodes"]) > 0
+
+        # Every child box must have at least 1 anchored node (no empty boxes)
+        for box in data["child_topic_nodes"]:
+            assert box["node_count"] > 0, f"Box {box['id']} has zero nodes"
+
+        # Every emitted edge must be of a valid kind (no phantom edges)
+        valid_kinds = {"uses", "boundary_dependency", "boundary_dependent",
+                       "topic_dependency", "proof_plan_uses",
+                       "boundary_proof_plan_dependency", "boundary_proof_plan_dependent"}
+        for edge in data["edges"]:
+            assert edge["kind"] in valid_kinds, f"Unknown edge kind: {edge['kind']}"
+
+    def test_flat_edges_have_both_endpoints_in_flat_set(self):
+        """For the flat (unsubdivided) case, every 'uses' edge in result
+        must have both endpoints in the flat node list."""
+        graph = self._build_econcs_graph()
+
+        data = export_topic_subgraph_json(graph, "core")
+
+        flat_ids = {n["id"] for n in data["nodes"]}
+        for edge in data["edges"]:
+            if edge["kind"] == "uses":
+                assert edge["from"] in flat_ids, (
+                    f"Edge source {edge['from']} not in flat node set"
+                )
+                assert edge["to"] in flat_ids, (
+                    f"Edge target {edge['to']} not in flat node set"
+                )
