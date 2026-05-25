@@ -317,7 +317,61 @@ class TestExportTopicOverviewJson:
 
 
 class TestExportTopicSubgraphJson:
-    def test_parent_topic_subgraph_contains_immediate_child_topics_and_edges(self):
+    def test_parent_topic_subgraph_flat_when_under_cap(self):
+        """With 3 nodes under the default 100-node cap, all nodes render flat.
+        No child boxes appear. This is the new default behaviour (#145)."""
+        from tools.knowledge.models import Node
+
+        base = Node(
+            id="game_theory.zero_sum.minimax",
+            title="Minimax",
+            kind="theorem",
+            status="admitted",
+        )
+        nash = Node(
+            id="game_theory.strategic.nash",
+            title="Nash",
+            kind="theorem",
+            status="admitted",
+            uses=["game_theory.zero_sum.minimax"],
+        )
+        perfect = Node(
+            id="game_theory.strategic.refinements.perfect",
+            title="Perfect Equilibrium",
+            kind="theorem",
+            status="staged",
+            uses=["game_theory.strategic.nash"],
+        )
+        graph, diags = build_graph([base, nash, perfect])
+        assert diags == []
+
+        data = export_topic_subgraph_json(graph, "game_theory")
+
+        assert data["topic"]["id"] == "game_theory"
+        assert data["counts"]["descendant_nodes"] == 3
+        # All 3 nodes render flat; no child boxes.
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert node_ids == {
+            "game_theory.zero_sum.minimax",
+            "game_theory.strategic.nash",
+            "game_theory.strategic.refinements.perfect",
+        }
+        assert data["child_topic_nodes"] == []
+        # Flat uses edges exist.
+        flat_pairs = {(e["from"], e["to"]) for e in data["edges"] if e["kind"] == "uses"}
+        assert ("game_theory.zero_sum.minimax", "game_theory.strategic.nash") in flat_pairs
+        assert ("game_theory.strategic.nash", "game_theory.strategic.refinements.perfect") in flat_pairs
+
+    def test_parent_topic_subgraph_contains_immediate_child_topics_and_edges_when_over_cap(self):
+        """When max_page_total is set below the total node count, subdivision
+        kicks in. The greedy algorithm folds the largest child group first;
+        folding continues until the flat set is at or below the cap.
+
+        With max_page_total=1 and 3 nodes (minimax in zero_sum, nash+perfect
+        in strategic), the largest group (strategic, size=2) is folded first,
+        leaving minimax (size=1) flat — which is already at the cap, so
+        folding stops. game_theory.zero_sum is NOT folded.
+        """
         from tools.knowledge.config import GraphDisplayConfig
         from tools.knowledge.models import Node
 
@@ -344,34 +398,37 @@ class TestExportTopicSubgraphJson:
         graph, diags = build_graph([base, nash, perfect])
         assert diags == []
 
-        # Force boxed (no inlining) so the original assertion shape holds.
-        boxed_cfg = GraphDisplayConfig(
+        # Force subdivision by setting max_page_total below node count.
+        tight_cfg = GraphDisplayConfig(
             max_visible_nodes=120,
             max_expand_nodes=80,
             proof_plans="selected-only",
-            inline_child_max_size=0,
+            max_page_total=1,
         )
-        data = export_topic_subgraph_json(graph, "game_theory", graph_config=boxed_cfg)
+        data = export_topic_subgraph_json(graph, "game_theory", graph_config=tight_cfg)
 
         assert data["topic"]["id"] == "game_theory"
         assert data["counts"]["descendant_nodes"] == 3
+        # strategic (size=2) is folded; zero_sum (size=1) stays flat
+        # because after folding strategic, flat_set = {minimax} which is ≤ 1.
         assert [topic["id"] for topic in data["child_topic_nodes"]] == [
             "game_theory.strategic",
-            "game_theory.zero_sum",
         ]
         strategic = data["child_topic_nodes"][0]
         assert strategic["parent"] == "game_theory"
         assert strategic["node_count"] == 2
         assert strategic["children"] == ["game_theory.strategic.refinements"]
-        assert data["child_topic_edges"] == [
-            {
-                "from": "topic:game_theory.zero_sum",
-                "to": "topic:game_theory.strategic",
-                "kind": "topic_dependency",
-                "count": 1,
-            }
-        ]
-        assert data["nodes"] == []
+        # minimax is flat, strategic is a box; edge from minimax to topic:strategic.
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert "game_theory.zero_sum.minimax" in node_ids
+        # There is a boundary_dependency edge from flat minimax (zero_sum child)
+        # to topic:strategic box.
+        all_edges = data["edges"] + data["boundary_edges"]
+        edge_endpoints = {(e["from"], e["to"]) for e in all_edges}
+        assert (
+            "game_theory.zero_sum.minimax",
+            "topic:game_theory.strategic",
+        ) in edge_endpoints
 
     def test_parent_topic_subgraph_contains_boundary_topics_for_external_edges(self):
         from tools.knowledge.models import Node
@@ -622,17 +679,18 @@ class TestExportTopicSubgraphJson:
         assert ("topic:algebra.monoids", "topic:algebra.groups") not in child_edges
 
     def test_descendant_subtopic_node_is_not_rendered_as_boundary_topic(self):
-        """Regression for #136.
+        """Regression for #136, updated for #145.
 
         When viewing parent topic ``P``, a node whose home topic is a
         descendant of ``P`` (e.g. ``P.child.X``) must NOT appear as a
         boundary_topic — it is conceptually inside ``P``'s hierarchical
-        scope. Its edges to internal ``P``-tagged nodes still render,
-        but as boundary_edges whose external endpoint is the child
-        topic box (which the page already renders via
-        ``child_topic_nodes``), avoiding duplicated dashed boxes.
+        scope.
+
+        Under the new size-driven algorithm (#145), with 2 nodes under the
+        100-node cap, both render flat. The descendant is NOT a boundary topic
+        (it's in page scope) and its uses edge to the headline theorem appears
+        as a regular flat uses edge.
         """
-        from tools.knowledge.config import GraphDisplayConfig
         from tools.knowledge.models import Node
 
         parent_tagged = Node(
@@ -654,22 +712,18 @@ class TestExportTopicSubgraphJson:
         graph, diags = build_graph([parent_tagged, descendant])
         assert diags == []
 
-        # Force boxed (no inlining) so the boundary path under test fires
-        # instead of #139's inlining absorbing the descendant.
-        boxed_cfg = GraphDisplayConfig(
-            max_visible_nodes=120,
-            max_expand_nodes=80,
-            proof_plans="selected-only",
-            inline_child_max_size=0,
-        )
-        data = export_topic_subgraph_json(graph, "algebra", graph_config=boxed_cfg)
+        data = export_topic_subgraph_json(graph, "algebra")
         # Descendant child topic must not appear as a boundary box.
         boundary_ids = {t["id"] for t in data["boundary_topics"]}
         assert "algebra.groups" not in boundary_ids
-        # The edge from the descendant must still be present, drawn from
-        # the child_topic_node box rather than from an external label.
-        boundary_edge_endpoints = {(e["from"], e["to"]) for e in data["boundary_edges"]}
-        assert ("topic:algebra.groups", "algebra.headline_theorem") in boundary_edge_endpoints
+        # Both nodes are flat — the edge is a normal uses edge.
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert "algebra.groups.special_lemma" in node_ids
+        assert "algebra.headline_theorem" in node_ids
+        flat_pairs = {(e["from"], e["to"]) for e in data["edges"] if e["kind"] == "uses"}
+        assert ("algebra.groups.special_lemma", "algebra.headline_theorem") in flat_pairs
+        # No child_topic_nodes — both render flat.
+        assert data["child_topic_nodes"] == []
 
     def test_small_child_topic_is_inlined_into_parent_page(self):
         """Default config (#139): a child topic with <= 8 descendant nodes
@@ -719,9 +773,10 @@ class TestExportTopicSubgraphJson:
         # Edge from inlined node to internal node also flat.
         assert ("algebra.foundation", "algebra.groups.z") in flat_pairs
 
-    def test_large_child_topic_stays_boxed(self):
-        """A child topic with > inline_child_max_size descendants stays as
-        a child_topic_node box (no inlining)."""
+    def test_child_topic_stays_boxed_when_over_max_page_total(self):
+        """When the total page node count exceeds max_page_total, the largest
+        child subtopic is folded into a box. Updated for #145: the threshold
+        that triggers boxing is max_page_total, not inline_child_max_size."""
         from tools.knowledge.config import GraphDisplayConfig
         from tools.knowledge.models import Node
 
@@ -733,8 +788,47 @@ class TestExportTopicSubgraphJson:
             primary_topic="algebra",
             topics=["algebra"],
         )
-        # Build a child topic with 12 nodes — over the inline_child_max_size
-        # default of 8, so it must stay boxed.
+        # 12 child nodes. With max_page_total=5 the 12 child nodes exceed the
+        # cap, so the child topic gets folded into a box.
+        large_child_nodes = [
+            Node(
+                id=f"algebra.massive.n{i}",
+                title=f"n{i}",
+                kind="definition",
+                status="admitted",
+                primary_topic="algebra.massive",
+            )
+            for i in range(12)
+        ]
+        graph, _ = build_graph([parent_node, *large_child_nodes])
+
+        tight_cfg = GraphDisplayConfig(
+            max_visible_nodes=120,
+            max_expand_nodes=80,
+            proof_plans="selected-only",
+            max_page_total=5,
+        )
+        data = export_topic_subgraph_json(graph, "algebra", graph_config=tight_cfg)
+        child_ids = [t["id"] for t in data["child_topic_nodes"]]
+        assert "algebra.massive" in child_ids
+        assert data["inlined_child_topics"] == []
+        # Page only renders the original internal node.
+        assert {n["id"] for n in data["nodes"]} == {"algebra.foundation"}
+
+    def test_child_topic_renders_flat_when_under_max_page_total(self):
+        """With 13 nodes under the default 100-node cap, all nodes render flat.
+        inline_child_max_size no longer prevents flat rendering for subtopics
+        that fit within the page budget."""
+        from tools.knowledge.models import Node
+
+        parent_node = Node(
+            id="algebra.foundation",
+            title="Foundation",
+            kind="definition",
+            status="admitted",
+            primary_topic="algebra",
+            topics=["algebra"],
+        )
         large_child_nodes = [
             Node(
                 id=f"algebra.massive.n{i}",
@@ -748,11 +842,9 @@ class TestExportTopicSubgraphJson:
         graph, _ = build_graph([parent_node, *large_child_nodes])
 
         data = export_topic_subgraph_json(graph, "algebra")
-        child_ids = [t["id"] for t in data["child_topic_nodes"]]
-        assert "algebra.massive" in child_ids
-        assert data["inlined_child_topics"] == []
-        # Page only renders the original internal node + boundary.
-        assert {n["id"] for n in data["nodes"]} == {"algebra.foundation"}
+        # All 13 nodes are flat (under 100-node cap).
+        assert len(data["nodes"]) == 13
+        assert data["child_topic_nodes"] == []
 
     def test_inlining_respects_max_page_total_cap(self):
         """Multiple small children whose combined size exceeds the cap are
