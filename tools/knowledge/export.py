@@ -289,82 +289,6 @@ def _boundary_topic_entry(topic_id: str, role: str, node_count: int) -> dict:
     }
 
 
-def _topic_layer_boundary(g: KnowledgeGraph, topic_id: str, topic_counts: dict[str, int]) -> tuple[list[dict], list[dict]]:
-    # Each node contributes exactly one canonical endpoint — its home topic —
-    # when participating in the boundary set. Secondary `topics:[]` entries
-    # are discoverability tags and must not fabricate phantom boundary topics
-    # under the same root. See #131 / #135.
-    boundary_roles: dict[str, set[str]] = defaultdict(set)
-    edge_counts: Counter[tuple[str, str, str, str]] = Counter()
-
-    def inside_current(node_topic: str) -> bool:
-        return node_topic == topic_id or node_topic.startswith(f"{topic_id}.")
-
-    for dependent_id in sorted(g.edges):
-        if dependent_id not in g.nodes or g.nodes[dependent_id].kind == "proof-plan":
-            continue
-        dependent_home = home_topic_for_node(g.nodes[dependent_id])
-        dependent_inside = inside_current(dependent_home)
-        dependent_child = (
-            child_topic_id(topic_id, dependent_home) if dependent_inside else None
-        )
-
-        for dependency_id in sorted(g.edges[dependent_id]):
-            if dependency_id not in g.nodes or g.nodes[dependency_id].kind == "proof-plan":
-                continue
-            dependency_home = home_topic_for_node(g.nodes[dependency_id])
-            dependency_inside = inside_current(dependency_home)
-            dependency_child = (
-                child_topic_id(topic_id, dependency_home) if dependency_inside else None
-            )
-
-            if dependent_child is not None and not dependency_inside:
-                boundary_roles[dependency_home].add("dependency")
-                edge_counts[(
-                    f"topic:{dependency_home}",
-                    f"topic:{dependent_child}",
-                    "boundary_dependency",
-                    dependency_home,
-                )] += 1
-            if dependency_child is not None and not dependent_inside:
-                boundary_roles[dependent_home].add("dependent")
-                edge_counts[(
-                    f"topic:{dependency_child}",
-                    f"topic:{dependent_home}",
-                    "boundary_dependent",
-                    dependent_home,
-                )] += 1
-
-    boundary_topics = []
-    for boundary_topic in sorted(boundary_roles):
-        roles = boundary_roles[boundary_topic]
-        role = "dependency_and_dependent" if roles == {"dependency", "dependent"} else next(iter(roles))
-        boundary_topics.append(_boundary_topic_entry(
-            boundary_topic,
-            role,
-            topic_counts.get(boundary_topic, 0),
-        ))
-
-    edge_sort_order = {
-        "boundary_dependency": 0,
-        "boundary_dependent": 1,
-    }
-    boundary_edges = [
-        {
-            "from": source,
-            "to": target,
-            "kind": kind,
-            "topic": boundary_topic,
-            "count": count,
-        }
-        for (source, target, kind, boundary_topic), count in sorted(
-            edge_counts.items(),
-            key=lambda item: (edge_sort_order[item[0][2]], item[0][3], item[0][0], item[0][1]),
-        )
-    ]
-    return boundary_topics, boundary_edges
-
-
 def _keyword_entries(nodes: list[Node]) -> list[dict]:
     counts: Counter[str] = Counter()
     for node in nodes:
@@ -694,20 +618,14 @@ def export_topic_subgraph_json(
             synthetic["direct_nodes"] = synthetic["all_nodes"]
             child_topic_nodes.append(_topic_entry(child_id, synthetic))
 
-    # topic_dependency edges between folded boxes.
-    child_topic_edges = [
-        {
+    # Merge box-to-box (topic_dependency) edges into the main edges list.
+    for (source, target), count in sorted(topic_dep_counts.items()):
+        edges.append({
             "from": f"topic:{source}",
             "to": f"topic:{target}",
             "kind": "topic_dependency",
             "count": count,
-        }
-        for (source, target), count in sorted(topic_dep_counts.items())
-    ]
-
-    # child_boundary edges (the per-layer boundary, used by the child-topic
-    # overview view). Still derived via home_topic for the cross-topic surface.
-    child_boundary_topics, child_boundary_edges = _topic_layer_boundary(g, topic_id, topic_counts)
+        })
 
     return {
         "topic": {
@@ -740,9 +658,6 @@ def export_topic_subgraph_json(
         "proof_plan_attachments": proof_plan_attachments,
         "child_topics": visible_child_ids,
         "child_topic_nodes": child_topic_nodes,
-        "child_topic_edges": child_topic_edges,
-        "child_boundary_topics": child_boundary_topics,
-        "child_boundary_edges": child_boundary_edges,
         "inlined_child_topics": sorted(inlined_children),
     }
 

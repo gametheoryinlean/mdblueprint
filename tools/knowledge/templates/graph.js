@@ -49,7 +49,6 @@
     nodePayloadUrls: new Map(),
     nodePayloadCache: new Map(),
     expandedTopic: null,
-    currentTopicLayer: null,
     currentTopicSubgraph: null,
     proofPlanMode: null,
   };
@@ -170,6 +169,13 @@
         URL: `#${topicGraphId(data.topic.id)}`,
       })}];`);
     }
+    (data.child_topic_nodes || []).forEach((topic) => {
+      lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
+        label: topic.title,
+        shape: "box",
+        URL: `#${topicGraphId(topic.id)}`,
+      })}];`);
+    });
     (data.boundary_topics || []).forEach((topic) => {
       lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
         color: "#777777",
@@ -201,42 +207,6 @@
         label: "has plan",
         style: "dotted",
       })}];`);
-    });
-    lines.push("}");
-    return lines.join("\n");
-  }
-
-  function topicLayerToDot(data) {
-    const lines = [
-      'strict digraph "" {',
-      "\tgraph [bgcolor=transparent];",
-      '\tnode [label="\\N", penwidth=1.8, shape=box];',
-      "\tedge [arrowhead=vee];",
-    ];
-    (data.child_topic_nodes || []).forEach((topic) => {
-      const label = topic.title;
-      lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
-        label,
-        shape: "box",
-        URL: `#${topicGraphId(topic.id)}`,
-      })}];`);
-    });
-    (data.child_boundary_topics || []).forEach((topic) => {
-      lines.push(`\t${dotQuote(topicGraphId(topic.id))} [${dotAttributes({
-        color: "#777777",
-        label: topic.title,
-        shape: "box",
-        style: "dashed",
-        URL: `#${topicGraphId(topic.id)}`,
-      })}];`);
-    });
-    (data.child_topic_edges || []).forEach((edge) => {
-      lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes({
-        style: "dashed",
-      })}];`);
-    });
-    (data.child_boundary_edges || []).forEach((edge) => {
-      lines.push(`\t${dotQuote(edge.from)} -> ${dotQuote(edge.to)} [${dotAttributes(boundaryEdgeDisplayAttributes(edge))}];`);
     });
     lines.push("}");
     return lines.join("\n");
@@ -355,7 +325,7 @@
     const isFallback = mode === "topic-fallback";
     if (overviewButton) overviewButton.hidden = isOverview;
     if (parentButton) {
-      const topic = graphState.currentTopicLayer?.topic || graphState.currentTopicSubgraph?.topic || null;
+      const topic = graphState.currentTopicSubgraph?.topic || null;
       parentButton.hidden = isOverview || !topic?.parent;
     }
     if (resetButton) resetButton.hidden = isFallback;
@@ -442,7 +412,6 @@
   function renderExpandedTopic(subgraph) {
     const graphElement = document.getElementById("graph");
     if (!graphElement || !subgraph?.topic) return;
-    graphState.currentTopicLayer = null;
     graphState.currentTopicSubgraph = subgraph;
     graphState.expandedTopic = subgraph.topic.id;
     graphElement.dataset.expandedTopic = subgraph.topic.id;
@@ -459,20 +428,6 @@
     updateGraphBreadcrumbs(subgraph.topic);
     updateProofPlanControls(true);
     renderDot(topicSubgraphToDot(subgraph));
-  }
-
-  function renderTopicLayer(subgraph) {
-    const graphElement = document.getElementById("graph");
-    if (!graphElement || !subgraph?.topic) return;
-    graphState.currentTopicLayer = subgraph;
-    graphState.currentTopicSubgraph = null;
-    graphState.expandedTopic = subgraph.topic.id;
-    graphElement.dataset.expandedTopic = subgraph.topic.id;
-    graphElement.dataset.graphMode = "topic-layer";
-    updateGraphNavigationControls("topic-layer");
-    updateGraphBreadcrumbs(subgraph.topic);
-    updateProofPlanControls(false);
-    renderDot(topicLayerToDot(subgraph));
   }
 
   function setProofPlanMode(mode) {
@@ -665,11 +620,7 @@
         return;
       }
       const subgraph = await fetchTopicSubgraph(topicId);
-      if ((subgraph.child_topic_nodes || []).length) {
-        renderTopicLayer(subgraph);
-      } else {
-        renderExpandedTopic(subgraph);
-      }
+      renderExpandedTopic(subgraph);
     } catch (error) {
       hideGraphFallback();
       graphElement.textContent = error.message;
@@ -680,7 +631,6 @@
     const graphElement = document.getElementById("graph");
     if (!graphElement || !graphState.topicOverview) return;
     graphState.expandedTopic = null;
-    graphState.currentTopicLayer = null;
     graphState.currentTopicSubgraph = null;
     graphElement.dataset.graphMode = "topic-overview";
     delete graphElement.dataset.expandedTopic;
@@ -691,7 +641,7 @@
   }
 
   async function goToParentTopic() {
-    const topic = graphState.currentTopicLayer?.topic || graphState.currentTopicSubgraph?.topic || null;
+    const topic = graphState.currentTopicSubgraph?.topic || null;
     if (!topic?.parent) {
       await goToTopicOverview();
       return;
