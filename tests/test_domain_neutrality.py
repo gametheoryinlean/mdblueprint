@@ -23,6 +23,11 @@ ALLOWLISTED_PARTS = {
     ("docs", "knowledge"),
     ("tests", "fixtures"),
 }
+# Individual files that are explicitly allowed to contain domain terms because
+# they carry built-in data tables that reference known domain aliases.
+ALLOWLISTED_FILES = {
+    ROOT / "tools" / "knowledge" / "lint" / "_detectors.py",
+}
 
 
 def _is_allowlisted(path: Path) -> bool:
@@ -43,6 +48,7 @@ def _audited_files() -> list[Path]:
         for path in files
         if path.is_file()
         and not _is_allowlisted(path)
+        and path not in ALLOWLISTED_FILES
         and "__pycache__" not in path.parts
     )
 

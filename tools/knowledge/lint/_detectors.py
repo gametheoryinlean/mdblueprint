@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Callable
 
@@ -672,12 +672,22 @@ def _common_strict_prefixes(topic_a: str, topic_b: str) -> list[str]:
 # The normalization function canonicalises both sides to the blueprint form
 # (plural) before comparison.
 #
-# Populate this dict with project-specific singular/plural pairs.
-# Example entry pattern (not pre-populated to keep this tool domain-agnostic):
-#   "<lean_singular_root>": "<blueprint_plural_root>",
-#
-# EconCSLib users: add game-theory pairs in an extension or config layer.
-_BLUEPRINT_LEAN_ROOT_ALIASES: dict[str, str] = {}
+# These are pure grammatical normalization entries covering cases where Lean
+# idiom uses a singular module name while the corresponding blueprint topic
+# uses the plural form.  Project-level overrides can be passed to the
+# detector dataclasses via ``extra_aliases`` (which wins on conflict).
+_BLUEPRINT_LEAN_ROOT_ALIASES: dict[str, str] = {
+    # Singular Lean module root → plural blueprint topic root.
+    # Lean idiom conventionally uses singular module names; blueprint topics
+    # conventionally use the plural form.
+    "strategic_game": "strategic_games",
+    "extensive_game": "extensive_games",
+    "repeated_game": "repeated_games",
+    "stochastic_game": "stochastic_games",
+    "coalitional_game": "coalitional_games",
+    "bayesian_game": "bayesian_games",
+    "differential_game": "differential_games",
+}
 
 # Reverse mapping (plural → singular) derived from the table above.
 _LEAN_BLUEPRINT_ROOT_ALIASES_REVERSE: dict[str, str] = {
@@ -685,12 +695,16 @@ _LEAN_BLUEPRINT_ROOT_ALIASES_REVERSE: dict[str, str] = {
 }
 
 
-def _canonical_root(root: str) -> str:
+def _canonical_root(root: str, extra_aliases: dict[str, str] | None = None) -> str:
     """Canonicalise a root to blueprint plural form using the alias table.
 
-    If the root is a known Lean-singular form, return the plural.
+    If the root is a known Lean-singular form (in the built-in table or
+    ``extra_aliases``), return the plural.  ``extra_aliases`` wins over the
+    built-in table on conflict.
     If the root is already a plural form, return it as-is.
     """
+    if extra_aliases and root in extra_aliases:
+        return extra_aliases[root]
     return _BLUEPRINT_LEAN_ROOT_ALIASES.get(root, root)
 
 
@@ -702,7 +716,10 @@ def _pascal_to_snake(name: str) -> str:
     return _PASCAL_SPLIT_RE.sub("_", name).lower()
 
 
-def _lean_module_to_normalized_root(module: str) -> str | None:
+def _lean_module_to_normalized_root(
+    module: str,
+    extra_aliases: dict[str, str] | None = None,
+) -> str | None:
     """Derive the normalised topic root from a Lean module name.
 
     Steps:
@@ -713,7 +730,7 @@ def _lean_module_to_normalized_root(module: str) -> str | None:
     3. Drop the last segment (file/declaration name): ``linear_algebra.farkas``
        → ``linear_algebra``.
     4. Take the first segment as ``lean_root``: ``linear_algebra``.
-    5. Canonicalise via alias table.
+    5. Canonicalise via alias table (``extra_aliases`` wins on conflict).
 
     Returns ``None`` when the module has fewer than 2 segments after stripping
     the project prefix (nothing meaningful to compare).
@@ -733,7 +750,7 @@ def _lean_module_to_normalized_root(module: str) -> str | None:
         lean_root = snake_parts[0]
     else:
         lean_root = snake_parts[0]
-    return _canonical_root(lean_root)
+    return _canonical_root(lean_root, extra_aliases)
 
 
 # ── TopicLeanAlignmentDetector ────────────────────────────────────────────────
@@ -751,10 +768,15 @@ class TopicLeanAlignmentDetector:
 
     Opt-out: set ``topic_lean_alignment: divergent`` in the node frontmatter
     to suppress the check for that node.
+
+    ``extra_aliases`` is merged on top of the built-in
+    ``_BLUEPRINT_LEAN_ROOT_ALIASES`` table (extra wins on conflict). Use it
+    to pass project-level ``lint.topic_lean_aliases`` from the config.
     """
 
     code: str = "LINT_TOPIC_LEAN_ALIGNMENT"
     needs_llm: bool = False
+    extra_aliases: dict[str, str] = field(default_factory=dict)
 
     def run(
         self,
@@ -763,6 +785,7 @@ class TopicLeanAlignmentDetector:
         *,
         llm: LlmRunner | None,
     ) -> list[Diagnostic]:
+        aliases = self.extra_aliases or None
         out: list[Diagnostic] = []
         for node in sorted(nodes, key=lambda n: n.id):
             # Opt-out
@@ -773,12 +796,12 @@ class TopicLeanAlignmentDetector:
                 continue
 
             home_topic = home_topic_for_node(node)
-            blueprint_root = _canonical_root(home_topic.split(".")[0])
+            blueprint_root = _canonical_root(home_topic.split(".")[0], aliases)
 
             # Check whether any Lean module matches
             mismatched_modules: list[str] = []
             for module in node.lean.modules:
-                lean_root = _lean_module_to_normalized_root(module)
+                lean_root = _lean_module_to_normalized_root(module, aliases)
                 if lean_root is None:
                     continue
                 if lean_root == blueprint_root:
@@ -792,7 +815,7 @@ class TopicLeanAlignmentDetector:
 
             # Emit one warning per mismatched module
             for module in mismatched_modules:
-                lean_root = _lean_module_to_normalized_root(module) or "?"
+                lean_root = _lean_module_to_normalized_root(module, aliases) or "?"
                 out.append(Diagnostic(
                     level="warning",
                     node_id=node.id,
@@ -824,10 +847,15 @@ class LeanModuleFragmentedDetector:
 
     Suppression: if *all* nodes under that Lean root declare
     ``topic_lean_alignment: divergent``, the finding is suppressed.
+
+    ``extra_aliases`` is merged on top of the built-in
+    ``_BLUEPRINT_LEAN_ROOT_ALIASES`` table (extra wins on conflict). Use it
+    to pass project-level ``lint.topic_lean_aliases`` from the config.
     """
 
     code: str = "LINT_LEAN_MODULE_FRAGMENTED"
     needs_llm: bool = False
+    extra_aliases: dict[str, str] = field(default_factory=dict)
 
     def run(
         self,
@@ -836,17 +864,18 @@ class LeanModuleFragmentedDetector:
         *,
         llm: LlmRunner | None,
     ) -> list[Diagnostic]:
+        aliases = self.extra_aliases or None
         # Group nodes by lean_root → list of (blueprint_root, node_id, divergent)
         lean_root_map: dict[str, list[tuple[str, str, bool]]] = defaultdict(list)
         for node in nodes:
             if node.lean is None or not node.lean.modules:
                 continue
             for module in node.lean.modules:
-                lean_root = _lean_module_to_normalized_root(module)
+                lean_root = _lean_module_to_normalized_root(module, aliases)
                 if lean_root is None:
                     continue
                 home_topic = home_topic_for_node(node)
-                blueprint_root = _canonical_root(home_topic.split(".")[0])
+                blueprint_root = _canonical_root(home_topic.split(".")[0], aliases)
                 is_divergent = node.topic_lean_alignment == "divergent"
                 lean_root_map[lean_root].append((blueprint_root, node.id, is_divergent))
 
