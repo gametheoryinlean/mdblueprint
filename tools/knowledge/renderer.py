@@ -18,7 +18,12 @@ from tools.knowledge.export import (
     topic_path,
     titleize_topic,
 )
-from tools.knowledge.lean_index import LeanDeclaration, LeanIndex, index_lean_project
+from tools.knowledge.lean_index import (
+    LeanDeclaration,
+    LeanIndex,
+    build_module_source_metadata,
+    index_lean_project,
+)
 from tools.knowledge.models import Node
 from tools.knowledge.node_refs import NODE_REF_RE
 
@@ -310,6 +315,84 @@ def _lean_ref_payload(
     }
 
 
+def _lean_module_payload(
+    *,
+    name: str,
+    status: str,
+    repository_title: str | None = None,
+    revision: str | None = None,
+    source_url: str | None = None,
+    reason: str | None = None,
+) -> dict[str, object]:
+    """Same shape as `_lean_ref_payload` but for module-level refs."""
+    return {
+        "name": name,
+        "display_name": name,
+        "repository_title": repository_title,
+        "revision": revision,
+        "short_revision": _short_revision(revision),
+        "source_url": source_url,
+        "status": status,
+        "reason": reason,
+    }
+
+
+def _resolve_lean_modules(
+    node: Node, lean_config: LeanConfig, indexes: dict[str, LeanIndex]
+) -> list[dict[str, object]]:
+    """Resolve `node.lean.modules` into clickable source links (line 1).
+
+    Mirrors `_resolve_lean_refs` but operates on module names. Returns
+    one payload per module, with status:
+    - `resolved` when the module is found in the configured index;
+    - `raw` when no repositories are configured (no link);
+    - `unresolved` when the repo is missing or module isn't indexed.
+    """
+    if node.lean is None or not node.lean.modules:
+        return []
+
+    if not indexes:
+        return [_lean_module_payload(name=mod, status="raw") for mod in node.lean.modules]
+
+    repo_id = node.lean.repository or lean_config.default_repository
+    if repo_id is None or repo_id not in lean_config.repositories or repo_id not in indexes:
+        reason = (
+            "no Lean repository configured for this node"
+            if repo_id is None
+            else f"Lean repository {repo_id!r} is not configured"
+        )
+        return [
+            _lean_module_payload(name=mod, status="unresolved", reason=reason)
+            for mod in node.lean.modules
+        ]
+
+    idx = indexes[repo_id]
+    repo = lean_config.repositories[repo_id]
+    refs: list[dict[str, object]] = []
+    for module in node.lean.modules:
+        path = idx.modules.get(module)
+        if path is None:
+            refs.append(
+                _lean_module_payload(
+                    name=module,
+                    status="unresolved",
+                    reason=f"module not found in repository {repo_id!r}",
+                )
+            )
+            continue
+        meta = build_module_source_metadata(path, repo.local_path, repo)
+        refs.append(
+            _lean_module_payload(
+                name=module,
+                status="resolved",
+                repository_title=meta["repository_title"] or repo.title,
+                revision=meta["revision"] or repo.revision,
+                source_url=meta["source_url"],
+            )
+        )
+    return refs
+
+
 def _index_configured_lean_repositories(nodes: list[Node], lean_config: LeanConfig) -> dict[str, LeanIndex]:
     if not lean_config.repositories or not any(node.lean for node in nodes):
         return {}
@@ -434,6 +517,7 @@ def _build_html_payload(ctx: "KnowledgeContext", node: Node) -> dict:
         "deps": deps,
         "dependents": dependents,
         "lean_refs": _resolve_lean_refs(node, ctx.config.lean, ctx.lean_indexes),
+        "lean_modules": _resolve_lean_modules(node, ctx.config.lean, ctx.lean_indexes),
     }
 
 
@@ -466,6 +550,7 @@ def node_detail_payload(ctx: "KnowledgeContext", node_id: str) -> dict:
         "deps": deps,
         "dependents": dependents,
         "lean_refs": html_payload["lean_refs"],
+        "lean_modules": html_payload["lean_modules"],
     }
 
 
@@ -596,6 +681,7 @@ def render_node(ctx: "KnowledgeContext", node_id: str) -> str:
         deps=payload["deps"],
         dependents=payload["dependents"],
         lean_refs=payload["lean_refs"],
+        lean_modules=payload["lean_modules"],
         topic_memberships=topic_memberships,
         child_topics=child_topics,
         dev_mode=ctx.dev_mode,

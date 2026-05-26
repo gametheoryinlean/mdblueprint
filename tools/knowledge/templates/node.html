@@ -57,7 +57,11 @@
         </li>
         {% endfor %}
       </ul>
-      {% if node.lean.modules %}
+      {% if lean_modules %}
+      <p class="lean-modules">Modules:
+        {% for m in lean_modules %}{% if m.source_url %}<a href="{{ m.source_url }}"><code>{{ m.name }}</code></a>{% else %}<code>{{ m.name }}</code>{% endif %}{% if m.status == "unresolved" %} <span class="badge status-staged" title="{{ m.reason or 'unresolved' }}">Unresolved</span>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+      </p>
+      {% elif node.lean.modules %}
       <p class="lean-modules">Modules: {% for m in node.lean.modules %}<code>{{ m }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
       {% endif %}
     </div>

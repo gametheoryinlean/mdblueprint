@@ -84,6 +84,21 @@ def _module_name(file: Path, lean_root: Path) -> str:
     return ".".join(parts)
 
 
+def build_module_source_metadata(
+    lean_file: Path,
+    lean_root: Path,
+    repository: LeanRepositoryConfig | None,
+    *,
+    line: int = 1,
+) -> dict[str, str | None]:
+    """Public helper: build source metadata for a Lean file (not a single
+    declaration). Defaults to line 1 so callers that point at a whole
+    module get the top of the file. Returns the same shape as the
+    per-declaration metadata so it can be merged into ref payloads.
+    """
+    return _source_metadata(lean_file, line, lean_root, repository)
+
+
 def _source_metadata(
     lean_file: Path,
     line: int,

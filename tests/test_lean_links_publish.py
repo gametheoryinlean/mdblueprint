@@ -66,6 +66,72 @@ def _write_node(knowledge_root: Path, *, declaration: str) -> None:
     )
 
 
+def test_module_references_link_to_file_at_line_one(tmp_path):
+    """A `lean.modules` entry should render as a clickable link to line 1
+    of the file backing that module."""
+    lean_root = tmp_path / "lean"
+    _write_lean_file(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    _write_config(knowledge_root, lean_root)
+    _write_node(knowledge_root, declaration="Example.ok")
+
+    publish(knowledge_root, tmp_path / "site")
+
+    node_page = (tmp_path / "site" / "example" / "example_ok.html").read_text(encoding="utf-8")
+    module_link = (
+        "https://example.test/org/repo/blob/abc123def456/Example/Basic.lean#L1"
+    )
+    # The module name appears inside an anchor tag pointing at line 1.
+    assert f'href="{module_link}"' in node_page
+    assert "<code>Example.Basic</code>" in node_page
+
+
+def test_unresolved_module_reference_is_marked_without_link(tmp_path):
+    """A module name that isn't in the repository surfaces as Unresolved
+    and is rendered without a broken anchor."""
+    lean_root = tmp_path / "lean"
+    _write_lean_file(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    _write_config(knowledge_root, lean_root)
+
+    node_dir = knowledge_root / "nodes" / "example"
+    node_dir.mkdir(parents=True, exist_ok=True)
+    (node_dir / "ok.md").write_text(
+        textwrap.dedent(
+            """
+            ---
+            id: example.ok
+            title: Example OK
+            kind: theorem
+            status: admitted
+            uses: []
+            lean:
+              repository: main
+              modules:
+                - Example.NotAModule
+              declarations:
+                - Example.ok
+            verification:
+              statement: accepted
+              proof: accepted
+            ---
+
+            # Example OK
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    publish(knowledge_root, tmp_path / "site")
+
+    node_page = (tmp_path / "site" / "example" / "example_ok.html").read_text(encoding="utf-8")
+    assert "Example.NotAModule" in node_page
+    # Unresolved module should not produce an anchor with NotAModule
+    assert 'href="https://example.test/org/repo' not in node_page or \
+           "NotAModule.lean" not in node_page
+    assert "Unresolved" in node_page
+
+
 def test_node_and_graph_lean_modals_link_to_configured_source_url(tmp_path):
     lean_root = tmp_path / "lean"
     _write_lean_file(lean_root)
