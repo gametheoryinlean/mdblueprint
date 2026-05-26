@@ -53,6 +53,12 @@ class LeanDeclaration:
     relative_path: str | None = None
     source_url: str | None = None
     doc_url: str | None = None
+    # Blueprint node ids this declaration self-identifies as backing.
+    # Populated by parsing `Blueprint: ...` markers in the
+    # declaration's `/-- ... -/` docstring, plus any module-level
+    # `## Blueprint` section in the file's `/-! ... -/` header.
+    # Empty tuple by default; back-compatible.
+    blueprint_nodes: tuple[str, ...] = ()
 
 
 @dataclass
@@ -253,6 +259,160 @@ def _docstring_before(lines: list[str], decl_index: int) -> str | None:
     return None
 
 
+# Matches `Blueprint:` (case-insensitive) at the start of a docstring line,
+# capturing the trailing comma/whitespace-separated list of node ids.
+_BLUEPRINT_LINE_RE = re.compile(r"^\s*Blueprint\s*:\s*(.+?)\s*$", re.IGNORECASE)
+
+# A blueprint node id is at least topic.something — dotted, allowing
+# underscores and alphanumerics. The trailing punctuation (period,
+# comma, backticks, parentheses) is stripped during extraction.
+_NODE_ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+")
+
+
+def _extract_node_ids(text: str) -> list[str]:
+    """Pull every dotted node-id-shaped token out of `text`.
+
+    Used by both the module-level `## Blueprint` parser and the
+    declaration-level `Blueprint:` line parser. Empty / no-match input
+    returns an empty list.
+    """
+    if not text:
+        return []
+    return _NODE_ID_RE.findall(text)
+
+
+def _full_docstring_before(lines: list[str], decl_index: int) -> tuple[str | None, int]:
+    """Like `_docstring_before` but also returns the multi-line variant.
+
+    Returns `(content, num_consumed_lines)` so callers can rewind past
+    the docstring. The `content` is the joined inner body (without the
+    `/--` / `-/` delimiters). Returns `(None, 0)` if no docstring
+    immediately precedes the declaration.
+    """
+    cursor = decl_index - 1
+    while cursor >= 0 and not lines[cursor].strip():
+        cursor -= 1
+    if cursor < 0:
+        return None, 0
+
+    end_line = lines[cursor].rstrip()
+    # Single-line form `/-- ... -/`
+    if end_line.lstrip().startswith("/--") and end_line.rstrip().endswith("-/"):
+        inner = end_line.strip()[3:-2].strip()
+        return inner, 1
+
+    # Multi-line form: walk backwards until `/--` is found
+    if not end_line.rstrip().endswith("-/"):
+        return None, 0
+    start = cursor
+    while start >= 0 and not lines[start].lstrip().startswith("/--"):
+        start -= 1
+    if start < 0:
+        return None, 0
+    # Inner body: drop `/--` from the first line and `-/` from the last
+    body_lines = list(lines[start:cursor + 1])
+    if not body_lines:
+        return None, 0
+    body_lines[0] = body_lines[0].lstrip()[3:]
+    body_lines[-1] = body_lines[-1].rstrip()[:-2]
+    return "\n".join(body_lines).strip(), cursor - start + 1
+
+
+def _module_blueprint_nodes(lines: list[str]) -> list[str]:
+    """Extract node ids from a module-level `/-! ... -/` header block.
+
+    Looks for the first `/-!` ... `-/` block in the file (typically the
+    module docstring) and pulls node ids out of any `## Blueprint`
+    (or `Blueprint:` on its own line) section. Returns an empty list
+    if no such block exists, or no marker is found.
+    """
+    if not lines:
+        return []
+
+    # Locate the `/-!` opener (must be in the leading comment block,
+    # before any `import` / declaration).
+    start = -1
+    for i, raw in enumerate(lines):
+        stripped = raw.strip()
+        if stripped.startswith("/-!"):
+            start = i
+            break
+        if stripped.startswith("/--"):
+            # `/--` is a declaration docstring, not a module docstring.
+            break
+        # Anything substantive before `/-!` -> no module docstring.
+        if stripped and not stripped.startswith("--") and not stripped.startswith("import"):
+            break
+
+    if start < 0:
+        return []
+
+    end = -1
+    for j in range(start, len(lines)):
+        if "-/" in lines[j]:
+            end = j
+            break
+    if end < 0:
+        return []
+
+    block = lines[start:end + 1]
+    # Find the `## Blueprint` section (or a bare `Blueprint:` line) and
+    # accumulate node ids until the next `##` header or end of block.
+    nodes: list[str] = []
+    collecting = False
+    for raw in block:
+        stripped = raw.strip()
+        if not collecting:
+            if stripped.startswith("##"):
+                heading = stripped.lstrip("#").strip().lower()
+                if heading.startswith("blueprint"):
+                    collecting = True
+                    # `## Blueprint: foo.bar` - inline form
+                    if ":" in heading:
+                        _, inline = heading.split(":", 1)
+                        nodes.extend(_extract_node_ids(inline))
+            else:
+                m = _BLUEPRINT_LINE_RE.match(stripped)
+                if m:
+                    nodes.extend(_extract_node_ids(m.group(1)))
+        else:
+            # End collecting at the next `##` heading
+            if stripped.startswith("##"):
+                break
+            nodes.extend(_extract_node_ids(stripped))
+
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique: list[str] = []
+    for node in nodes:
+        if node not in seen:
+            seen.add(node)
+            unique.append(node)
+    return unique
+
+
+def _declaration_blueprint_nodes(docstring: str | None) -> list[str]:
+    """Extract node ids from a per-declaration docstring.
+
+    Recognises a `Blueprint:` line anywhere in the docstring body.
+    Returns deduped node ids preserving order.
+    """
+    if not docstring:
+        return []
+    nodes: list[str] = []
+    for line in docstring.splitlines():
+        m = _BLUEPRINT_LINE_RE.match(line)
+        if m:
+            nodes.extend(_extract_node_ids(m.group(1)))
+    seen: set[str] = set()
+    unique: list[str] = []
+    for node in nodes:
+        if node not in seen:
+            seen.add(node)
+            unique.append(node)
+    return unique
+
+
 def _signature_snippet(lines: list[str], decl_index: int, *, max_lines: int = 12) -> str:
     collected: list[str] = []
     for offset in range(decl_index, min(decl_index + max_lines, len(lines))):
@@ -283,6 +443,7 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
         except (OSError, UnicodeDecodeError):
             continue
         scope_stack: list[tuple[str, str | None]] = []
+        module_blueprint_nodes = _module_blueprint_nodes(lines)
 
         for lineno, line in enumerate(lines, start=1):
             # Track namespace/section scopes
@@ -324,6 +485,19 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
             body_text = "\n".join(lines[lineno - 1:next_decl_line])
             has_sorry = bool(SORRY_RE.search(body_text)) or bool(ADMIT_RE.search(body_text))
 
+            # Look up the full (possibly multi-line) docstring so we can
+            # extract any `Blueprint:` marker. `_docstring_before` only
+            # returns single-line content; falls back to the full text
+            # otherwise.
+            full_docstring, _consumed = _full_docstring_before(lines, lineno - 1)
+            decl_blueprint = _declaration_blueprint_nodes(full_docstring)
+            # Merge with module-level markers, deduping while keeping
+            # per-decl markers first (they're more specific).
+            merged_nodes: list[str] = list(decl_blueprint)
+            for node in module_blueprint_nodes:
+                if node not in merged_nodes:
+                    merged_nodes.append(node)
+
             decl = LeanDeclaration(
                 name=name,
                 qualified_name=qualified,
@@ -335,6 +509,7 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
                 docstring=_docstring_before(lines, lineno - 1),
                 namespace=prefix or None,
                 has_sorry=has_sorry,
+                blueprint_nodes=tuple(merged_nodes),
                 **_source_metadata(
                     lean_file,
                     lineno,
