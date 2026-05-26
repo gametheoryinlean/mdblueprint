@@ -39,25 +39,36 @@
       <header><h1>Lean declarations</h1><button class="closebtn" type="button">x</button></header>
       <ul class="uses">
         {% for ref in lean_refs %}
-        <li>
+        <li class="lean-ref">
+          {% if ref.kind %}<span class="badge lean-kind">{{ ref.kind }}</span>{% endif %}
           {% if ref.source_url %}
           <a href="{{ ref.source_url }}"><code>{{ ref.display_name }}</code></a>
           {% else %}
           <code>{{ ref.display_name }}</code>
           {% endif %}
+          {% if ref.doc_url %}<a class="lean-doc-link" href="{{ ref.doc_url }}" title="View hosted doc">doc</a>{% endif %}
           {% if ref.status == "unresolved" %}
           <span class="badge status-staged">Unresolved</span>
           {% if ref.reason %}<span class="lean-source-meta">{{ ref.reason }}</span>{% endif %}
+          {% if ref.suggestions %}
+          <span class="lean-suggestions">Did you mean: {% for s in ref.suggestions %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}?</span>
+          {% endif %}
           {% elif ref.repository_title %}
           <span class="lean-source-meta">
             {{ ref.repository_title }}{% if ref.short_revision %} @ {{ ref.short_revision }}{% endif %}{% if ref.module %}, {{ ref.module }}{% endif %}
           </span>
           {% endif %}
           {% if ref.has_sorry %}<span class="badge status-needs_proof_review">sorry/admit</span>{% endif %}
+          {% if ref.docstring %}<p class="lean-docstring">{{ ref.docstring }}</p>{% endif %}
+          {% if ref.signature %}<pre class="lean-signature"><code>{{ ref.signature }}</code></pre>{% endif %}
         </li>
         {% endfor %}
       </ul>
-      {% if node.lean.modules %}
+      {% if lean_modules %}
+      <p class="lean-modules">Modules:
+        {% for m in lean_modules %}{% if m.source_url %}<a href="{{ m.source_url }}"><code>{{ m.name }}</code></a>{% else %}<code>{{ m.name }}</code>{% endif %}{% if m.status == "unresolved" %} <span class="badge status-staged" title="{{ m.reason or 'unresolved' }}">Unresolved</span>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+      </p>
+      {% elif node.lean.modules %}
       <p class="lean-modules">Modules: {% for m in node.lean.modules %}<code>{{ m }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
       {% endif %}
     </div>

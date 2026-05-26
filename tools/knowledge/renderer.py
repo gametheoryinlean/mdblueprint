@@ -18,7 +18,13 @@ from tools.knowledge.export import (
     topic_path,
     titleize_topic,
 )
-from tools.knowledge.lean_index import LeanDeclaration, LeanIndex, index_lean_project
+from tools.knowledge.lean_index import (
+    LeanDeclaration,
+    LeanIndex,
+    build_module_source_metadata,
+    index_lean_project,
+    suggest_for_unresolved,
+)
 from tools.knowledge.models import Node
 from tools.knowledge.node_refs import NODE_REF_RE
 
@@ -27,6 +33,21 @@ if TYPE_CHECKING:
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 PROOF_MARKER_RE = re.compile(r"(?im)(^|\n)(?P<marker>\s*(?:\*{1,2}Proof\.\*{1,2}|Proof\.|##\s+Proof)\s*)")
+_GIT_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+def _short_revision(revision: str | None) -> str | None:
+    """Return a display-friendly short revision.
+
+    For hex git SHAs (>=7 hex chars) truncate to 7 chars. For branch
+    or tag names (or anything else) return the value unchanged so we
+    don't mangle e.g. ``release/v0.1`` into ``release``.
+    """
+    if revision is None:
+        return None
+    if _GIT_SHA_RE.match(revision):
+        return revision[:7]
+    return revision
 TEX_MATH_RE = re.compile(
     r"\$\$(?:.|\n)*?\$\$"
     r"|\\\[(?:.|\n)*?\\\]"
@@ -274,25 +295,113 @@ def _lean_ref_payload(
     status: str,
     qualified_name: str | None = None,
     module: str | None = None,
+    kind: str | None = None,
+    signature: str | None = None,
+    docstring: str | None = None,
     repository_title: str | None = None,
     revision: str | None = None,
     source_url: str | None = None,
+    doc_url: str | None = None,
     has_sorry: bool = False,
     reason: str | None = None,
+    suggestions: list[str] | None = None,
 ) -> dict[str, object]:
     return {
         "name": name,
         "display_name": qualified_name or name,
         "qualified_name": qualified_name,
         "module": module,
+        "kind": kind,
+        "signature": signature,
+        "docstring": docstring,
         "repository_title": repository_title,
         "revision": revision,
-        "short_revision": revision[:7] if revision else None,
+        "short_revision": _short_revision(revision),
         "source_url": source_url,
+        "doc_url": doc_url,
         "has_sorry": has_sorry,
         "status": status,
         "reason": reason,
+        "suggestions": list(suggestions or []),
     }
+
+
+def _lean_module_payload(
+    *,
+    name: str,
+    status: str,
+    repository_title: str | None = None,
+    revision: str | None = None,
+    source_url: str | None = None,
+    reason: str | None = None,
+) -> dict[str, object]:
+    """Same shape as `_lean_ref_payload` but for module-level refs."""
+    return {
+        "name": name,
+        "display_name": name,
+        "repository_title": repository_title,
+        "revision": revision,
+        "short_revision": _short_revision(revision),
+        "source_url": source_url,
+        "status": status,
+        "reason": reason,
+    }
+
+
+def _resolve_lean_modules(
+    node: Node, lean_config: LeanConfig, indexes: dict[str, LeanIndex]
+) -> list[dict[str, object]]:
+    """Resolve `node.lean.modules` into clickable source links (line 1).
+
+    Mirrors `_resolve_lean_refs` but operates on module names. Returns
+    one payload per module, with status:
+    - `resolved` when the module is found in the configured index;
+    - `raw` when no repositories are configured (no link);
+    - `unresolved` when the repo is missing or module isn't indexed.
+    """
+    if node.lean is None or not node.lean.modules:
+        return []
+
+    if not indexes:
+        return [_lean_module_payload(name=mod, status="raw") for mod in node.lean.modules]
+
+    repo_id = node.lean.repository or lean_config.default_repository
+    if repo_id is None or repo_id not in lean_config.repositories or repo_id not in indexes:
+        reason = (
+            "no Lean repository configured for this node"
+            if repo_id is None
+            else f"Lean repository {repo_id!r} is not configured"
+        )
+        return [
+            _lean_module_payload(name=mod, status="unresolved", reason=reason)
+            for mod in node.lean.modules
+        ]
+
+    idx = indexes[repo_id]
+    repo = lean_config.repositories[repo_id]
+    refs: list[dict[str, object]] = []
+    for module in node.lean.modules:
+        path = idx.modules.get(module)
+        if path is None:
+            refs.append(
+                _lean_module_payload(
+                    name=module,
+                    status="unresolved",
+                    reason=f"module not found in repository {repo_id!r}",
+                )
+            )
+            continue
+        meta = build_module_source_metadata(path, repo.local_path, repo)
+        refs.append(
+            _lean_module_payload(
+                name=module,
+                status="resolved",
+                repository_title=meta["repository_title"] or repo.title,
+                revision=meta["revision"] or repo.revision,
+                source_url=meta["source_url"],
+            )
+        )
+    return refs
 
 
 def _index_configured_lean_repositories(nodes: list[Node], lean_config: LeanConfig) -> dict[str, LeanIndex]:
@@ -346,9 +455,13 @@ def _resolve_lean_refs(node: Node, lean_config: LeanConfig, indexes: dict[str, L
                 status="resolved",
                 qualified_name=decl.qualified_name,
                 module=_module_for_declaration(decl, idx),
+                kind=decl.kind,
+                signature=decl.signature,
+                docstring=decl.docstring,
                 repository_title=decl.repository_title or repo.title,
                 revision=decl.revision or repo.revision,
                 source_url=decl.source_url,
+                doc_url=decl.doc_url,
                 has_sorry=decl.has_sorry,
             ))
             continue
@@ -363,6 +476,7 @@ def _resolve_lean_refs(node: Node, lean_config: LeanConfig, indexes: dict[str, L
             name=decl_name,
             status="unresolved",
             reason="not found in configured Lean repository",
+            suggestions=suggest_for_unresolved(decl_name, idx),
         ))
     return refs
 
@@ -419,6 +533,7 @@ def _build_html_payload(ctx: "KnowledgeContext", node: Node) -> dict:
         "deps": deps,
         "dependents": dependents,
         "lean_refs": _resolve_lean_refs(node, ctx.config.lean, ctx.lean_indexes),
+        "lean_modules": _resolve_lean_modules(node, ctx.config.lean, ctx.lean_indexes),
     }
 
 
@@ -451,6 +566,7 @@ def node_detail_payload(ctx: "KnowledgeContext", node_id: str) -> dict:
         "deps": deps,
         "dependents": dependents,
         "lean_refs": html_payload["lean_refs"],
+        "lean_modules": html_payload["lean_modules"],
     }
 
 
@@ -581,6 +697,7 @@ def render_node(ctx: "KnowledgeContext", node_id: str) -> str:
         deps=payload["deps"],
         dependents=payload["dependents"],
         lean_refs=payload["lean_refs"],
+        lean_modules=payload["lean_modules"],
         topic_memberships=topic_memberships,
         child_topics=child_topics,
         dev_mode=ctx.dev_mode,

@@ -52,6 +52,7 @@ class LeanDeclaration:
     revision: str | None = None
     relative_path: str | None = None
     source_url: str | None = None
+    doc_url: str | None = None
 
 
 @dataclass
@@ -84,11 +85,107 @@ def _module_name(file: Path, lean_root: Path) -> str:
     return ".".join(parts)
 
 
+def build_module_source_metadata(
+    lean_file: Path,
+    lean_root: Path,
+    repository: LeanRepositoryConfig | None,
+    *,
+    line: int = 1,
+) -> dict[str, str | None]:
+    """Public helper: build source metadata for a Lean file (not a single
+    declaration). Defaults to line 1 so callers that point at a whole
+    module get the top of the file. Returns the same shape as the
+    per-declaration metadata so it can be merged into ref payloads.
+    """
+    return _source_metadata(lean_file, line, lean_root, repository)
+
+
+_SUGGEST_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9]+")
+
+
+def _suggest_tokens(text: str) -> set[str]:
+    spaced = text.replace("_", " ").replace("-", " ").replace(".", " ")
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", spaced)
+    return {
+        tok
+        for tok in (m.lower() for m in _SUGGEST_TOKEN_RE.findall(spaced))
+        if len(tok) > 1
+    }
+
+
+def suggest_for_unresolved(name: str, idx: "LeanIndex", *, k: int = 3) -> list[str]:
+    """Cheap "did you mean" lookup for unresolved Lean references.
+
+    Strategy (in order, deduped, top-k):
+    1. Suffix match: qualified names ending with ``.{last_segment}``.
+    2. Module match: if ``name`` is itself a module name in the index,
+       surface as ``(module) X`` so the user can move it from
+       ``lean.declarations`` to ``lean.modules``.
+    3. Token overlap: rank by lowercase token-set intersection size,
+       ties broken alphabetically.
+
+    Returns at most ``k`` human-readable suggestions; empty list when
+    the index has nothing to suggest from.
+    """
+    if not idx.declarations and not idx.modules:
+        return []
+    suggestions: list[str] = []
+    seen: set[str] = set()
+
+    last_segment = name.rsplit(".", 1)[-1]
+    if last_segment and last_segment != name:
+        for qualified in idx.declarations:
+            if qualified.endswith(f".{last_segment}") and qualified not in seen:
+                suggestions.append(qualified)
+                seen.add(qualified)
+                if len(suggestions) >= k:
+                    return suggestions
+
+    if name in idx.modules:
+        marker = f"(module) {name}"
+        if marker not in seen:
+            suggestions.append(marker)
+            seen.add(marker)
+            if len(suggestions) >= k:
+                return suggestions
+
+    target_tokens = _suggest_tokens(name)
+    if not target_tokens:
+        return suggestions
+
+    scored: list[tuple[int, str]] = []
+    for qualified in idx.declarations:
+        if qualified in seen:
+            continue
+        overlap = len(target_tokens & _suggest_tokens(qualified))
+        if overlap:
+            scored.append((overlap, qualified))
+    for module_name in idx.modules:
+        marker = f"(module) {module_name}"
+        if marker in seen:
+            continue
+        overlap = len(target_tokens & _suggest_tokens(module_name))
+        if overlap:
+            scored.append((overlap, marker))
+
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    for _, candidate in scored:
+        if candidate not in seen:
+            suggestions.append(candidate)
+            seen.add(candidate)
+            if len(suggestions) >= k:
+                break
+    return suggestions
+
+
 def _source_metadata(
     lean_file: Path,
     line: int,
     lean_root: Path,
     repository: LeanRepositoryConfig | None,
+    *,
+    module: str | None = None,
+    qualified_name: str | None = None,
 ) -> dict[str, str | None]:
     if repository is None:
         return {
@@ -97,21 +194,44 @@ def _source_metadata(
             "revision": None,
             "relative_path": None,
             "source_url": None,
+            "doc_url": None,
         }
 
     relative_path = lean_file.relative_to(lean_root).as_posix()
+    template_path = (
+        f"{repository.subdir}/{relative_path}" if repository.subdir else relative_path
+    )
     source_url = repository.source_url_template.format(
         web_url=repository.web_url.rstrip("/"),
         revision=repository.revision,
-        path=relative_path,
+        path=template_path,
         line=line,
     )
+    doc_url: str | None = None
+    if repository.doc_url_template:
+        derived_module = module
+        if derived_module is None:
+            derived_module = Path(relative_path).with_suffix("").as_posix().replace("/", ".")
+        derived_module_html = derived_module.replace(".", "/")
+        try:
+            doc_url = repository.doc_url_template.format(
+                web_url=repository.web_url.rstrip("/"),
+                revision=repository.revision,
+                module=derived_module,
+                module_html=derived_module_html,
+                qualified_name=qualified_name or "",
+            )
+        except (KeyError, IndexError):
+            # Bad template variable -> degrade gracefully to no doc link
+            # rather than crashing the whole publish.
+            doc_url = None
     return {
         "repository_id": repository.id,
         "repository_title": repository.title,
         "revision": repository.revision,
         "relative_path": relative_path,
         "source_url": source_url,
+        "doc_url": doc_url,
     }
 
 
@@ -215,7 +335,14 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
                 docstring=_docstring_before(lines, lineno - 1),
                 namespace=prefix or None,
                 has_sorry=has_sorry,
-                **_source_metadata(lean_file, lineno, lean_root, repository),
+                **_source_metadata(
+                    lean_file,
+                    lineno,
+                    lean_root,
+                    repository,
+                    module=module,
+                    qualified_name=qualified,
+                ),
             )
             if qualified in idx.declarations:
                 prev = idx.declarations[qualified]

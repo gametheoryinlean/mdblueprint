@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from tools.knowledge.config import LeanRepositoryConfig
-from tools.knowledge.lean_index import index_lean_project
+from tools.knowledge.lean_index import LeanIndex, index_lean_project, suggest_for_unresolved
 
 LEAN_FIXTURES = Path(__file__).parent / "fixtures" / "lean"
 
@@ -74,6 +74,49 @@ class TestLeanIndex:
         assert decl.repository_title == "Example Lean Library"
         assert decl.revision == "abc123"
         assert decl.relative_path == "GameTheoryLib/StrategicGame/Basic.lean"
+        assert decl.source_url == (
+            "https://example.test/org/repo/blob/abc123/"
+            "GameTheoryLib/StrategicGame/Basic.lean#L3"
+        )
+
+    def test_repository_subdir_prepended_to_path(self):
+        """When `subdir` is set, the template `{path}` placeholder receives
+        the prefixed path so users with a `lean/` subdir don't need to
+        hardcode the prefix in source_url_template."""
+        repo = LeanRepositoryConfig(
+            id="main",
+            title="Example Lean Library",
+            local_path=LEAN_FIXTURES,
+            web_url="https://example.test/org/repo",
+            source_url_template="{web_url}/blob/{revision}/{path}#L{line}",
+            revision="abc123",
+            subdir="lean",
+        )
+
+        idx = index_lean_project(LEAN_FIXTURES, repository=repo)
+        decl = idx.declarations["StrategicGame"]
+
+        # relative_path stays clean (within local_path), but source_url
+        # includes the subdir prefix.
+        assert decl.relative_path == "GameTheoryLib/StrategicGame/Basic.lean"
+        assert decl.source_url == (
+            "https://example.test/org/repo/blob/abc123/"
+            "lean/GameTheoryLib/StrategicGame/Basic.lean#L3"
+        )
+
+    def test_repository_subdir_empty_keeps_backcompat(self):
+        """Default empty subdir behaves like before (no prefix)."""
+        repo = LeanRepositoryConfig(
+            id="main",
+            title="Example Lean Library",
+            local_path=LEAN_FIXTURES,
+            web_url="https://example.test/org/repo",
+            source_url_template="{web_url}/blob/{revision}/{path}#L{line}",
+            revision="abc123",
+        )
+        idx = index_lean_project(LEAN_FIXTURES, repository=repo)
+        decl = idx.declarations["StrategicGame"]
+        assert "/lean/" not in decl.source_url
         assert decl.source_url == (
             "https://example.test/org/repo/blob/abc123/"
             "GameTheoryLib/StrategicGame/Basic.lean#L3"
@@ -163,3 +206,64 @@ end RealNamespace
         assert "helper_section.sectionLocalName" not in idx.declarations
         assert "RealNamespace.namespacedOnly" in idx.declarations
         assert "RealNamespace.inner.namespacedOnly" not in idx.declarations
+
+
+class TestSuggestForUnresolved:
+    @staticmethod
+    def _index_from(decls: list[str], modules: list[str] | None = None) -> LeanIndex:
+        idx = LeanIndex()
+        from tools.knowledge.lean_index import LeanDeclaration
+
+        for qualified in decls:
+            name = qualified.rsplit(".", 1)[-1]
+            namespace = qualified.rsplit(".", 1)[0] if "." in qualified else None
+            idx.declarations[qualified] = LeanDeclaration(
+                name=name,
+                qualified_name=qualified,
+                kind="def",
+                file=Path("/tmp/fake.lean"),
+                line=1,
+                module=namespace,
+                namespace=namespace,
+            )
+        for mod in modules or []:
+            idx.modules[mod] = Path(f"/tmp/{mod.replace('.', '/')}.lean")
+        return idx
+
+    def test_empty_index_returns_no_suggestions(self):
+        assert suggest_for_unresolved("Foo.bar", LeanIndex()) == []
+
+    def test_suffix_match_prioritised(self):
+        idx = self._index_from([
+            "Foo.bar",
+            "Other.Namespace.bar",
+            "Unrelated.qux",
+        ])
+        out = suggest_for_unresolved("bar", idx)
+        assert "Foo.bar" in out
+        assert "Other.Namespace.bar" in out
+
+    def test_module_match_surfaces_as_marker(self):
+        idx = self._index_from([], modules=["Foo.Bar"])
+        out = suggest_for_unresolved("Foo.Bar", idx)
+        assert "(module) Foo.Bar" in out
+
+    def test_token_overlap_fallback(self):
+        idx = self._index_from([
+            "Namespace.multiplicativeGroup",
+            "Namespace.additiveGroup",
+            "Namespace.unrelated",
+        ])
+        out = suggest_for_unresolved("multiplicative_group_scheme", idx)
+        # multiplicativeGroup shares both 'multiplicative' and 'group' tokens
+        assert any("multiplicativeGroup" in s for s in out)
+
+    def test_limit_k(self):
+        idx = self._index_from([f"Ns.fooBar{i}" for i in range(10)])
+        out = suggest_for_unresolved("fooBar1", idx, k=3)
+        assert len(out) == 3
+
+    def test_no_tokens_no_suggestions(self):
+        idx = self._index_from(["Namespace.realDecl"])
+        # A name with no tokens (only punctuation) yields nothing
+        assert suggest_for_unresolved(".", idx) == []

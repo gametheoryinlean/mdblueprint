@@ -49,6 +49,22 @@ class LeanRepositoryConfig:
     web_url: str
     source_url_template: str
     revision: str
+    # Optional subdirectory of the git repo where `local_path` lives.
+    # When set, prepended to the relative path passed to
+    # `source_url_template` so users with `local_path: ../../lean` in
+    # a repo with `lean/` subdir don't have to hardcode the prefix.
+    # Default empty -> nothing prepended (back-compat).
+    subdir: str = ""
+    # Optional template for the hosted doc-gen4 / mathlib4_docs page
+    # corresponding to a declaration. Available placeholders:
+    #   {web_url}, {revision}      — repository identification
+    #   {module}                   — dotted module name (Foo.Bar.Baz)
+    #   {module_html}              — slash form (Foo/Bar/Baz)
+    #   {qualified_name}           — full Lean declaration name
+    # When set, each resolved declaration in the rendered modal gets
+    # a second "doc" link next to the source link. Empty -> no doc
+    # link rendered (default).
+    doc_url_template: str = ""
 
 
 @dataclass(frozen=True)
@@ -338,6 +354,22 @@ def _parse_lean_config(raw: Any, *, path: Path) -> LeanConfig:
         source_url_template = _required_str(repo_raw, "source_url_template", path=path, prefix=prefix)
         revision_raw = _required_str(repo_raw, "revision", path=path, prefix=prefix)
         local_path = _resolve_local_path(local_path_raw, config_path=path)
+        subdir_raw = repo_raw.get("subdir", "")
+        if subdir_raw is None:
+            subdir = ""
+        elif isinstance(subdir_raw, str):
+            subdir = subdir_raw.strip().strip("/")
+        else:
+            raise ValueError(f"Project config {prefix}.subdir must be a string: {path}")
+        doc_url_template_raw = repo_raw.get("doc_url_template", "")
+        if doc_url_template_raw is None:
+            doc_url_template = ""
+        elif isinstance(doc_url_template_raw, str):
+            doc_url_template = doc_url_template_raw.strip()
+        else:
+            raise ValueError(
+                f"Project config {prefix}.doc_url_template must be a string: {path}"
+            )
 
         if not local_path.is_dir():
             raise ValueError(f"Project config {prefix}.local_path does not exist: {local_path}")
@@ -351,6 +383,8 @@ def _parse_lean_config(raw: Any, *, path: Path) -> LeanConfig:
             web_url=web_url,
             source_url_template=source_url_template,
             revision=_resolve_revision(local_path, revision_raw, path=path, prefix=prefix),
+            subdir=subdir,
+            doc_url_template=doc_url_template,
         )
 
     if default_repository is not None and default_repository not in repositories:

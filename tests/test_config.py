@@ -319,6 +319,104 @@ def test_project_config_parses_lean_repository_and_auto_revision(tmp_path):
     assert repo.web_url == "https://example.test/org/repo"
     assert repo.revision == revision
     assert len(repo.revision) == 40
+    # subdir defaults to "" for back-compat
+    assert repo.subdir == ""
+
+
+def test_lean_repository_accepts_subdir(tmp_path):
+    """`subdir` is optional and stored on LeanRepositoryConfig."""
+    from tools.knowledge.config import load_project_config
+
+    lean_root = tmp_path / "lean_project"
+    _init_git_repo(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            f"""
+            site:
+              title: Lean Linked Blueprint
+            lean:
+              default_repository: main
+              repositories:
+                - id: main
+                  title: Example Lean Library
+                  local_path: {lean_root}
+                  subdir: lean
+                  web_url: https://example.test/org/repo
+                  source_url_template: "{{web_url}}/blob/{{revision}}/{{path}}#L{{line}}"
+                  revision: auto
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    config = load_project_config(knowledge_root)
+    repo = config.lean.repositories["main"]
+    assert repo.subdir == "lean"
+
+
+def test_lean_repository_subdir_strips_slashes(tmp_path):
+    """`subdir: /lean/` is normalised to `lean`."""
+    from tools.knowledge.config import load_project_config
+
+    lean_root = tmp_path / "lean_project"
+    _init_git_repo(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            f"""
+            site:
+              title: Lean Linked Blueprint
+            lean:
+              repositories:
+                - id: main
+                  title: Example Lean Library
+                  local_path: {lean_root}
+                  subdir: "/lean/"
+                  web_url: https://example.test/org/repo
+                  source_url_template: "{{web_url}}/blob/{{revision}}/{{path}}#L{{line}}"
+                  revision: main
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    config = load_project_config(knowledge_root)
+    assert config.lean.repositories["main"].subdir == "lean"
+
+
+def test_lean_repository_subdir_must_be_string(tmp_path):
+    """`subdir: 42` is rejected."""
+    from tools.knowledge.config import load_project_config
+
+    lean_root = tmp_path / "lean_project"
+    _init_git_repo(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir()
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            f"""
+            site:
+              title: Lean Linked Blueprint
+            lean:
+              repositories:
+                - id: main
+                  title: Example Lean Library
+                  local_path: {lean_root}
+                  subdir: 42
+                  web_url: https://example.test/org/repo
+                  source_url_template: "{{web_url}}/blob/{{revision}}/{{path}}#L{{line}}"
+                  revision: main
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError) as exc:
+        load_project_config(knowledge_root)
+    assert "subdir" in str(exc.value)
 
 
 def test_lean_repository_local_path_must_exist(tmp_path):
