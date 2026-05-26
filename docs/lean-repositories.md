@@ -74,6 +74,39 @@ Config contract:
 - `default_repository` is optional. When present, any node without
   `lean.repository` uses this repository. The default id must appear in
   `lean.repositories`.
+- `subdir` is optional. When the Lean source root is a subdirectory of the git
+  repo (typical layout: a `lean/` directory inside the project), set
+  `subdir: lean` so the `{path}` placeholder in `source_url_template` receives
+  the prefixed path automatically. Leading and trailing slashes are normalised;
+  empty value (the default) prepends nothing.
+- `doc_url_template` is optional. When set, every resolved declaration gets a
+  second `doc` link next to its source link in the rendered Lean modal. Useful
+  for projects that publish doc-gen4 / mathlib4_docs output. Available
+  placeholders: `{web_url}`, `{revision}`, `{module}` (dotted form),
+  `{module_html}` (slash form), `{qualified_name}`. A malformed template
+  degrades gracefully to no doc link rather than failing the publish.
+
+### Example: project with a `lean/` subdirectory and hosted docs
+
+```yaml
+lean:
+  default_repository: project
+  repositories:
+    - id: project
+      title: ProjectLean
+      local_path: ../../lean
+      subdir: lean
+      web_url: https://github.com/Org/Repo
+      revision: main
+      source_url_template: "{web_url}/blob/{revision}/{path}#L{line}"
+      doc_url_template: "https://org.github.io/Repo/docs/{module_html}.html#{qualified_name}"
+```
+
+A declaration `Foo.bar` at line 42 of `LeanProject/Foo.lean` renders with two
+links:
+
+- source: `https://github.com/Org/Repo/blob/main/lean/LeanProject/Foo.lean#L42`
+- doc:    `https://org.github.io/Repo/docs/LeanProject/Foo.html#Foo.bar`
 
 ## Node Frontmatter
 
@@ -260,3 +293,58 @@ lean:
 
 This is the recommended shape for tests and examples: small Lean files, generic
 module names, and no assumption that a particular mathematical domain is the default.
+
+## Rendered Lean Modal
+
+The published node page exposes a `L∃∀N` button that opens a modal with every
+resolved declaration and module. For each entry mdblueprint surfaces, when
+available:
+
+- The Lean **kind** (`def`, `theorem`, `lemma`, `instance`, `structure`, ...) as
+  a small badge.
+- The qualified declaration name as a clickable source link.
+- An optional second `doc` link when `doc_url_template` is set.
+- The repository title, short revision, and module name.
+- The `/-- … -/` docstring above the declaration, when present.
+- A multi-line signature snippet (first line through the first `:=`, or the
+  declaration header for `structure` / `class`).
+- A `sorry/admit` badge if the declaration body contains a placeholder.
+
+For `lean.modules`, each module is rendered as a link to **line 1** of the file
+backing that module.
+
+For unresolved entries, mdblueprint adds "Did you mean: a, b, c?" suggestions
+ranked by:
+
+1. Suffix match on the last segment (e.g. `bar` → `Foo.Namespace.bar`).
+2. Module match (e.g. asking for a declaration name that is in fact a module
+   becomes `(module) Foo.Bar`).
+3. Token overlap on the lowercased / camelCase-split tokens.
+
+The same suggestions appear in `tools.knowledge.check` diagnostics:
+
+```
+[WARNING] foo.bar (foo.bar): Lean declaration not found in repository 'main':
+          'IsBestResponser'; suggestions: StrategicGame.IsBestResponse, ...
+```
+
+## Troubleshooting
+
+- **"Lean declaration not found" but it exists.** Use the suggestion from
+  the diagnostic. If the entry is a module name, move it from
+  `lean.declarations` to `lean.modules`. Use the fully qualified name in
+  `lean.declarations`.
+- **Source URLs point to a nonexistent path.** Your Lean source root is a
+  subdirectory of the git repo. Set `subdir: <dir>` on the repository config
+  instead of hardcoding the prefix in `source_url_template`.
+- **`Lean repository has uncommitted or untracked files` warning.** The
+  configured Lean repo has working-tree changes; with `revision: auto` the
+  generated URLs would point at a sha you didn't push. Commit (or push) and
+  re-run, or pass `--strict-lean-git` to make this fatal in CI.
+- **Branch revision shows oddly in the modal.** As of the fix for branch /
+  tag revisions, `short_revision` only truncates 7-40-char hex SHAs; branch
+  names like `release/v0.1` or tag names like `v1.2.3-rc4` are shown as-is.
+- **Doc URL doesn't appear.** Check that `doc_url_template` is non-empty
+  and uses only `{web_url}`, `{revision}`, `{module}`, `{module_html}`,
+  `{qualified_name}`. Bad templates degrade silently to no doc link rather
+  than crashing publish.
