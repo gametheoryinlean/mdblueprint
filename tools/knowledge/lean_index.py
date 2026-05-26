@@ -52,6 +52,7 @@ class LeanDeclaration:
     revision: str | None = None
     relative_path: str | None = None
     source_url: str | None = None
+    doc_url: str | None = None
 
 
 @dataclass
@@ -182,6 +183,9 @@ def _source_metadata(
     line: int,
     lean_root: Path,
     repository: LeanRepositoryConfig | None,
+    *,
+    module: str | None = None,
+    qualified_name: str | None = None,
 ) -> dict[str, str | None]:
     if repository is None:
         return {
@@ -190,6 +194,7 @@ def _source_metadata(
             "revision": None,
             "relative_path": None,
             "source_url": None,
+            "doc_url": None,
         }
 
     relative_path = lean_file.relative_to(lean_root).as_posix()
@@ -202,12 +207,31 @@ def _source_metadata(
         path=template_path,
         line=line,
     )
+    doc_url: str | None = None
+    if repository.doc_url_template:
+        derived_module = module
+        if derived_module is None:
+            derived_module = Path(relative_path).with_suffix("").as_posix().replace("/", ".")
+        derived_module_html = derived_module.replace(".", "/")
+        try:
+            doc_url = repository.doc_url_template.format(
+                web_url=repository.web_url.rstrip("/"),
+                revision=repository.revision,
+                module=derived_module,
+                module_html=derived_module_html,
+                qualified_name=qualified_name or "",
+            )
+        except (KeyError, IndexError):
+            # Bad template variable -> degrade gracefully to no doc link
+            # rather than crashing the whole publish.
+            doc_url = None
     return {
         "repository_id": repository.id,
         "repository_title": repository.title,
         "revision": repository.revision,
         "relative_path": relative_path,
         "source_url": source_url,
+        "doc_url": doc_url,
     }
 
 
@@ -311,7 +335,14 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
                 docstring=_docstring_before(lines, lineno - 1),
                 namespace=prefix or None,
                 has_sorry=has_sorry,
-                **_source_metadata(lean_file, lineno, lean_root, repository),
+                **_source_metadata(
+                    lean_file,
+                    lineno,
+                    lean_root,
+                    repository,
+                    module=module,
+                    qualified_name=qualified,
+                ),
             )
             if qualified in idx.declarations:
                 prev = idx.declarations[qualified]

@@ -46,6 +46,7 @@
           {% else %}
           <code>{{ ref.display_name }}</code>
           {% endif %}
+          {% if ref.doc_url %}<a class="lean-doc-link" href="{{ ref.doc_url }}" title="View hosted doc">doc</a>{% endif %}
           {% if ref.status == "unresolved" %}
           <span class="badge status-staged">Unresolved</span>
           {% if ref.reason %}<span class="lean-source-meta">{{ ref.reason }}</span>{% endif %}

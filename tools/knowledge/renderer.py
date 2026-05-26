@@ -301,6 +301,7 @@ def _lean_ref_payload(
     repository_title: str | None = None,
     revision: str | None = None,
     source_url: str | None = None,
+    doc_url: str | None = None,
     has_sorry: bool = False,
     reason: str | None = None,
     suggestions: list[str] | None = None,
@@ -317,6 +318,7 @@ def _lean_ref_payload(
         "revision": revision,
         "short_revision": _short_revision(revision),
         "source_url": source_url,
+        "doc_url": doc_url,
         "has_sorry": has_sorry,
         "status": status,
         "reason": reason,
@@ -459,6 +461,7 @@ def _resolve_lean_refs(node: Node, lean_config: LeanConfig, indexes: dict[str, L
                 repository_title=decl.repository_title or repo.title,
                 revision=decl.revision or repo.revision,
                 source_url=decl.source_url,
+                doc_url=decl.doc_url,
                 has_sorry=decl.has_sorry,
             ))
             continue

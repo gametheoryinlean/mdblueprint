@@ -66,6 +66,61 @@ def _write_node(knowledge_root: Path, *, declaration: str) -> None:
     )
 
 
+def test_doc_url_template_renders_second_link(tmp_path):
+    """A configured `doc_url_template` renders a second 'doc' link next
+    to the source link in the modal."""
+    lean_root = tmp_path / "lean"
+    _write_lean_file(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    knowledge_root.mkdir(parents=True, exist_ok=True)
+    (knowledge_root / "mdblueprint.yml").write_text(
+        textwrap.dedent(
+            f"""
+            site:
+              title: Lean Link Blueprint
+            lean:
+              default_repository: main
+              repositories:
+                - id: main
+                  title: Example Lean Library
+                  local_path: {lean_root}
+                  web_url: https://example.test/org/repo
+                  source_url_template: "{{web_url}}/blob/{{revision}}/{{path}}#L{{line}}"
+                  doc_url_template: "https://docs.example.test/{{module_html}}.html#{{qualified_name}}"
+                  revision: abc123def456
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    _write_node(knowledge_root, declaration="Example.ok")
+
+    publish(knowledge_root, tmp_path / "site")
+    node_page = (tmp_path / "site" / "example" / "example_ok.html").read_text(encoding="utf-8")
+    graph_payload = json.loads(
+        (tmp_path / "site" / "node_payloads" / "example_ok.json").read_text(encoding="utf-8")
+    )
+
+    expected_doc = "https://docs.example.test/Example/Basic.html#Example.ok"
+    assert expected_doc in node_page
+    assert "lean-doc-link" in node_page
+    assert graph_payload["lean_refs"][0]["doc_url"] == expected_doc
+
+
+def test_doc_url_template_absent_leaves_doc_url_null(tmp_path):
+    """No `doc_url_template` -> doc_url is null and no second link."""
+    lean_root = tmp_path / "lean"
+    _write_lean_file(lean_root)
+    knowledge_root = tmp_path / "knowledge"
+    _write_config(knowledge_root, lean_root)
+    _write_node(knowledge_root, declaration="Example.ok")
+
+    publish(knowledge_root, tmp_path / "site")
+    graph_payload = json.loads(
+        (tmp_path / "site" / "node_payloads" / "example_ok.json").read_text(encoding="utf-8")
+    )
+    assert graph_payload["lean_refs"][0]["doc_url"] is None
+
+
 def test_unresolved_decl_shows_did_you_mean(tmp_path):
     """When `lean.declarations` lists a name that's a typo of a real
     declaration, the rendered modal should surface a 'Did you mean'
