@@ -79,6 +79,49 @@ class TestLeanIndex:
             "GameTheoryLib/StrategicGame/Basic.lean#L3"
         )
 
+    def test_repository_subdir_prepended_to_path(self):
+        """When `subdir` is set, the template `{path}` placeholder receives
+        the prefixed path so users with a `lean/` subdir don't need to
+        hardcode the prefix in source_url_template."""
+        repo = LeanRepositoryConfig(
+            id="main",
+            title="Example Lean Library",
+            local_path=LEAN_FIXTURES,
+            web_url="https://example.test/org/repo",
+            source_url_template="{web_url}/blob/{revision}/{path}#L{line}",
+            revision="abc123",
+            subdir="lean",
+        )
+
+        idx = index_lean_project(LEAN_FIXTURES, repository=repo)
+        decl = idx.declarations["StrategicGame"]
+
+        # relative_path stays clean (within local_path), but source_url
+        # includes the subdir prefix.
+        assert decl.relative_path == "GameTheoryLib/StrategicGame/Basic.lean"
+        assert decl.source_url == (
+            "https://example.test/org/repo/blob/abc123/"
+            "lean/GameTheoryLib/StrategicGame/Basic.lean#L3"
+        )
+
+    def test_repository_subdir_empty_keeps_backcompat(self):
+        """Default empty subdir behaves like before (no prefix)."""
+        repo = LeanRepositoryConfig(
+            id="main",
+            title="Example Lean Library",
+            local_path=LEAN_FIXTURES,
+            web_url="https://example.test/org/repo",
+            source_url_template="{web_url}/blob/{revision}/{path}#L{line}",
+            revision="abc123",
+        )
+        idx = index_lean_project(LEAN_FIXTURES, repository=repo)
+        decl = idx.declarations["StrategicGame"]
+        assert "/lean/" not in decl.source_url
+        assert decl.source_url == (
+            "https://example.test/org/repo/blob/abc123/"
+            "GameTheoryLib/StrategicGame/Basic.lean#L3"
+        )
+
     def test_duplicate_warning_includes_repository_source_metadata(self, tmp_path):
         (tmp_path / "A.lean").write_text("theorem Dup : True := True.intro\n", encoding="utf-8")
         (tmp_path / "B.lean").write_text("theorem Dup : True := True.intro\n", encoding="utf-8")

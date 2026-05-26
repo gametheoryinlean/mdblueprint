@@ -100,10 +100,13 @@ def _source_metadata(
         }
 
     relative_path = lean_file.relative_to(lean_root).as_posix()
+    template_path = (
+        f"{repository.subdir}/{relative_path}" if repository.subdir else relative_path
+    )
     source_url = repository.source_url_template.format(
         web_url=repository.web_url.rstrip("/"),
         revision=repository.revision,
-        path=relative_path,
+        path=template_path,
         line=line,
     )
     return {
