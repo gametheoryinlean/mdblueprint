@@ -294,6 +294,86 @@ lean:
 This is the recommended shape for tests and examples: small Lean files, generic
 module names, and no assumption that a particular mathematical domain is the default.
 
+## Reverse Links (`Blueprint:` markers)
+
+The Markdown side declares Lean references with `lean.declarations`. That is
+the **forward** edge MD → Lean. mdblueprint also reads optional **reverse**
+edges Lean → MD when Lean files use a `Blueprint:` marker in their docstrings.
+Having both edges lets the index detect drift in either direction: a renamed
+Lean declaration loses its forward edge but keeps its reverse marker, and vice
+versa.
+
+### Marker syntax
+
+There are two granularities, both optional and back-compatible. A project can
+adopt them incrementally.
+
+**Module level** (in the file's `/-! ... -/` header):
+
+```lean
+/-!
+# G_m
+
+...
+
+## Blueprint
+
+`linear_algebraic_groups.multiplicative_group_scheme`
+`reductive_structure.algebraic_tori`
+-/
+```
+
+Every declaration in the file inherits these node ids. The inline form
+`## Blueprint: foo.bar` also works for a single id.
+
+**Declaration level** (in the `/-- ... -/` docstring above a specific
+declaration):
+
+```lean
+/-- Multiplicative group scheme over `S`.
+
+Blueprint: linear_algebraic_groups.multiplicative_group_scheme
+-/
+noncomputable def multiplicativeGroup : ... := ...
+```
+
+A single line `Blueprint: <node_id>[, <node_id>...]`. Per-declaration markers
+take priority and are merged (union) with module-level markers.
+
+doc-gen4 and mathlib4_docs render docstrings unchanged, so readers of the
+Lean documentation see the back-reference inline.
+
+### Cross-check CLI
+
+```bash
+uv run python -m tools.knowledge.lean_reverse_check docs/knowledge
+```
+
+Output is a list of per-edge diagnostics in four categories:
+
+| Category         | Meaning                                          | Severity |
+|------------------|--------------------------------------------------|----------|
+| `ok`             | both directions agree                            | info     |
+| `md_only`        | MD points at decl; decl has no Blueprint marker  | info     |
+| `lean_only`      | Lean claims node; node's `lean.declarations` lacks decl | warning  |
+| `cross_mismatch` | both maps name the decl, sets disagree           | error    |
+
+By default only issues are printed (`--show all` includes `ok` rows;
+`--show errors` shows only `cross_mismatch`). The CLI exits non-zero when any
+cross-mismatch is present (exit 2), making it suitable as a CI gate. Pass
+`--strict` to also fail on `lean_only` warnings (exit 1).
+
+### Recommended workflow
+
+1. Adopt module-level markers when formalising a new file. One line per
+   blueprint node the module backs; doc-gen4 readers see them for free.
+2. Add per-declaration markers when one module backs multiple blueprint
+   nodes and you need finer granularity.
+3. Run `lean_reverse_check` in CI alongside `tools.knowledge.check`.
+4. Treat `lean_only` as a signal that the MD side might want a
+   `lean.declarations` entry; treat `cross_mismatch` as a hard error
+   (a real Lean rename usually surfaces here).
+
 ## Rendered Lean Modal
 
 The published node page exposes a `L∃∀N` button that opens a modal with every
