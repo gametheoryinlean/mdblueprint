@@ -411,3 +411,24 @@ def x : Nat := 0
         )
         idx = index_lean_project(lean_root)
         assert idx.declarations["x"].blueprint_nodes == ("topic.kept",)
+
+
+def test_anonymous_instance_is_not_indexed(tmp_path):
+    """`noncomputable instance : T := ...` (no name) used to index as
+    an empty-name declaration, producing qualified names ending in `.`
+    and confusing downstream cross-checks."""
+    lean_root = tmp_path / "lean"
+    lean_file = lean_root / "Example.lean"
+    lean_file.parent.mkdir(parents=True)
+    lean_file.write_text(
+        "namespace Foo\n"
+        "noncomputable instance : Nat := 0\n"
+        "noncomputable instance namedInst : Nat := 1\n"
+        "end Foo\n",
+        encoding="utf-8",
+    )
+    idx = index_lean_project(lean_root)
+    assert "Foo.namedInst" in idx.declarations
+    # No empty-named entries.
+    assert not any(q.endswith(".") for q in idx.declarations)
+    assert "" not in idx.declarations

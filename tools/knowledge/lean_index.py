@@ -82,6 +82,13 @@ def _extract_decl_name(line: str) -> tuple[str, str] | None:
     name = name_match.group(1).rstrip(":")
     if "{" in name or "(" in name or "[" in name:
         return None
+    # Anonymous declarations (e.g. `noncomputable instance : T := ...`)
+    # leave the regex matching a `:` token, which `.rstrip(":")`
+    # collapses to the empty string. Skip them — indexing an empty
+    # name produces qualified names ending in `.` which confuse the
+    # downstream cross-checks.
+    if not name:
+        return None
     return canonical, name
 
 
