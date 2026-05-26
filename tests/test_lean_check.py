@@ -122,6 +122,33 @@ class TestLeanChecks:
         warnings = [d for d in diags if d.level == "warning"]
         assert any("NonexistentDecl" in d.message for d in warnings)
 
+    def test_missing_declaration_includes_suggestions(self):
+        """When a similar name exists in the index, the warning should
+        include a suggestion so the user can fix the typo quickly."""
+        idx = _make_idx()
+        # No declaration matches "IsBestResponser" exactly or as suffix,
+        # but its tokens overlap heavily with the real
+        # `StrategicGame.IsBestResponse` (IsBestResponser -> tokens
+        # {is, best, responser} vs {is, best, response} share 2 tokens).
+        node = Node(
+            id="test.typo",
+            title="Typo",
+            kind="definition",
+            status="admitted",
+            lean=LeanRef(
+                modules=["GameTheoryLib.StrategicGame.Basic"],
+                declarations=["IsBestResponser"],
+            ),
+        )
+        diags = check_lean_references([node], idx)
+        warnings = [d for d in diags if d.level == "warning"]
+        assert any("IsBestResponser" in d.message for d in warnings)
+        # The token-overlap fallback should propose IsBestResponse.
+        assert any(
+            "suggestions:" in d.message and "IsBestResponse" in d.message
+            for d in warnings
+        )
+
     def test_external_theorem_missing_is_error(self):
         idx = _make_idx()
         node = Node(

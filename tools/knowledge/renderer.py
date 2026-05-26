@@ -23,6 +23,7 @@ from tools.knowledge.lean_index import (
     LeanIndex,
     build_module_source_metadata,
     index_lean_project,
+    suggest_for_unresolved,
 )
 from tools.knowledge.models import Node
 from tools.knowledge.node_refs import NODE_REF_RE
@@ -302,6 +303,7 @@ def _lean_ref_payload(
     source_url: str | None = None,
     has_sorry: bool = False,
     reason: str | None = None,
+    suggestions: list[str] | None = None,
 ) -> dict[str, object]:
     return {
         "name": name,
@@ -318,6 +320,7 @@ def _lean_ref_payload(
         "has_sorry": has_sorry,
         "status": status,
         "reason": reason,
+        "suggestions": list(suggestions or []),
     }
 
 
@@ -470,6 +473,7 @@ def _resolve_lean_refs(node: Node, lean_config: LeanConfig, indexes: dict[str, L
             name=decl_name,
             status="unresolved",
             reason="not found in configured Lean repository",
+            suggestions=suggest_for_unresolved(decl_name, idx),
         ))
     return refs
 

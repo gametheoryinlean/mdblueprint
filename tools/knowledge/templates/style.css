@@ -164,6 +164,8 @@ a { color: var(--accent); }
 .lean-docstring { color: #444; font-size: 0.85rem; margin: 0.3rem 0 0.2rem 0; font-style: italic; }
 .lean-signature { background: var(--badge-bg, #f4f4f4); padding: 0.4rem 0.6rem; border-radius: 3px; font-size: 0.8rem; overflow-x: auto; margin: 0.2rem 0 0 0; }
 .lean-signature code { font-family: var(--mono); white-space: pre; }
+.lean-suggestions { display: block; color: #6a5d00; font-size: 0.82rem; margin-top: 0.25rem; }
+.lean-suggestions code { background: var(--badge-bg, #f4f4f4); padding: 0.05rem 0.25rem; border-radius: 2px; }
 
 /* Node cross-references rendered from [[node:id]] shortcodes */
 a.node-ref { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }

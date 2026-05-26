@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from tools.knowledge.config import LeanConfig
-from tools.knowledge.lean_index import LeanIndex
+from tools.knowledge.lean_index import LeanIndex, suggest_for_unresolved
 from tools.knowledge.models import Node
 from tools.knowledge.validator import Diagnostic
 
@@ -43,9 +43,14 @@ def check_lean_references(
         for module in node.lean.modules:
             if module not in idx.modules:
                 level = "error" if is_external else "warning"
+                hints = suggest_for_unresolved(module, idx)
+                hint_suffix = (
+                    f"; suggestions: {', '.join(hints)}" if hints else ""
+                )
                 diags.append(Diagnostic(
                     level, nid,
-                    f"Lean module not found{_context(repository_id)}: {module!r}",
+                    f"Lean module not found{_context(repository_id)}: "
+                    f"{module!r}{hint_suffix}",
                     fp,
                 ))
 
@@ -64,9 +69,14 @@ def check_lean_references(
 
             if not matches:
                 level = "error" if is_external else "warning"
+                hints = suggest_for_unresolved(decl, idx)
+                hint_suffix = (
+                    f"; suggestions: {', '.join(hints)}" if hints else ""
+                )
                 diags.append(Diagnostic(
                     level, nid,
-                    f"Lean declaration not found{_context(repository_id)}: {decl!r}",
+                    f"Lean declaration not found{_context(repository_id)}: "
+                    f"{decl!r}{hint_suffix}",
                     fp,
                 ))
             else:

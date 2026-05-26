@@ -99,6 +99,84 @@ def build_module_source_metadata(
     return _source_metadata(lean_file, line, lean_root, repository)
 
 
+_SUGGEST_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9]+")
+
+
+def _suggest_tokens(text: str) -> set[str]:
+    spaced = text.replace("_", " ").replace("-", " ").replace(".", " ")
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", spaced)
+    return {
+        tok
+        for tok in (m.lower() for m in _SUGGEST_TOKEN_RE.findall(spaced))
+        if len(tok) > 1
+    }
+
+
+def suggest_for_unresolved(name: str, idx: "LeanIndex", *, k: int = 3) -> list[str]:
+    """Cheap "did you mean" lookup for unresolved Lean references.
+
+    Strategy (in order, deduped, top-k):
+    1. Suffix match: qualified names ending with ``.{last_segment}``.
+    2. Module match: if ``name`` is itself a module name in the index,
+       surface as ``(module) X`` so the user can move it from
+       ``lean.declarations`` to ``lean.modules``.
+    3. Token overlap: rank by lowercase token-set intersection size,
+       ties broken alphabetically.
+
+    Returns at most ``k`` human-readable suggestions; empty list when
+    the index has nothing to suggest from.
+    """
+    if not idx.declarations and not idx.modules:
+        return []
+    suggestions: list[str] = []
+    seen: set[str] = set()
+
+    last_segment = name.rsplit(".", 1)[-1]
+    if last_segment and last_segment != name:
+        for qualified in idx.declarations:
+            if qualified.endswith(f".{last_segment}") and qualified not in seen:
+                suggestions.append(qualified)
+                seen.add(qualified)
+                if len(suggestions) >= k:
+                    return suggestions
+
+    if name in idx.modules:
+        marker = f"(module) {name}"
+        if marker not in seen:
+            suggestions.append(marker)
+            seen.add(marker)
+            if len(suggestions) >= k:
+                return suggestions
+
+    target_tokens = _suggest_tokens(name)
+    if not target_tokens:
+        return suggestions
+
+    scored: list[tuple[int, str]] = []
+    for qualified in idx.declarations:
+        if qualified in seen:
+            continue
+        overlap = len(target_tokens & _suggest_tokens(qualified))
+        if overlap:
+            scored.append((overlap, qualified))
+    for module_name in idx.modules:
+        marker = f"(module) {module_name}"
+        if marker in seen:
+            continue
+        overlap = len(target_tokens & _suggest_tokens(module_name))
+        if overlap:
+            scored.append((overlap, marker))
+
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    for _, candidate in scored:
+        if candidate not in seen:
+            suggestions.append(candidate)
+            seen.add(candidate)
+            if len(suggestions) >= k:
+                break
+    return suggestions
+
+
 def _source_metadata(
     lean_file: Path,
     line: int,

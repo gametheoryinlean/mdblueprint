@@ -49,6 +49,9 @@
           {% if ref.status == "unresolved" %}
           <span class="badge status-staged">Unresolved</span>
           {% if ref.reason %}<span class="lean-source-meta">{{ ref.reason }}</span>{% endif %}
+          {% if ref.suggestions %}
+          <span class="lean-suggestions">Did you mean: {% for s in ref.suggestions %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}?</span>
+          {% endif %}
           {% elif ref.repository_title %}
           <span class="lean-source-meta">
             {{ ref.repository_title }}{% if ref.short_revision %} @ {{ ref.short_revision }}{% endif %}{% if ref.module %}, {{ ref.module }}{% endif %}

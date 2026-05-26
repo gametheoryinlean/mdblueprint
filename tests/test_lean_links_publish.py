@@ -66,6 +66,34 @@ def _write_node(knowledge_root: Path, *, declaration: str) -> None:
     )
 
 
+def test_unresolved_decl_shows_did_you_mean(tmp_path):
+    """When `lean.declarations` lists a name that's a typo of a real
+    declaration, the rendered modal should surface a 'Did you mean'
+    suggestion."""
+    lean_root = tmp_path / "lean"
+    lean_file = lean_root / "Example" / "Basic.lean"
+    lean_file.parent.mkdir(parents=True, exist_ok=True)
+    lean_file.write_text(
+        "theorem Example.bestResponse (n : Nat) : True := True.intro\n",
+        encoding="utf-8",
+    )
+    knowledge_root = tmp_path / "knowledge"
+    _write_config(knowledge_root, lean_root)
+    # Asks for a token-overlap typo
+    _write_node(knowledge_root, declaration="Example.bestResponser")
+
+    publish(knowledge_root, tmp_path / "site")
+
+    node_page = (tmp_path / "site" / "example" / "example_ok.html").read_text(encoding="utf-8")
+    graph_payload = json.loads(
+        (tmp_path / "site" / "node_payloads" / "example_ok.json").read_text(encoding="utf-8")
+    )
+    assert "Did you mean" in node_page
+    assert "Example.bestResponse" in node_page
+    assert graph_payload["lean_refs"][0]["status"] == "unresolved"
+    assert "Example.bestResponse" in graph_payload["lean_refs"][0]["suggestions"]
+
+
 def test_kind_signature_and_docstring_rendered(tmp_path):
     """Resolved Lean declarations should surface kind, signature, and
     docstring in the rendered modal."""
