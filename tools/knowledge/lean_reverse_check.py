@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from tools.knowledge.config import LeanConfig
 from tools.knowledge.context import KnowledgeContext
 from tools.knowledge.lean_index import LeanDeclaration, LeanIndex, index_lean_project
 from tools.knowledge.models import Node
@@ -51,13 +52,21 @@ class ReverseDiagnostic:
         )
 
 
-def _forward_edges(nodes: Iterable[Node]) -> dict[str, set[tuple[str, str]]]:
-    """Return repo_id -> set[(qualified_declaration, node_id)]."""
+def _forward_edges(
+    nodes: Iterable[Node],
+    default_repository: str | None = None,
+) -> dict[str, set[tuple[str, str]]]:
+    """Return repo_id -> set[(qualified_declaration, node_id)].
+
+    Nodes that omit `lean.repository` fall back to `default_repository`
+    (when configured), matching the behaviour of `_resolve_lean_refs`
+    in the renderer.
+    """
     edges: dict[str, set[tuple[str, str]]] = defaultdict(set)
     for node in nodes:
         if node.lean is None or not node.lean.declarations:
             continue
-        repo = node.lean.repository
+        repo = node.lean.repository or default_repository
         if not repo:
             # Without a repo binding we can't pair the edge with a Lean
             # index; skip silently — this is reported elsewhere.
@@ -94,11 +103,13 @@ def _matching_declarations(decl: str, idx: LeanIndex) -> list[str]:
 def check_reverse_links(
     nodes: list[Node],
     indexes: dict[str, LeanIndex],
+    *,
+    default_repository: str | None = None,
 ) -> list[ReverseDiagnostic]:
     """Compare forward and reverse edge sets, emit per-edge diagnostics."""
     diags: list[ReverseDiagnostic] = []
 
-    forward_raw = _forward_edges(nodes)
+    forward_raw = _forward_edges(nodes, default_repository=default_repository)
     reverse = _reverse_edges(indexes)
 
     # Normalise forward edges to the resolved-qualified-name basis so
@@ -249,7 +260,11 @@ def main(argv: list[str] | None = None) -> int:
         repo_id: index_lean_project(repo.local_path, repository=repo)
         for repo_id, repo in ctx.config.lean.repositories.items()
     }
-    diags = check_reverse_links(list(ctx.nodes_by_id.values()), indexes)
+    diags = check_reverse_links(
+        list(ctx.nodes_by_id.values()),
+        indexes,
+        default_repository=ctx.config.lean.default_repository,
+    )
 
     show = args.show
     for d in diags:

@@ -49,13 +49,17 @@ def _write_lean(lean_root: Path, *, contents: str) -> None:
     lean_file.write_text(contents, encoding="utf-8")
 
 
-def _load(knowledge_root: Path) -> tuple[list, dict]:
+def _load(knowledge_root: Path) -> tuple[list, dict, str | None]:
     ctx = KnowledgeContext.load(knowledge_root)
     indexes = {
         repo_id: index_lean_project(repo.local_path, repository=repo)
         for repo_id, repo in ctx.config.lean.repositories.items()
     }
-    return list(ctx.nodes_by_id.values()), indexes
+    return (
+        list(ctx.nodes_by_id.values()),
+        indexes,
+        ctx.config.lean.default_repository,
+    )
 
 
 def test_ok_when_forward_and_reverse_agree(tmp_path):
@@ -92,8 +96,8 @@ def test_ok_when_forward_and_reverse_agree(tmp_path):
             """
         ).strip() + "\n",
     )
-    nodes, indexes = _load(knowledge_root)
-    diags = check_reverse_links(nodes, indexes)
+    nodes, indexes, default_repo = _load(knowledge_root)
+    diags = check_reverse_links(nodes, indexes, default_repository=default_repo)
     counts = summarise(diags)
     assert counts["ok"] == 1
     assert counts["md_only"] == 0
@@ -127,8 +131,8 @@ def test_md_only_when_lean_has_no_marker(tmp_path):
             """
         ).strip() + "\n",
     )
-    nodes, indexes = _load(knowledge_root)
-    diags = check_reverse_links(nodes, indexes)
+    nodes, indexes, default_repo = _load(knowledge_root)
+    diags = check_reverse_links(nodes, indexes, default_repository=default_repo)
     cats = [d.category for d in diags]
     assert "md_only" in cats
     assert "cross_mismatch" not in cats
@@ -164,8 +168,8 @@ def test_lean_only_when_md_lacks_declaration(tmp_path):
             """
         ).strip() + "\n",
     )
-    nodes, indexes = _load(knowledge_root)
-    diags = check_reverse_links(nodes, indexes)
+    nodes, indexes, default_repo = _load(knowledge_root)
+    diags = check_reverse_links(nodes, indexes, default_repository=default_repo)
     cats = [d.category for d in diags]
     assert "lean_only" in cats
     assert "cross_mismatch" not in cats
@@ -222,8 +226,8 @@ def test_cross_mismatch_when_directions_disagree(tmp_path):
         ).strip() + "\n",
         encoding="utf-8",
     )
-    nodes, indexes = _load(knowledge_root)
-    diags = check_reverse_links(nodes, indexes)
+    nodes, indexes, default_repo = _load(knowledge_root)
+    diags = check_reverse_links(nodes, indexes, default_repository=default_repo)
     cats = [d.category for d in diags]
     # MD points example.one → Example.thing; Lean Blueprint says
     # example.real ← Example.thing. Same decl, both maps non-empty,
@@ -354,3 +358,47 @@ def test_main_strict_flag_promotes_lean_only_to_failure(tmp_path):
     assert main([str(knowledge_root)]) == 0
     # With --strict: lean_only fails the run.
     assert main([str(knowledge_root), "--strict"]) == 1
+
+
+def test_node_without_repository_uses_default(tmp_path):
+    """A node that omits `lean.repository` falls back to
+    `lean.default_repository`, matching the renderer's behaviour."""
+    lean_root = tmp_path / "lean"
+    _write_lean(
+        lean_root,
+        contents=textwrap.dedent(
+            """
+            /-- Documented thing.
+
+            Blueprint: example.one
+            -/
+            def Example.thing : True := True.intro
+            """
+        ).strip() + "\n",
+    )
+    knowledge_root = _write_knowledge(
+        tmp_path,
+        lean_root,
+        # No `repository:` line in the lean block.
+        node_body=textwrap.dedent(
+            """
+            ---
+            id: example.one
+            title: One
+            kind: definition
+            status: admitted
+            lean:
+              declarations:
+                - Example.thing
+            ---
+
+            # One
+            """
+        ).strip() + "\n",
+    )
+    nodes, indexes, default_repo = _load(knowledge_root)
+    diags = check_reverse_links(nodes, indexes, default_repository=default_repo)
+    counts = summarise(diags)
+    assert counts["ok"] == 1, [d.format() for d in diags]
+    assert counts["lean_only"] == 0
+    assert counts["cross_mismatch"] == 0
