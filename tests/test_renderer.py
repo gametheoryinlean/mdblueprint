@@ -4,7 +4,7 @@ import pytest
 
 from tools.knowledge.context import KnowledgeContext
 from tools.knowledge.renderer import (
-    node_detail_payload, render_graph_page, render_index,
+    _short_revision, node_detail_payload, render_graph_page, render_index,
     render_keyword, render_node, render_topic,
 )
 
@@ -123,6 +123,32 @@ class TestAutolinkBareNodeRefs:
 
         html = "<p>See <code>topic.foo</code> here.</p>"
         assert _autolink_bare_node_refs_in_html(html, {}) == html
+
+
+class TestShortRevision:
+    def test_full_sha_truncated(self):
+        assert _short_revision("a" * 40) == "aaaaaaa"
+
+    def test_short_sha_preserved(self):
+        assert _short_revision("deadbeef") == "deadbee"
+
+    def test_seven_hex_truncated(self):
+        assert _short_revision("0123456") == "0123456"
+
+    def test_branch_main_preserved(self):
+        assert _short_revision("main") == "main"
+
+    def test_branch_master_preserved(self):
+        assert _short_revision("master") == "master"
+
+    def test_branch_with_slash_preserved(self):
+        assert _short_revision("release/v0.1") == "release/v0.1"
+
+    def test_tag_preserved(self):
+        assert _short_revision("v1.2.3-rc4") == "v1.2.3-rc4"
+
+    def test_none_returns_none(self):
+        assert _short_revision(None) is None
 
 
 class TestBoundaryConditions:

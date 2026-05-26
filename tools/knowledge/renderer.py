@@ -27,6 +27,21 @@ if TYPE_CHECKING:
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 PROOF_MARKER_RE = re.compile(r"(?im)(^|\n)(?P<marker>\s*(?:\*{1,2}Proof\.\*{1,2}|Proof\.|##\s+Proof)\s*)")
+_GIT_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+def _short_revision(revision: str | None) -> str | None:
+    """Return a display-friendly short revision.
+
+    For hex git SHAs (>=7 hex chars) truncate to 7 chars. For branch
+    or tag names (or anything else) return the value unchanged so we
+    don't mangle e.g. ``release/v0.1`` into ``release``.
+    """
+    if revision is None:
+        return None
+    if _GIT_SHA_RE.match(revision):
+        return revision[:7]
+    return revision
 TEX_MATH_RE = re.compile(
     r"\$\$(?:.|\n)*?\$\$"
     r"|\\\[(?:.|\n)*?\\\]"
@@ -287,7 +302,7 @@ def _lean_ref_payload(
         "module": module,
         "repository_title": repository_title,
         "revision": revision,
-        "short_revision": revision[:7] if revision else None,
+        "short_revision": _short_revision(revision),
         "source_url": source_url,
         "has_sorry": has_sorry,
         "status": status,
