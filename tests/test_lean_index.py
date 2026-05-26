@@ -267,3 +267,147 @@ class TestSuggestForUnresolved:
         idx = self._index_from(["Namespace.realDecl"])
         # A name with no tokens (only punctuation) yields nothing
         assert suggest_for_unresolved(".", idx) == []
+
+
+class TestBlueprintMarkers:
+    def test_module_level_blueprint_inherits(self, tmp_path):
+        """A `## Blueprint` section in the module docstring is attached
+        to every declaration in that module."""
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            """
+/-!
+# Module title
+
+Body.
+
+## Blueprint
+
+`topic.foo` and also `topic.bar`.
+-/
+
+namespace Example
+
+def first : Nat := 1
+def second : Nat := 2
+
+end Example
+""".strip() + "\n",
+            encoding="utf-8",
+        )
+        idx = index_lean_project(lean_root)
+        assert idx.declarations["Example.first"].blueprint_nodes == ("topic.foo", "topic.bar")
+        assert idx.declarations["Example.second"].blueprint_nodes == ("topic.foo", "topic.bar")
+
+    def test_declaration_level_marker_takes_priority(self, tmp_path):
+        """Per-declaration `Blueprint:` marker comes first; module-level
+        markers are merged after."""
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            """
+/-!
+# Module
+
+## Blueprint
+
+`topic.module_default`
+-/
+
+/-- Specific declaration.
+
+Blueprint: topic.specific
+-/
+def first : Nat := 1
+
+def second : Nat := 2
+""".strip() + "\n",
+            encoding="utf-8",
+        )
+        idx = index_lean_project(lean_root)
+        # `first` lists per-decl marker before module-level one.
+        assert idx.declarations["first"].blueprint_nodes == ("topic.specific", "topic.module_default")
+        # `second` has no per-decl marker so just the module-level one.
+        assert idx.declarations["second"].blueprint_nodes == ("topic.module_default",)
+
+    def test_no_markers_yields_empty_tuple(self, tmp_path):
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            "/-- A plain declaration. -/\ndef plain : Nat := 0\n",
+            encoding="utf-8",
+        )
+        idx = index_lean_project(lean_root)
+        assert idx.declarations["plain"].blueprint_nodes == ()
+
+    def test_multiple_node_ids_on_one_line(self, tmp_path):
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            """
+/-- Declaration with multiple links.
+
+Blueprint: topic.alpha, topic.beta, topic.gamma
+-/
+def multi : Nat := 0
+""".strip() + "\n",
+            encoding="utf-8",
+        )
+        idx = index_lean_project(lean_root)
+        assert idx.declarations["multi"].blueprint_nodes == (
+            "topic.alpha",
+            "topic.beta",
+            "topic.gamma",
+        )
+
+    def test_inline_module_blueprint_colon(self, tmp_path):
+        """`## Blueprint: foo.bar` (inline colon form) works too."""
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            """
+/-!
+# Module
+
+## Blueprint: topic.inline
+-/
+
+def x : Nat := 0
+""".strip() + "\n",
+            encoding="utf-8",
+        )
+        idx = index_lean_project(lean_root)
+        assert idx.declarations["x"].blueprint_nodes == ("topic.inline",)
+
+    def test_module_blueprint_section_terminates_at_next_heading(self, tmp_path):
+        """A subsequent `## Other` heading ends the Blueprint section so
+        unrelated text isn't accidentally scooped up."""
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            """
+/-!
+# Module
+
+## Blueprint
+
+`topic.kept`
+
+## See also
+
+We discuss `topic.notkept` here.
+-/
+
+def x : Nat := 0
+""".strip() + "\n",
+            encoding="utf-8",
+        )
+        idx = index_lean_project(lean_root)
+        assert idx.declarations["x"].blueprint_nodes == ("topic.kept",)
