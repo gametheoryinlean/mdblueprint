@@ -66,6 +66,48 @@ def _write_node(knowledge_root: Path, *, declaration: str) -> None:
     )
 
 
+def test_kind_signature_and_docstring_rendered(tmp_path):
+    """Resolved Lean declarations should surface kind, signature, and
+    docstring in the rendered modal."""
+    lean_root = tmp_path / "lean"
+    lean_file = lean_root / "Example" / "Basic.lean"
+    lean_file.parent.mkdir(parents=True, exist_ok=True)
+    lean_file.write_text(
+        textwrap.dedent(
+            """
+            /-- A trivially true theorem used in tests. -/
+            theorem Example.ok (n : Nat) :
+                n + 0 = n := by
+              simp
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    knowledge_root = tmp_path / "knowledge"
+    _write_config(knowledge_root, lean_root)
+    _write_node(knowledge_root, declaration="Example.ok")
+
+    publish(knowledge_root, tmp_path / "site")
+
+    node_page = (tmp_path / "site" / "example" / "example_ok.html").read_text(encoding="utf-8")
+    graph_payload = json.loads(
+        (tmp_path / "site" / "node_payloads" / "example_ok.json").read_text(encoding="utf-8")
+    )
+
+    # Kind badge
+    assert ">theorem<" in node_page
+    # Docstring rendered
+    assert "trivially true theorem" in node_page
+    # Signature snippet rendered
+    assert "n + 0 = n" in node_page
+
+    # JSON payload exposes the same fields
+    assert graph_payload["lean_refs"][0]["kind"] == "theorem"
+    assert "trivially true" in graph_payload["lean_refs"][0]["docstring"]
+    assert "n + 0 = n" in graph_payload["lean_refs"][0]["signature"]
+
+
 def test_module_references_link_to_file_at_line_one(tmp_path):
     """A `lean.modules` entry should render as a clickable link to line 1
     of the file backing that module."""

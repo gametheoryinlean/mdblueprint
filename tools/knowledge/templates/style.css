@@ -159,6 +159,11 @@ a { color: var(--accent); }
 .lean-info code { font-family: var(--mono); background: var(--badge-bg); padding: 0.1rem 0.3rem; border-radius: 2px; }
 .lean-modules { font-size: 0.85rem; color: #666; margin-top: 0.3rem; }
 .lean-source-meta { color: #666; font-size: 0.82rem; margin-left: 0.35rem; }
+.lean-ref { padding: 0.4rem 0; }
+.badge.lean-kind { background: var(--badge-bg); color: var(--text-muted, #555); font-size: 0.75rem; text-transform: lowercase; margin-right: 0.3rem; }
+.lean-docstring { color: #444; font-size: 0.85rem; margin: 0.3rem 0 0.2rem 0; font-style: italic; }
+.lean-signature { background: var(--badge-bg, #f4f4f4); padding: 0.4rem 0.6rem; border-radius: 3px; font-size: 0.8rem; overflow-x: auto; margin: 0.2rem 0 0 0; }
+.lean-signature code { font-family: var(--mono); white-space: pre; }
 
 /* Node cross-references rendered from [[node:id]] shortcodes */
 a.node-ref { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }

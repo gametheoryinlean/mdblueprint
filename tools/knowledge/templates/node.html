@@ -39,7 +39,8 @@
       <header><h1>Lean declarations</h1><button class="closebtn" type="button">x</button></header>
       <ul class="uses">
         {% for ref in lean_refs %}
-        <li>
+        <li class="lean-ref">
+          {% if ref.kind %}<span class="badge lean-kind">{{ ref.kind }}</span>{% endif %}
           {% if ref.source_url %}
           <a href="{{ ref.source_url }}"><code>{{ ref.display_name }}</code></a>
           {% else %}
@@ -54,6 +55,8 @@
           </span>
           {% endif %}
           {% if ref.has_sorry %}<span class="badge status-needs_proof_review">sorry/admit</span>{% endif %}
+          {% if ref.docstring %}<p class="lean-docstring">{{ ref.docstring }}</p>{% endif %}
+          {% if ref.signature %}<pre class="lean-signature"><code>{{ ref.signature }}</code></pre>{% endif %}
         </li>
         {% endfor %}
       </ul>
