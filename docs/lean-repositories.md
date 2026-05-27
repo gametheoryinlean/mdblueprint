@@ -378,6 +378,26 @@ cross-mismatch is present (exit 2), making it suitable as a CI gate. Pass
    `lean.declarations` entry; treat `cross_mismatch` as a hard error
    (a real Lean rename usually surfaces here).
 
+### Auto-fix from reverse markers
+
+When the Lean side is the source of truth (a typical formalisation
+workflow), `lean_only` warnings are mechanical fixes: the Lean
+declaration says "I back node X" and we just need to add it to
+node X's `lean.declarations`. The companion CLI does exactly that:
+
+```bash
+uv run python -m tools.knowledge.lean_reverse_autofix docs/knowledge
+uv run python -m tools.knowledge.lean_reverse_autofix docs/knowledge --apply
+```
+
+Without `--apply`, the tool prints a unified diff per affected node
+file. With `--apply`, it writes the diff to disk: each affected node
+gains entries in its `lean.declarations` (and `lean.modules` is
+extended in sync).
+
+This only touches `lean_only` warnings. Cross-mismatches and md-only
+diagnostics are left alone — those require human judgement.
+
 ## Rendered Lean Modal
 
 The published node page exposes a `L∃∀N` button that opens a modal with every
