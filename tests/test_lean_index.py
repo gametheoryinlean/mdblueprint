@@ -301,9 +301,10 @@ end Example
         assert idx.declarations["Example.first"].blueprint_nodes == ("topic.foo", "topic.bar")
         assert idx.declarations["Example.second"].blueprint_nodes == ("topic.foo", "topic.bar")
 
-    def test_declaration_level_marker_takes_priority(self, tmp_path):
-        """Per-declaration `Blueprint:` marker comes first; module-level
-        markers are merged after."""
+    def test_declaration_level_marker_overrides_module_level(self, tmp_path):
+        """Per-declaration `Blueprint:` marker fully replaces the
+        module-level `## Blueprint` section. Without per-decl marker,
+        the declaration inherits the module-level list."""
         lean_root = tmp_path / "lean"
         lean_file = lean_root / "Example.lean"
         lean_file.parent.mkdir(parents=True)
@@ -328,9 +329,9 @@ def second : Nat := 2
             encoding="utf-8",
         )
         idx = index_lean_project(lean_root)
-        # `first` lists per-decl marker before module-level one.
-        assert idx.declarations["first"].blueprint_nodes == ("topic.specific", "topic.module_default")
-        # `second` has no per-decl marker so just the module-level one.
+        # `first` has its own marker -> module-level is replaced, not unioned.
+        assert idx.declarations["first"].blueprint_nodes == ("topic.specific",)
+        # `second` has no per-decl marker -> inherits module-level.
         assert idx.declarations["second"].blueprint_nodes == ("topic.module_default",)
 
     def test_no_markers_yields_empty_tuple(self, tmp_path):

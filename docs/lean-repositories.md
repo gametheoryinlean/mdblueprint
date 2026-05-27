@@ -337,8 +337,12 @@ Blueprint: linear_algebraic_groups.multiplicative_group_scheme
 noncomputable def multiplicativeGroup : ... := ...
 ```
 
-A single line `Blueprint: <node_id>[, <node_id>...]`. Per-declaration markers
-take priority and are merged (union) with module-level markers.
+A single line `Blueprint: <node_id>[, <node_id>...]`. **Per-declaration markers
+fully replace the module-level list** for that declaration. Declarations without
+a per-decl marker inherit the module-level list. This is the right default for
+modules that back multiple blueprint nodes: most declarations inherit the
+module-level marker, and the few that belong elsewhere annotate themselves
+explicitly.
 
 doc-gen4 and mathlib4_docs render docstrings unchanged, so readers of the
 Lean documentation see the back-reference inline.
