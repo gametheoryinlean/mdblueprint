@@ -65,6 +65,7 @@ VALID_STATUSES = frozenset({
     "staged", "needs_statement_review", "needs_definition_review",
     "needs_proof_review", "admitted", "formalized", "proved",
     "blocked", "deprecated",
+    "candidate", "promoted", "abandoned",
 })
 
 VALID_PLAN_STATUSES = frozenset({
@@ -72,6 +73,8 @@ VALID_PLAN_STATUSES = frozenset({
 })
 
 ADMITTED_STATUSES = frozenset({"admitted", "formalized", "proved"})
+CANDIDATE_STATUSES = frozenset({"candidate", "promoted", "abandoned"})
+PROOF_BEARING_STATUSES = ADMITTED_STATUSES | {"promoted"}
 STAGED_STATUSES = frozenset({
     "staged", "needs_statement_review", "needs_definition_review",
     "needs_proof_review",
@@ -124,3 +127,9 @@ class Node:
     body: str = ""
     file_path: Path | None = None
     topic_lean_alignment: str | None = None
+    candidate_of: str | None = None
+    candidate_slug: str | None = None
+    candidate_layout: str | None = None
+    promoted_candidate: str | None = None
+    candidates: list[str] = field(default_factory=list)
+    abandoned_reason: str | None = None

@@ -11,7 +11,9 @@ from tools.knowledge.models import Node
 
 
 def topic_id_for_node(node: Node) -> str:
-    parts = node.id.split(".")
+    # Candidates inherit their canonical's topic — see issue #159.
+    base_id = node.candidate_of if node.candidate_of else node.id
+    parts = base_id.split(".")
     if len(parts) == 1:
         return "misc"
     if len(parts) == 2:
@@ -169,7 +171,7 @@ def export_graph_json(g: KnowledgeGraph) -> dict:
         if node.lean:
             entry["lean_declarations"] = node.lean.declarations
         if node.file_path:
-            entry["topic"] = str(node.file_path.parent.name)
+            entry["topic"] = home_topic_for_node(node)
         deps = g.edges.get(nid, [])
         if deps:
             entry["uses"] = sorted(deps)
