@@ -498,12 +498,18 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
             # otherwise.
             full_docstring, _consumed = _full_docstring_before(lines, lineno - 1)
             decl_blueprint = _declaration_blueprint_nodes(full_docstring)
-            # Merge with module-level markers, deduping while keeping
-            # per-decl markers first (they're more specific).
-            merged_nodes: list[str] = list(decl_blueprint)
-            for node in module_blueprint_nodes:
-                if node not in merged_nodes:
-                    merged_nodes.append(node)
+            # Override semantics: when a declaration has its own
+            # `Blueprint:` marker, that is the complete list and the
+            # module-level `## Blueprint` section is ignored. The
+            # module-level header only applies to declarations that
+            # have no marker of their own. This is the right call
+            # when a module backs multiple blueprint nodes — the
+            # per-decl annotation overrides the module default rather
+            # than unioning with it.
+            if decl_blueprint:
+                merged_nodes: list[str] = list(decl_blueprint)
+            else:
+                merged_nodes = list(module_blueprint_nodes)
 
             decl = LeanDeclaration(
                 name=name,
