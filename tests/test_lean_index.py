@@ -433,3 +433,48 @@ def test_anonymous_instance_is_not_indexed(tmp_path):
     # No empty-named entries.
     assert not any(q.endswith(".") for q in idx.declarations)
     assert "" not in idx.declarations
+
+
+def test_comment_block_text_is_not_indexed_as_declaration(tmp_path):
+    """Words like 'structure under convolution' inside a `/-! ... -/`
+    or `/-- ... -/` block should never be picked up as a `structure
+    under` declaration."""
+    lean_root = tmp_path / "lean"
+    lean_file = lean_root / "Example.lean"
+    lean_file.parent.mkdir(parents=True)
+    lean_file.write_text(
+        "/-!\n"
+        "# Group structure under convolution\n"
+        "\n"
+        "There is a group structure under convolution.\n"
+        "Some commentary about def myConcept and theorem myTheorem.\n"
+        "-/\n"
+        "\n"
+        "namespace Real\n"
+        "def actualDecl : Nat := 0\n"
+        "end Real\n",
+        encoding="utf-8",
+    )
+    idx = index_lean_project(lean_root)
+    assert "Real.actualDecl" in idx.declarations
+    assert "under" not in idx.declarations
+    assert "myConcept" not in idx.declarations
+    assert "myTheorem" not in idx.declarations
+
+
+def test_multiline_doc_comment_does_not_create_spurious_decls(tmp_path):
+    """`/-- ... -/` block comments are also skipped."""
+    lean_root = tmp_path / "lean"
+    lean_file = lean_root / "Example.lean"
+    lean_file.parent.mkdir(parents=True)
+    lean_file.write_text(
+        "/-- A multi-line docstring that mentions\n"
+        "def someProse : Nat := ...\n"
+        "as an example, but is just prose.\n"
+        "-/\n"
+        "def real : Nat := 0\n",
+        encoding="utf-8",
+    )
+    idx = index_lean_project(lean_root)
+    assert "real" in idx.declarations
+    assert "someProse" not in idx.declarations
