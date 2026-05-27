@@ -451,8 +451,27 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
             continue
         scope_stack: list[tuple[str, str | None]] = []
         module_blueprint_nodes = _module_blueprint_nodes(lines)
+        # Track multi-line `/- ... -/` (including `/--` doc comments
+        # and `/-!` module headers) so we don't try to extract
+        # declaration names from lines inside a comment. Without this,
+        # a phrase like "structure under convolution" in a prose
+        # docstring would be mis-indexed as a Lean `structure`.
+        in_block_comment = False
 
         for lineno, line in enumerate(lines, start=1):
+            if in_block_comment:
+                if "-/" in line:
+                    in_block_comment = False
+                continue
+            stripped_line = line.lstrip()
+            if stripped_line.startswith("/-"):
+                # Block comment opens here. It may close on the same
+                # line, in which case the matter is settled and we
+                # carry on; otherwise we enter the block-comment state.
+                rest = stripped_line[2:]
+                if "-/" not in rest:
+                    in_block_comment = True
+                continue
             # Track namespace/section scopes
             ns_match = NAMESPACE_RE.match(line)
             if ns_match:
