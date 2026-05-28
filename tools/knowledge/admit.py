@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from tools.knowledge.candidate_layout import PROOF_MARKERS
 from tools.knowledge.graph import build_graph
 from tools.knowledge.models import (
     ADMITTED_STATUSES,
@@ -35,7 +36,7 @@ def _find_reviews(reviews_dir: Path, node_id: str) -> list[Path]:
 
 
 def _has_proof_block(body: str) -> bool:
-    return "*Proof.*" in body or "**Proof.**" in body
+    return any(marker in body for marker in PROOF_MARKERS)
 
 
 def _add_admission_evidence_diagnostics(node: Node, diags: list[Diagnostic]) -> None:

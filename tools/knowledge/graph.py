@@ -37,8 +37,18 @@ def build_graph(nodes: list[Node]) -> tuple[KnowledgeGraph, list[Diagnostic]]:
         seen_ids[node.id] = node
         g.nodes[node.id] = node
 
-    # Build edges and check dependencies
+    # Build edges and check dependencies.
+    #
+    # Multi-candidate layout (issue #159): a candidate that is not yet
+    # promoted is loaded into g.nodes but contributes NO edges in either
+    # direction — its proof is not part of the verified DAG, and a
+    # work-in-progress candidate may reference helpers that do not exist
+    # yet. Only the promoted candidate (and ordinary nodes / canonicals)
+    # contribute edges. The promoted candidate's edges are keyed by its
+    # own id; the publisher resolves canonical → promoted-candidate.
     for nid, node in g.nodes.items():
+        if node.candidate_of is not None and node.status != "promoted":
+            continue
         for dep in node.uses:
             if dep not in g.nodes:
                 level = "warning" if node.status == "staged" else "error"
