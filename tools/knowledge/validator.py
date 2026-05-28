@@ -7,6 +7,7 @@ from pathlib import Path
 
 from tools.knowledge.models import (
     ADMITTED_STATUSES,
+    CANDIDATE_STATUSES,
     DEFINITION_KINDS,
     FORBIDDEN_HEADINGS,
     MATH_KINDS,
@@ -27,6 +28,8 @@ from tools.knowledge.models import (
 
 _SOURCE_REQUIRED_KINDS = DEFINITION_KINDS | STATEMENT_KINDS
 
+_CANDIDATE_SLUG_RE = re.compile(r"^[a-z0-9_]{1,16}$")
+
 
 @dataclass
 class Diagnostic:
@@ -45,6 +48,75 @@ class Diagnostic:
 
 def _heading_re():
     return re.compile(r"^##\s+(.+)$", re.MULTILINE)
+
+
+def _validate_candidate_fields(node: Node, is_staged_dir: bool, err, warn) -> None:
+    """Schema-only checks for the multi-candidate frontmatter fields.
+
+    Cross-file invariants (canonical ↔ candidate statement equality,
+    sibling promoted-uniqueness, file layout) land in PR 2's
+    ``candidate_layout.validate_canonical_groups``.
+    """
+    if node.candidate_slug is not None:
+        if not _CANDIDATE_SLUG_RE.match(node.candidate_slug):
+            err(
+                f"invalid candidate_slug {node.candidate_slug!r}; must match "
+                f"^[a-z0-9_]{{1,16}}$"
+            )
+
+    if node.candidate_layout is not None and node.candidate_layout != "multi":
+        err(
+            f"invalid candidate_layout {node.candidate_layout!r}; "
+            f"only 'multi' is supported"
+        )
+
+    has_candidate_of = node.candidate_of is not None
+    has_multi_layout = node.candidate_layout == "multi"
+
+    if has_candidate_of and has_multi_layout:
+        err(
+            "candidate_of and candidate_layout: multi are exclusive "
+            "(a node is either a canonical or a candidate, not both)"
+        )
+
+    if is_staged_dir and (has_candidate_of or node.candidate_layout is not None):
+        err(
+            "multi-candidate layout (candidate_of / candidate_layout) is not "
+            "supported under staged/; promote the node to nodes/ first"
+        )
+
+    if has_candidate_of:
+        if node.candidate_slug is None:
+            err("candidate_of requires candidate_slug")
+        if node.status not in CANDIDATE_STATUSES:
+            err(
+                f"candidate node status must be in {sorted(CANDIDATE_STATUSES)}; "
+                f"got {node.status!r}"
+            )
+        if node.kind and node.kind not in STATEMENT_KINDS:
+            err(
+                f"candidate node kind must be theorem-like (one of "
+                f"{sorted(STATEMENT_KINDS)}); got {node.kind!r}"
+            )
+        if node.candidate_slug and node.id:
+            expected_id = f"{node.candidate_of}._{node.candidate_slug}"
+            if node.id != expected_id:
+                err(
+                    f"candidate id must equal '<candidate_of>._<candidate_slug>'; "
+                    f"got id={node.id!r}, expected {expected_id!r}"
+                )
+
+    if has_multi_layout:
+        if not node.candidates:
+            err(
+                "candidate_layout: multi requires a non-empty candidates list"
+            )
+        if node.promoted_candidate is not None:
+            if node.promoted_candidate not in node.candidates:
+                err(
+                    f"promoted_candidate {node.promoted_candidate!r} must "
+                    f"appear in candidates list {node.candidates!r}"
+                )
 
 
 def validate_node(
@@ -184,6 +256,9 @@ def validate_node(
                 f"invalid topic_lean_alignment value: {node.topic_lean_alignment!r}; "
                 f"must be one of {sorted(_VALID_TOPIC_LEAN_ALIGNMENT_VALUES)}"
             )
+
+    # Multi-candidate layout rules (issue #159, PR 1)
+    _validate_candidate_fields(node, is_staged_dir, err, warn)
 
     # Topic membership consistency
     if node.topics:

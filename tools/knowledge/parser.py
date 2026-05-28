@@ -97,6 +97,12 @@ def parse_node(text: str, file_path: Path | None = None) -> Node:
         body=body.strip(),
         file_path=file_path,
         topic_lean_alignment=fm.get("topic_lean_alignment") or None,
+        candidate_of=fm.get("candidate_of"),
+        candidate_slug=fm.get("candidate_slug"),
+        candidate_layout=fm.get("candidate_layout"),
+        promoted_candidate=fm.get("promoted_candidate"),
+        candidates=fm.get("candidates") or [],
+        abandoned_reason=fm.get("abandoned_reason"),
     )
 
 
