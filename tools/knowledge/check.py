@@ -6,6 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tools.knowledge.candidate_layout import (
+    discover_canonical_groups,
+    validate_canonical_groups,
+)
 from tools.knowledge.config import ProjectConfig, load_project_config
 from tools.knowledge.export import home_topic_for_node, leaf_topic_ids_for_node
 from tools.knowledge.graph import build_graph
@@ -65,6 +69,11 @@ def check_knowledge_base(
     all_nodes_index: dict[str, Node] = {n.id: n for n in all_nodes}
     for node in all_nodes:
         diags.extend(check_node_body_refs(node, all_nodes_index))
+
+    # Cross-file invariants for the multi-candidate layout (issue #159).
+    groups = discover_canonical_groups(all_nodes)
+    candidate_diags = validate_canonical_groups(groups, all_nodes_index)
+    diags.extend(sorted(candidate_diags, key=lambda d: (str(d.file_path or ""), d.message)))
 
     _, graph_diags = build_graph(all_nodes)
     diags.extend(graph_diags)
