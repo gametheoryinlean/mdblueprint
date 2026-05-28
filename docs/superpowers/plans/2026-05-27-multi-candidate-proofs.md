@@ -621,6 +621,40 @@ If a PR's scope shifts during execution:
 3. If a success criterion would slip past PR 4, file a follow-up issue
    and link it from this file's "Risk Notes" section before merging.
 
+## Plan Mutations (executed)
+
+**2026-05-28 — PR 3 edge-ownership + criterion #2 relaxation.**
+
+While implementing PR 3 a design fork surfaced that the plan left open:
+both the canonical and its promoted candidate could contribute `uses`
+edges, which would double every dependency edge. Locked decision:
+
+- **The promoted candidate is the sole edge source.** A multi-candidate
+  canonical carries `uses: []`; all proof-dependency edges live on the
+  promoted candidate (keyed by `<canonical>._<slug>`), consistent with
+  the PR 2 graph builder. `promote` only flips statuses + the
+  `promoted_candidate` pointer — it never syncs `uses`, so there is
+  exactly one edge owner at all times.
+- Migration moves the original single-file node's `uses` onto `cand_a`
+  (the promoted migrated proof) and sets the canonical's `uses` to `[]`.
+- A freshly spawned candidate copies its baseline `uses` from the
+  *currently promoted candidate* (via `canonical_proof_source`), not from
+  the now-empty canonical.
+
+Consequence: **Success Criterion #2's literal "same `graph.json`" is not
+achievable** — migration intentionally moves the proof's dependency edges
+from the `topic.thm` node to the `topic.thm._cand_a` node, so the
+forward-closure entries change. Relaxed criterion #2 (still meaningful):
+
+> After migration, (a) `check` passes, (b) `discover_canonical_groups`
+> accepts the tree, (c) the set of dependencies *reachable from the
+> canonical, resolving through its promoted candidate* equals the
+> pre-migration `uses` set.
+
+PR 3 tests assert this relaxed form; PR 4's `graph.json` work keeps
+single-file output byte-identical (criterion #1) and only adds keys for
+multi-layout canonicals.
+
 ## Adversarial Review Log
 
 **2026-05-27 (initial review, RED → GREEN after revisions):**
