@@ -21,6 +21,28 @@ class TestLeanIndex:
         assert "StrategicGame.Profile" in names
         assert "StrategicGame.deviate" in names
 
+    def test_mutual_block_preserves_namespace(self, tmp_path):
+        # A `mutual ... end` block inside a namespace must not pop the
+        # enclosing namespace: declarations following the block stay
+        # namespace-qualified (regression for the `end` of `mutual` wrongly
+        # popping `namespace`).
+        lean = tmp_path / "Mutual.lean"
+        lean.write_text(
+            "namespace Foo\n"
+            "mutual\n"
+            "  def a : Nat := 0\n"
+            "  def b : Nat := 0\n"
+            "end\n"
+            "theorem after_mutual : True := trivial\n"
+            "end Foo\n",
+            encoding="utf-8",
+        )
+        idx = index_lean_project(tmp_path)
+        names = set(idx.declarations.keys())
+        assert "Foo.a" in names
+        assert "Foo.after_mutual" in names
+        assert "after_mutual" not in names
+
     def test_finds_def(self):
         idx = index_lean_project(LEAN_FIXTURES)
         assert "StrategicGame.IsBestResponse" in idx.declarations

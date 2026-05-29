@@ -23,6 +23,7 @@ serve = [
 ]
 
 [project.scripts]
+mdblueprint-candidate = "tools.knowledge.candidate:main"
 mdblueprint-check = "tools.knowledge.check:main"
 mdblueprint-publish = "tools.knowledge.publish:main"
 mdblueprint-render-check = "tools.knowledge.render_check:main"
