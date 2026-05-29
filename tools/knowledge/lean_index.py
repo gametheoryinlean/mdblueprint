@@ -31,6 +31,11 @@ SORRY_RE = re.compile(r"\bsorry\b")
 ADMIT_RE = re.compile(r"\badmit\b")
 NAMESPACE_RE = re.compile(r"^namespace\s+(\S+)")
 SECTION_RE = re.compile(r"^section(?:\s+(\S+))?\s*$")
+# `mutual ... end` is closed by a bare `end`. Track it as an (unnamed) scope so
+# that its closing `end` pops the mutual block rather than an enclosing
+# `namespace`/`section`. Without this, declarations following a `mutual` block
+# inside a namespace lose their namespace prefix in the index.
+MUTUAL_RE = re.compile(r"^mutual\s*$")
 END_NAMED_RE = re.compile(r"^end\s+(\S+)")
 END_BARE_RE = re.compile(r"^end\s*$")
 
@@ -480,6 +485,9 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
             section_match = SECTION_RE.match(line)
             if section_match:
                 scope_stack.append(("section", section_match.group(1)))
+                continue
+            if MUTUAL_RE.match(line):
+                scope_stack.append(("mutual", None))
                 continue
             end_named = END_NAMED_RE.match(line)
             if end_named:
