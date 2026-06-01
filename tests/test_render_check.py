@@ -1,3 +1,4 @@
+import asyncio
 import json
 import textwrap
 from pathlib import Path
@@ -150,6 +151,59 @@ def test_math_source_detection_ignores_renderer_configuration_scripts():
 
     assert html_has_math_source(html) is False
     assert html_has_math_source(r"<main>Inline math \(x_i\).</main>") is True
+
+
+def test_capture_page_state_waits_for_domcontentloaded(tmp_path):
+    from tools.knowledge.render_check import _capture_page_state
+
+    class FakeLocator:
+        def __init__(self, selector):
+            self.selector = selector
+
+        async def inner_text(self, timeout):
+            return "Rendered page."
+
+        async def count(self):
+            return 0
+
+        async def evaluate_all(self, script):
+            return []
+
+    class FakePage:
+        def __init__(self):
+            self.goto_kwargs = None
+
+        def on(self, event, callback):
+            return None
+
+        async def goto(self, url, **kwargs):
+            self.goto_kwargs = kwargs
+
+        async def wait_for_timeout(self, timeout):
+            return None
+
+        def locator(self, selector):
+            return FakeLocator(selector)
+
+        async def close(self):
+            return None
+
+    class FakeBrowser:
+        def __init__(self, page):
+            self.page = page
+
+        async def new_page(self):
+            return self.page
+
+    site_dir = tmp_path / "site"
+    site_dir.mkdir()
+    path = site_dir / "node.html"
+    path.write_text("<main>Rendered page.</main>", encoding="utf-8")
+    page = FakePage()
+
+    asyncio.run(_capture_page_state(FakeBrowser(page), "http://localhost", site_dir, path, 1000))
+
+    assert page.goto_kwargs == {"wait_until": "domcontentloaded", "timeout": 1000}
 
 
 def test_published_render_fixture_contains_math_on_node_and_graph_pages(tmp_path):

@@ -109,7 +109,9 @@ async def _capture_page_state(browser, base_url: str, site_dir: Path, path: Path
     page.on("pageerror", lambda exc: console_errors.append(str(exc)))
     page.on("requestfailed", lambda request: failed_requests.append(request.url))
     try:
-        await page.goto(f"{base_url}/{rel}", wait_until="networkidle", timeout=timeout_ms)
+        # Deferred KaTeX scripts finish before DOMContentLoaded. Waiting for
+        # networkidle is flaky across large CDN-backed sites.
+        await page.goto(f"{base_url}/{rel}", wait_until="domcontentloaded", timeout=timeout_ms)
         if rel in {"dep_graph_document.html", "graph.html"}:
             try:
                 await page.wait_for_selector("#graph .node[data-graph-node-id^='topic:']", timeout=timeout_ms)
