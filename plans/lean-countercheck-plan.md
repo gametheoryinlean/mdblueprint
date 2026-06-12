@@ -122,7 +122,7 @@
 - [x] Diagnose remaining full-run failure modes from a fresh source-text-only full run
 - [x] Build the dedicated Lean-vs-authored adjudicator skill with a subagent scaffold
 - [x] Align the SkillOpt EconCSLib judge rubric with true discrepancy vs false abend classification
-- [x] Add a basic sanity check to catch definition-node vs theorem-node misclassification in the matcher
+- [x] Add a basic sanity check to catch obvious definition-node vs theorem-node misclassification in the matcher while allowing wrapper-style mappings
 - [x] Add a random spot-check penalty path for obvious silly mistakes in adjudication
 
 - [x] Implement a dedicated SkillOpt adjudication mode for EconCSLib
