@@ -1,5 +1,6 @@
 | Task | Skill |
 |---|---|
+| Run the full source-text mdblueprint pipeline end to end | `mdblueprint-lean-run-full` |
 | Compare Lean-derived graphs against authored nodes and `mdblueprint.yml` | `mdblueprint-lean-countercheck` |
 | Generate theorem and dependency candidates from Lean source text | `mdblueprint-lean-theorem-extraction` |
 | Generate dependency edges between Lean theorems | `mdblueprint-lean-dependency-extraction` |

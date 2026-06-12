@@ -24,6 +24,7 @@
 
 ### Heuristic Lean countercheck pipeline
 
+- `mdblueprint-lean-run-full`
 - `mdblueprint-lean-theorem-extraction`
 - `mdblueprint-lean-dependency-extraction`
 - `mdblueprint-lean-node-generation`
@@ -36,6 +37,7 @@
 
 ## Primary `mdblueprint-lean-` Skills
 
+- `mdblueprint-lean-run-full`
 - `mdblueprint-lean-theorem-extraction`
 - `mdblueprint-lean-dependency-extraction`
 - `mdblueprint-lean-node-generation`
@@ -80,6 +82,8 @@
 
 - [x] Add a counterchecker skill for comparing Lean-derived graphs against authored nodes and `mdblueprint.yml`
 - [x] Keep the heuristic extraction path as the active baseline
+- [x] Add a self-contained full-run skill that can reproduce the heuristic pipeline without Lean-first or MCP dependencies
+  - [x] Make the skill repository-contained and reproducible from a fresh checkout using an explicit `ECONCSLIB_ROOT` input
 - [x] Write and follow a concrete testing plan for source-text theorem/dependency extraction
   - [x] Choose a small Lean sample set for side-by-side extraction
   - [x] Define value-add metrics: setup friction, theorem recall, dependency recall, mapping ambiguity, and false positives

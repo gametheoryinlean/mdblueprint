@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import tempfile
 
-from .common import module_name_from_path
-from .lean_runner import build_module, run_lean_file
-from .templates import theorem_extraction_script
+from .common import module_name_from_path, write_json
+from .text_extract import theorem_records_for_file
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,21 +17,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args(argv)
 
+    _ = args.project_root, args.skip_build
     module_name = args.module_name or module_name_from_path(args.source_root, args.lean_file)
-    if not args.skip_build:
-        build = build_module(project_root=args.project_root, module_name=module_name)
-        if build.returncode != 0:
-            raise SystemExit(build.returncode)
-    with tempfile.TemporaryDirectory(prefix="leangen-theorems-") as td:
-        script = Path(td) / "extract_theorems.lean"
-        script.write_text(theorem_extraction_script(module_name, args.output), encoding="utf-8")
-        run = run_lean_file(project_root=args.project_root, lean_file=script)
-        if run.returncode != 0:
-            raise SystemExit(run.returncode)
-
+    records = theorem_records_for_file(args.lean_file, args.source_root)
+    for record in records:
+        record["module"] = module_name
+    write_json(args.output, records)
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
