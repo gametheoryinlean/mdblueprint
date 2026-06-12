@@ -1,0 +1,14 @@
+name = "lean-adjudicator"
+role = "lean-vs-authored-adjudicator"
+description = "Autonomous referee for Lean-derived theorem/dependency facts versus authored EconCSLib nodes."
+skill = "mdblueprint-lean-adjudicate"
+report_root = "plans"
+default_mode = "adjudicate"
+review_style = "true_discrepancy_vs_false_abend"
+max_batch_size = 16
+confidence_threshold = 0.8
+human_review_threshold = 0.55
+spawn_extraction_subagent = true
+spawn_mapping_subagent = true
+spawn_final_subagent = true
+judgment_labels = ["true_discrepancy", "false_abend", "needs_review"]

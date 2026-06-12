@@ -69,20 +69,59 @@ def theorem_header(body: str) -> str:
     return head
 
 
+def _strip_comments(text: str) -> str:
+    # Remove block and line comments before dependency token scanning.
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    depth = 0
+    while i < n:
+        if depth == 0 and text.startswith('--', i):
+            j = text.find('\n', i)
+            if j == -1:
+                break
+            out.append('\n')
+            i = j + 1
+            continue
+        if text.startswith('/-', i):
+            depth += 1
+            i += 2
+            continue
+        if depth > 0 and text.startswith('-/', i):
+            depth -= 1
+            i += 2
+            continue
+        if depth == 0:
+            out.append(text[i])
+        i += 1
+    return ''.join(out)
+
+
+def _lookup_variants(token: str) -> list[str]:
+    parts = token.split('.')
+    variants = [token]
+    # Prefer stripping method/projection suffixes such as `.mp`, `.mpr`, and
+    # record the longest meaningful prefix first.
+    for i in range(len(parts) - 1, 0, -1):
+        variants.append('.'.join(parts[:i]))
+    base = parts[-1]
+    variants.append(base)
+    return list(dict.fromkeys(variants))
+
+
 def dependency_targets(body: str, corpus_names: Iterable[str], *, self_name: str | None = None) -> list[str]:
     lookup = _dependency_lookup(corpus_names)
+    body = _strip_comments(body)
     targets: list[str] = []
     seen: set[str] = set()
     for match in NAME_TOKEN_RE.finditer(body):
         token = match.group(1)
         if self_name is not None and token == self_name:
             continue
-        base = token.split('.')[-1]
         candidates = set()
-        candidates.update(lookup.get(token, set()))
-        candidates.update(lookup.get(_normalize_name(token), set()))
-        candidates.update(lookup.get(base, set()))
-        candidates.update(lookup.get(_normalize_name(base), set()))
+        for variant in _lookup_variants(token):
+            candidates.update(lookup.get(variant, set()))
+            candidates.update(lookup.get(_normalize_name(variant), set()))
         for candidate in sorted(candidates, key=lambda s: (-len(s), s)):
             if candidate == self_name or candidate in seen:
                 continue

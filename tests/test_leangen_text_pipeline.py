@@ -62,6 +62,91 @@ theorem Beta.bar : True := by
     ]
 
 
+
+
+
+
+def test_dependency_extraction_ignores_comments(tmp_path: Path) -> None:
+    source_root = tmp_path / 'EconCSLib'
+    source = _write(
+        source_root / 'Simplex.lean',
+        """theorem Simplex.helper : True := by
+  trivial
+
+/-- This comment mentions singleton_of_card_one but should not affect deps. -/
+theorem Simplex.demo : True := by
+  exact Simplex.helper
+""",
+    )
+
+    theorem_out = tmp_path / 'demo.theorems.json'
+    dep_out = tmp_path / 'demo.deps.json'
+    extract_theorems_main([
+        '--project-root', str(tmp_path / 'project'),
+        '--source-root', str(source_root),
+        '--lean-file', str(source),
+        '--output', str(theorem_out),
+    ])
+    extract_dependencies_main([
+        '--project-root', str(tmp_path / 'project'),
+        '--source-root', str(source_root),
+        '--lean-file', str(source),
+        '--theorems-json', str(theorem_out),
+        '--output', str(dep_out),
+    ])
+
+    theorem_records = json.loads(theorem_out.read_text(encoding='utf-8'))
+    demo = next(record for record in theorem_records if record['name'] == 'Simplex.demo')
+    assert demo['dependencies'] == ['Simplex.helper']
+
+def test_dependency_extraction_strips_accessor_suffixes(tmp_path: Path) -> None:
+    source_root = tmp_path / 'EconCSLib'
+    source = _write(
+        source_root / 'Simplex.lean',
+        """theorem Simplex.ge_iff_simplex_ge : True := by
+  trivial
+
+theorem Simplex.le_iff_simplex_le : True := by
+  trivial
+
+theorem Simplex.wsum_wsum_comm : True := by
+  trivial
+
+theorem Simplex.demo : True := by
+  exact (Simplex.ge_iff_simplex_ge.mp trivial)
+""",
+    )
+
+    theorem_out = tmp_path / 'demo.theorems.json'
+    dep_out = tmp_path / 'demo.deps.json'
+    extract_theorems_main([
+        '--project-root', str(tmp_path / 'project'),
+        '--source-root', str(source_root),
+        '--lean-file', str(source),
+        '--output', str(theorem_out),
+    ])
+    extract_dependencies_main([
+        '--project-root', str(tmp_path / 'project'),
+        '--source-root', str(source_root),
+        '--lean-file', str(source),
+        '--theorems-json', str(theorem_out),
+        '--output', str(dep_out),
+    ])
+
+    theorem_records = json.loads(theorem_out.read_text(encoding='utf-8'))
+    deps = json.loads(dep_out.read_text(encoding='utf-8'))
+    demo = next(record for record in theorem_records if record['name'] == 'Simplex.demo')
+    assert 'Simplex.ge_iff_simplex_ge' in demo['dependencies']
+    assert 'Simplex.le_iff_simplex_le' not in demo['dependencies']
+    assert 'Simplex.wsum_wsum_comm' not in demo['dependencies']
+    assert deps == [
+        {
+            'source': 'Simplex.demo',
+            'target': 'Simplex.ge_iff_simplex_ge',
+            'kind': 'hard',
+            'module': 'EconCSLib.Simplex',
+        }
+    ]
 def test_text_only_full_run_creates_artifacts(tmp_path: Path) -> None:
     source_root = tmp_path / 'EconCSLib'
     _write(
