@@ -53,6 +53,8 @@ value judgment against the authored blueprint.
 - If the authored node is stronger than the Lean fact, flag it as likely incompleteness.
 - If the proof contains `sorry`, stubs, or weakened statements, do not call that a true discrepancy unless the authored node requires more.
 - Preserve extra formalization lemmas in the report; do not silently discard them.
+- Treat definition-node vs theorem-node mapping mistakes as a basic sanity failure, even if the downstream graph is otherwise plausible.
+- Use random spot checks to catch silly, obvious mapping mistakes and feed those into targeted fixes.
 - Do not silently upgrade heuristic extraction output to ground truth; the final filter must justify the verdict case by case.
 
 ## Post-hoc failure modes to score
