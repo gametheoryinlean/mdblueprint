@@ -8,8 +8,8 @@ Each skill is a directory with a `SKILL.md` file and optional `references/` file
 
 | Task | Skill |
 | --- | --- |
-| Extract definitions, theorems, lemmas, examples, or proof ideas from a book, PDF, paper, TeX source, or notes | `mdblueprint-source-extraction` |
-| Recover a proof, proof sketch, or hint for an existing node from cited source spans | `mdblueprint-source-proof-recovery` |
+| Extract definitions, theorems, examples, or proof ideas from a book, PDF, paper, TeX source, or notes | `mdblueprint-source-extraction` |
+| Recover a proof, proof sketch, or hint for an existing theorem-like node from cited source spans | `mdblueprint-source-proof-recovery` |
 | Create or edit Markdown knowledge nodes by hand | `mdblueprint-node-author` |
 | Review staged nodes before admission | `mdblueprint-node-review` |
 | Generate Lean declarations, proof skeletons, or Lean patch proposals | `mdblueprint-lean-generation` |
@@ -17,6 +17,12 @@ Each skill is a directory with a `SKILL.md` file and optional `references/` file
 | Check whether Lean declarations semantically match Markdown nodes | `mdblueprint-alignment-review` |
 | Generate or inspect the static site and dependency graph | `mdblueprint-publish` |
 | Answer from admitted KB content only | `mdblueprint-kb-reasoning` |
+| Extract theorem names from Lean source text | `mdblueprint-lean-theorem-extraction` |
+| Extract theorem-to-theorem proof dependencies from Lean source text | `mdblueprint-lean-dependency-extraction` |
+| Legacy fallback: extract theorem-like declarations from compiled Lean source | `mdblueprint-lean-theorem-extraction-legacy` |
+| Draft Markdown nodes from theorem names and theorem dependencies | `mdblueprint-lean-node-generation` |
+| Materialize mdblueprint from staged node drafts | `mdblueprint-lean-blueprint-export` |
+| Countercheck Lean-derived graphs against authored nodes and mdblueprint.yml | `mdblueprint-lean-countercheck` |
 
 For existing Lean declarations, run `tools.knowledge.lean_link_candidates`, use
 `mdblueprint-lean-linking` to produce a mechanical proposal, validate or apply it
