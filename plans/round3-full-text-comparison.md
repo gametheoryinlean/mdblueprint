@@ -1,45 +1,33 @@
 # Round3 Full Run Comparison
 
-## Run Summary
+## Correction
 
-- Input source root: `/home/azureuser/EconCSLib`
-- Output directory: `/home/azureuser/mdblueprint-clean/runs/round3-full-text`
-- Lean files processed: `143`
-- Theorem records extracted: `1,590`
-- Dependency edges extracted: `6,130`
-- Published site graph nodes: `1,455`
-- Published site graph edges: `2,959`
+The previous comparison note used the wrong local reference. The authoritative source-of-truth node set is in [`gametheoryinlean/EconCSLib`](https://github.com/gametheoryinlean/EconCSLib), and the authoritative resultant graph is in [`gametheoryinlean/blueprint`](https://github.com/gametheoryinlean/blueprint).
 
-## Ground Truth Reference
+The `round3-full-text` run is a theorem-level heuristic graph extracted from Lean source text. It is not a direct node-id equivalent of the authored blueprint graph.
 
-Compared against the locally available blueprint export at `/home/azureuser/econcslib-blueprint-full-export`.
-This repo contains the authored `nodes/`, `staged/`, and `mdblueprint.yml` source of truth.
+## Authoritative Repositories
 
-## Comparison Notes
+- Source of truth nodes and edges: [`gametheoryinlean/EconCSLib`](https://github.com/gametheoryinlean/EconCSLib)
+- Resultant published graph: [`gametheoryinlean/blueprint`](https://github.com/gametheoryinlean/blueprint)
 
-- Direct node-id overlap between the round3 graph and the authored blueprint graph: `0`
-- Title-level overlap after conservative normalization: `13`
-- Shared normalized titles include:
-  - `allocation`
-  - `condorcetwinner`
-  - `faircutpointexists`
-  - `farkaslemma`
-  - `lottery`
-  - `matchingpennies`
-  - `measurevaluation`
-  - `mixednashequilibrium`
-  - `mixedstrategy`
-  - `payoffvector`
-  - `strategyprofile`
-  - `strategyproofmonotonic`
-  - `surethingprinciple`
+## Verified Local Counts
+
+- EconCSLib authored node inventory: `535` nodes
+- Blueprint published graph: `535` nodes, `840` edges
+- Round3 theorem graph: `1,464` nodes, `2,959` edges
+
+## Overlap
+
+- Direct node-id overlap between round3 and blueprint: `0`
+- Direct edge overlap between round3 and blueprint: `0`
+- EconCSLib authored node ids and blueprint node ids match exactly in the local clone available here.
 
 ## Interpretation
 
-- The source-text-only round3 run successfully extracted a large theorem/dependency graph without Lean.
-- The output is much broader than the authored blueprint and is not yet semantically aligned with the blueprint node inventory.
-- The mismatch is expected at this stage because the extractor is heuristic and works from Lean source text, while the blueprint repo is a curated authored source of truth.
-- The graph now exists as a reproducible baseline that future counterchecks can refine toward the authored blueprint.
+- The round3 run succeeded as a source-text-only extraction baseline.
+- The produced graph is much broader and represents theorem extraction from Lean source, not the curated blueprint node graph.
+- The correct next step is to map theorem-level output back onto the authored EconCSLib node inventory before judging alignment against the published blueprint graph.
 
 ## Files Of Interest
 
