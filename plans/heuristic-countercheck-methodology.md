@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Document the heuristic path used to countercheck Lean-derived theorem graphs against authored nodes before relying on the MCP-backed flow.
+Document the heuristic path used to countercheck Lean-derived theorem graphs against authored nodes.
 
 This note covers:
 
@@ -33,8 +33,8 @@ To make authored hints line up with Lean names, the comparer normalizes both sid
 
 - lowercase both names
 - remove punctuation and separator characters
-- compare full names after normalization
-- compare the final basename after normalization as a fallback
+- compare normalized full names
+- compare normalized basenames as a fallback
 
 This allows authored hints such as `strategic_games.weakly_dominates` to match Lean names such as `WeaklyDominates`.
 
@@ -71,5 +71,4 @@ The most recent smoke run produced:
 ## Notes
 
 - The heuristic path remains useful as a fallback and a baseline.
-- The MCP-backed client is now being wired in parallel so the project can compare the Lean-aware path against the heuristic baseline.
 - The heuristic report is intentionally conservative: it prefers fewer false positives over exhaustive dependency coverage.
