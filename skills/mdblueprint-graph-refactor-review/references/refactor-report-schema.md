@@ -51,6 +51,20 @@ Use one table row per proposal.
 | `risk` | What could be wrong if the proposal is accepted. |
 | `validation` | Commands to run after applying the proposal. |
 
+## Generality Gate
+
+For proposals that generalize, split, merge, or rehome mathematical content,
+record the gate explicitly:
+
+- most general useful form;
+- whether the current node already has that form;
+- whether a narrower form is deliberate;
+- assumptions that might be removable;
+- hypotheses that may be artifacts of the current source or topic placement.
+
+If the answer is unclear, mark the proposal `semantic-review` or
+`needs-human-review`.
+
 ## Request Files
 
 If a proposal requires a `docs/knowledge/requests/` file, include the intended

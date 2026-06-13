@@ -1,4 +1,0 @@
-interface:
-  display_name: "mdblueprint Graph Refactor Review"
-  short_description: "Review mdblueprint KB graph structure and propose refactors."
-  default_prompt: "Review an mdblueprint knowledge graph for refactoring opportunities and produce structured proposals."
