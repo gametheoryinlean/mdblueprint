@@ -74,6 +74,10 @@ admitted-node rewrites.
     uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_dry_run <knowledge-root> <plan.yml> --json
     ```
 
+    Node additions should reference request files. Body rewrites must provide
+    explicit replacement Markdown, a body file, or a request file; do not ask the
+    dry-run tool to infer prose edits.
+
 11. If the user asks for actual edits, make focused changes only after the report
    identifies exact files, risks, and validation commands.
 

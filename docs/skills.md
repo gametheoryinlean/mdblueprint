@@ -353,6 +353,9 @@ before editing admitted node files:
 uv run python -m tools.knowledge.refactor_dry_run docs/knowledge <plan.yml> --json
 ```
 
+Dry-run node additions should reference request files. Dry-run body rewrites
+must provide explicit replacement Markdown, a body file, or a request file.
+
 ### `mdblueprint-publish`
 
 Use when generating or checking the blueprint-style site and dependency graph.

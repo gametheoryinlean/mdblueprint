@@ -13,15 +13,17 @@ import yaml
 from tools.knowledge.config import load_project_config
 from tools.knowledge.export import home_topic_for_node, leaf_topic_ids_for_node
 from tools.knowledge.graph import KnowledgeGraph, build_graph
-from tools.knowledge.models import Node
+from tools.knowledge.models import STAGED_STATUSES, Node
 from tools.knowledge.node_refs import check_node_body_refs
 from tools.knowledge.parser import scan_directory
 from tools.knowledge.validator import Diagnostic, validate_node
 
 
 OPERATION_KINDS = frozenset({
+    "add-node-from-request",
     "add-dependency",
     "remove-dependency",
+    "replace-node-body",
     "move-primary-topic",
     "add-topic-membership",
     "remove-topic-membership",
@@ -108,6 +110,7 @@ def _node_snapshot(node: Node) -> dict[str, Any]:
         "explicit_topics": list(node.topics or []),
         "topic_lean_alignment": node.topic_lean_alignment,
         "file_path": str(node.file_path) if node.file_path else None,
+        "body": node.body,
     }
 
 
@@ -136,6 +139,116 @@ def _require_string(operation: dict[str, Any], key: str) -> str | None:
     if isinstance(value, str) and value.strip():
         return value.strip()
     return None
+
+
+def _resolve_path(raw: str, *, root: Path, plan_path: Path) -> Path:
+    path = Path(raw)
+    if path.is_absolute():
+        return path
+    for candidate in (root / path, plan_path.parent / path, Path(raw)):
+        if candidate.exists():
+            return candidate
+    return root / path
+
+
+def _read_yaml_mapping(path: Path) -> tuple[dict[str, Any], list[Diagnostic]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return {}, [_diag("error", f"cannot read YAML file {path}: {exc}", path)]
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        return {}, [_diag("error", f"invalid YAML file {path}: {exc}", path)]
+    if not isinstance(raw, dict):
+        return {}, [_diag("error", f"YAML file must be a mapping: {path}", path)]
+    return raw, []
+
+
+def _request_node_body(request: dict[str, Any], title: str) -> str:
+    body = request.get("proposed_body")
+    if isinstance(body, str) and body.strip():
+        return body.strip()
+    statement = request.get("proposed_statement")
+    if isinstance(statement, str) and statement.strip():
+        return f"# {title}\n\n{statement.strip()}"
+    return f"# {title}"
+
+
+def _body_from_operation(
+    operation: dict[str, Any],
+    *,
+    root: Path,
+    plan_path: Path,
+    title: str,
+) -> tuple[str | None, list[Diagnostic]]:
+    body = operation.get("body")
+    if isinstance(body, str) and body.strip():
+        return body.strip(), []
+
+    body_path = _require_string(operation, "body_path")
+    if body_path is not None:
+        path = _resolve_path(body_path, root=root, plan_path=plan_path)
+        try:
+            return path.read_text(encoding="utf-8").strip(), []
+        except OSError as exc:
+            return None, [_diag("error", f"cannot read body_path {path}: {exc}", path)]
+
+    request_path = _require_string(operation, "request_path")
+    if request_path is not None:
+        path = _resolve_path(request_path, root=root, plan_path=plan_path)
+        request, diags = _read_yaml_mapping(path)
+        if diags:
+            return None, diags
+        return _request_node_body(request, title), []
+
+    return None, [_diag("error", "replace-node-body requires body, body_path, or request_path", plan_path)]
+
+
+def _node_from_request(
+    request: dict[str, Any],
+    *,
+    request_path: Path,
+    operation: dict[str, Any],
+) -> tuple[Node | None, list[Diagnostic]]:
+    diags: list[Diagnostic] = []
+
+    def require_request_string(key: str) -> str | None:
+        value = request.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        diags.append(_diag("error", f"request file {request_path} missing {key!r}", request_path))
+        return None
+
+    node_id = require_request_string("proposed_id")
+    title = require_request_string("proposed_title")
+    kind = require_request_string("target_kind")
+    if node_id is None or title is None or kind is None:
+        return None, diags
+
+    raw_uses = request.get("proposed_uses") or []
+    if not isinstance(raw_uses, list) or not all(isinstance(item, str) for item in raw_uses):
+        diags.append(_diag("error", f"request file {request_path} has invalid proposed_uses", request_path))
+        return None, diags
+
+    status = _require_string(operation, "status") or "staged"
+    primary_topic = _require_string(operation, "primary_topic")
+    topics = operation.get("topics") or []
+    if not isinstance(topics, list) or not all(isinstance(item, str) and item.strip() for item in topics):
+        diags.append(_diag("error", "add-node-from-request topics must be a list of strings", request_path))
+        return None, diags
+
+    return Node(
+        id=node_id,
+        title=title,
+        kind=kind,
+        status=status,
+        uses=list(raw_uses),
+        primary_topic=primary_topic,
+        topics=list(topics),
+        body=_request_node_body(request, title),
+        file_path=request_path,
+    ), []
 
 
 def _replace_node(nodes: dict[str, Node], node: Node) -> None:
@@ -168,6 +281,8 @@ def _apply_operation(
     *,
     index: int,
     plan_path: Path,
+    root: Path,
+    staged_ids: set[str],
 ) -> tuple[dict[str, Any], list[Diagnostic]]:
     op = _require_string(operation, "op") or _require_string(operation, "kind")
     if op not in OPERATION_KINDS:
@@ -177,6 +292,52 @@ def _apply_operation(
             status="error",
             message=f"unsupported operation {op!r}",
         ), [_diag("error", f"operation {index} has unsupported op {op!r}", plan_path)]
+
+    if op == "add-node-from-request":
+        request_path = _require_string(operation, "request_path")
+        if request_path is None:
+            return _operation_result(
+                index=index,
+                operation=operation,
+                status="error",
+                message="missing request_path",
+            ), [_diag("error", f"operation {index} missing request_path", plan_path)]
+        path = _resolve_path(request_path, root=root, plan_path=plan_path)
+        request, request_diags = _read_yaml_mapping(path)
+        if request_diags:
+            return _operation_result(
+                index=index,
+                operation=operation,
+                status="error",
+                message=f"cannot load request file {path}",
+            ), request_diags
+        node, node_diags = _node_from_request(request, request_path=path, operation=operation)
+        if node is None:
+            return _operation_result(
+                index=index,
+                operation=operation,
+                status="error",
+                message=f"cannot construct node from request file {path}",
+            ), node_diags
+        if node.id in nodes:
+            return _operation_result(
+                index=index,
+                operation=operation,
+                status="error",
+                message=f"request proposed_id already exists: {node.id!r}",
+                after=_node_snapshot(nodes[node.id]),
+            ), [_diag("error", f"operation {index} proposed node already exists: {node.id!r}", path)]
+        nodes[node.id] = node
+        if node.status in STAGED_STATUSES:
+            staged_ids.add(node.id)
+        return _operation_result(
+            index=index,
+            operation=operation,
+            status="applied",
+            message=f"would add node {node.id!r} from request file {path}",
+            before=None,
+            after=_node_snapshot(node),
+        ), []
 
     node_id = _require_string(operation, "node_id")
     if node_id is None:
@@ -206,6 +367,42 @@ def _apply_operation(
             message=f"would remove node {node_id!r}",
             before=before,
             after=None,
+        ), []
+
+    if op == "replace-node-body":
+        body, body_diags = _body_from_operation(
+            operation,
+            root=root,
+            plan_path=plan_path,
+            title=node.title,
+        )
+        if body_diags or body is None:
+            return _operation_result(
+                index=index,
+                operation=operation,
+                status="error",
+                message="cannot load replacement body",
+                before=before,
+                after=before,
+            ), body_diags
+        if node.body == body:
+            return _operation_result(
+                index=index,
+                operation=operation,
+                status="noop",
+                message=f"{node_id!r} already has the requested body",
+                before=before,
+                after=before,
+            ), []
+        updated = replace(node, body=body)
+        _replace_node(nodes, updated)
+        return _operation_result(
+            index=index,
+            operation=operation,
+            status="applied",
+            message=f"would replace body of {node_id!r}",
+            before=before,
+            after=_node_snapshot(updated),
         ), []
 
     if op in {"add-dependency", "remove-dependency"}:
@@ -436,9 +633,10 @@ def _diagnostic_delta(
 def _changed_nodes(
     before_nodes: dict[str, Node],
     after_nodes: dict[str, Node],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     changed: list[dict[str, Any]] = []
     removed: list[dict[str, Any]] = []
+    added: list[dict[str, Any]] = []
     for node_id in sorted(before_nodes):
         before = _node_snapshot(before_nodes[node_id])
         if node_id not in after_nodes:
@@ -447,7 +645,9 @@ def _changed_nodes(
         after = _node_snapshot(after_nodes[node_id])
         if before != after:
             changed.append({"node_id": node_id, "before": before, "after": after})
-    return changed, removed
+    for node_id in sorted(set(after_nodes) - set(before_nodes)):
+        added.append(_node_snapshot(after_nodes[node_id]))
+    return changed, removed, added
 
 
 def _status_counts(results: list[dict[str, Any]]) -> dict[str, int]:
@@ -473,13 +673,20 @@ def build_refactor_dry_run(
     operation_diags: list[Diagnostic] = list(plan_diags)
     if not plan_diags:
         for index, operation in enumerate(operations, start=1):
-            result, diags = _apply_operation(after_nodes, operation, index=index, plan_path=plan_path)
+            result, diags = _apply_operation(
+                after_nodes,
+                operation,
+                index=index,
+                plan_path=plan_path,
+                root=root,
+                staged_ids=staged_ids,
+            )
             operation_results.append(result)
             operation_diags.extend(diags)
 
     after_graph, after_diags = _validate_loaded_nodes(after_nodes, root=root, staged_ids=staged_ids)
     new_diags, resolved_diags = _diagnostic_delta(before_diags, after_diags)
-    changed, removed = _changed_nodes(before_nodes, after_nodes)
+    changed, removed, added = _changed_nodes(before_nodes, after_nodes)
     operation_errors = [diag for diag in operation_diags if diag.level == "error"]
     new_errors = [diag for diag in new_diags if diag.level == "error"]
 
@@ -494,6 +701,7 @@ def build_refactor_dry_run(
         "after_has_errors": any(diag.level == "error" for diag in after_diags) or bool(operation_errors),
         "summary": {
             "operation_status_counts": _status_counts(operation_results),
+            "added_node_count": len(added),
             "changed_node_count": len(changed),
             "removed_node_count": len(removed),
             "baseline_errors": sum(1 for diag in before_diags if diag.level == "error"),
@@ -511,6 +719,7 @@ def build_refactor_dry_run(
         "operation_diagnostics": [_diagnostic_payload(diag) for diag in operation_diags],
         "new_diagnostics": [_diagnostic_payload(diag) for diag in new_diags],
         "resolved_diagnostics": [_diagnostic_payload(diag) for diag in resolved_diags],
+        "added_nodes": added,
         "changed_nodes": changed,
         "removed_nodes": removed,
     }
@@ -549,6 +758,10 @@ def _render_text(result: dict[str, Any]) -> str:
         lines.append("changed nodes:")
         for item in result["changed_nodes"]:
             lines.append(f"- {item['node_id']}")
+    if result["added_nodes"]:
+        lines.append("added nodes:")
+        for item in result["added_nodes"]:
+            lines.append(f"- {item['id']}")
     if result["removed_nodes"]:
         lines.append("removed nodes:")
         for item in result["removed_nodes"]:

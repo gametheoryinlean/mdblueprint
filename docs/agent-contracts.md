@@ -530,6 +530,9 @@ admitted node files:
 uv run python -m tools.knowledge.refactor_dry_run docs/knowledge <plan.yml> --json
 ```
 
+Dry-run node additions should be request-backed, and body rewrites must use
+explicit replacement content rather than inferred prose edits.
+
 ## 10. Proof Repair Order
 
 For theorem-like nodes with missing or incomplete proof content, the Python

@@ -152,6 +152,60 @@ def test_refactor_dry_run_topic_operations_change_snapshots(tmp_path):
     assert after["topic_lean_alignment"] == "divergent"
 
 
+def test_refactor_dry_run_adds_node_from_request(tmp_path):
+    root = _make_kb(tmp_path)
+    request = root / "requests" / "inverse.yml"
+    _write(
+        request,
+        """
+        request_id: req-inverse
+        kind: new-node
+        requested_by: graph-refactor-proposer
+        created_at: "2026-06-14T00:00:00+00:00"
+        target_kind: theorem
+        proposed_id: algebra.inverse_unique
+        proposed_title: Inverse Is Unique
+        summary: Add inverse uniqueness.
+        reason: It is reused by several group facts.
+        proposed_statement: |
+          In a group, each element has at most one inverse.
+        proposed_uses:
+          - algebra.group
+        source_justification: Standard group theory.
+        """,
+    )
+    plan = tmp_path / "plan.yml"
+    _write_plan(plan, [{"op": "add-node-from-request", "request_path": "requests/inverse.yml"}])
+
+    result = build_refactor_dry_run(root, plan)
+
+    assert result["would_introduce_errors"] is False
+    assert result["summary"]["added_node_count"] == 1
+    added = result["added_nodes"][0]
+    assert added["id"] == "algebra.inverse_unique"
+    assert added["uses"] == ["algebra.group"]
+    assert "each element has at most one inverse" in added["body"]
+    assert not (root / "nodes" / "algebra" / "inverse_unique.md").exists()
+
+
+def test_refactor_dry_run_replace_body_surfaces_unknown_node_ref(tmp_path):
+    root = _make_kb(tmp_path)
+    plan = tmp_path / "plan.yml"
+    _write_plan(plan, [
+        {
+            "op": "replace-node-body",
+            "node_id": "algebra.group_isomorphism",
+            "body": "# Group Isomorphism\n\nThis cites [[node:algebra.missing]].",
+        }
+    ])
+
+    result = build_refactor_dry_run(root, plan)
+
+    assert result["would_introduce_errors"] is True
+    assert result["summary"]["changed_node_count"] == 1
+    assert any("unknown node reference [[node:algebra.missing]]" in diag["message"] for diag in result["new_diagnostics"])
+
+
 def test_refactor_dry_run_cli_outputs_json_and_nonzero_on_errors(tmp_path):
     root = _make_kb(tmp_path)
     plan = tmp_path / "plan.yml"
