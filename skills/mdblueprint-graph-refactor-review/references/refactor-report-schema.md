@@ -67,6 +67,32 @@ Use one table row per proposal.
 | `risk` | What could be wrong if the proposal is accepted. |
 | `validation` | Dry-run commands to run before applying the proposal and checks to run after applying it. |
 
+## Refinement Pass
+
+Before finalizing the proposal table, record the self-review used to prevent
+easy lint cleanup from crowding out higher-value semantic refactors.
+
+Include:
+
+- how semantic candidates were ranked against mechanical lint-hygiene
+  candidates;
+- any proposal reclassified from `mechanical-safe` to `semantic-review` or
+  `needs-human-review`;
+- a table of important signals considered but not promoted into proposals.
+
+Suggested columns for skipped or deferred signals:
+
+| Field | Meaning |
+| --- | --- |
+| `signal` | Lint code, graph statistic, topic issue, or pack finding. |
+| `targets` | Node or topic ids. |
+| `why_not_proposed` | Covered elsewhere, lower priority, outside scope, blocked, another-agent responsibility, or insufficient evidence. |
+| `follow_up` | What should happen if this becomes in scope. |
+
+At minimum, account for relevant `LINT_FUZZY_DUP`, `LINT_STAGED_OVERLAP`,
+`LINT_TOPIC_CYCLE`, high-impact `LINT_PROSE_DEP`, and high-degree hot spots
+when they appear in the baseline or selected packs.
+
 ## Generality Gate
 
 For proposals that generalize, split, merge, or rehome mathematical content,

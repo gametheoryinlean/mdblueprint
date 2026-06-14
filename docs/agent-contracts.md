@@ -509,6 +509,9 @@ Rules:
 - It must not write duplicate missing-node requests for ids already present in
   staged content. Staged-node admission or promotion belongs to the Admission
   Referee workflow, not this refactor proposer.
+- Before finalizing, it must run a refinement pass that ranks semantic refactor
+  candidates above mechanical lint hygiene, reclassifies policy decisions out of
+  `mechanical-safe`, and records why major baseline signals were not pursued.
 - If it proposes a merge, split, or generalization, it must identify reverse
   dependency impact and the validation commands to run after applying the change.
 

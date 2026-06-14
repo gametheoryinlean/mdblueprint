@@ -70,7 +70,27 @@ admitted-node rewrites.
    whether the current node has that form, and what assumptions might be
    removable. Put uncertain answers in the report or a request, not in admitted
    truth.
-10. Produce a structured report. Use
+10. Before writing the final report, run a refinement pass:
+
+   - Rank semantic refactor candidates ahead of lint-hygiene candidates unless
+     the lint cleanup is genuinely low-risk, high-impact, and implementation
+     ready. Formulation-sensitive dependency changes, duplicate/overlap
+     decisions, split/generalization candidates, staged/admitted overlaps, topic
+     ownership questions, and high-impact prose-dependency findings should not
+     be crowded out by easy redundant-edge cleanup.
+   - Reclassify policy decisions such as broad Lean/topic divergence or topic
+     ownership as `semantic-review` or `needs-human-review`, not
+     `mechanical-safe`.
+   - Check major baseline signals that are not final proposals. At minimum,
+     review `LINT_FUZZY_DUP`, `LINT_STAGED_OVERLAP`, `LINT_TOPIC_CYCLE`,
+     high-impact `LINT_PROSE_DEP`, and high-degree nodes or topics from stats.
+     Record why each important skipped signal was outside scope, lower priority,
+     already covered by another proposal, blocked by missing evidence, or better
+     handled by another agent.
+   - Move speculative or low-value operations out of the dry-run plan if they
+     would distract from more valuable semantic proposals.
+
+11. Produce a structured report. Use
    `references/refactor-report-schema.md` for durable reports.
    Validate durable reports before treating proposals as actionable:
 
@@ -78,7 +98,7 @@ admitted-node rewrites.
    uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_report_check <knowledge-root> <report-path>
    ```
 
-11. For concrete mechanical actions, write an explicit dry-run plan using
+12. For concrete mechanical actions, write an explicit dry-run plan using
     `references/dry-run-plan-schema.md` and simulate it before editing files:
 
     ```bash
@@ -90,7 +110,7 @@ admitted-node rewrites.
     rewrites must provide explicit replacement Markdown, a body file, or a
     request file; do not ask the dry-run tool to infer prose edits.
 
-12. If the user asks for actual edits, make focused changes only after the report
+13. If the user asks for actual edits, make focused changes only after the report
    identifies exact files, risks, and validation commands.
 
 ## Proposal kinds
@@ -139,6 +159,9 @@ admitted-node rewrites.
 - Treat `lean:` as a mechanical link. Semantic alignment requires alignment
   review; Lean module hierarchy mismatch may be intentional and can be handled
   with `topic_lean_alignment: divergent` only when justified.
+- Pure lint hygiene should not consume the proposal budget when higher-value
+  semantic refactor signals are available. If a major signal is skipped, say so
+  in the refinement pass rather than letting it disappear.
 
 ## Output locations
 

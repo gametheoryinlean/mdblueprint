@@ -52,6 +52,7 @@ REQUIRED_SECTIONS = [
     "Scope",
     "Deterministic Baseline",
     "Proposals",
+    "Refinement Pass",
     "Generality Gate",
     "Formulation-Sensitive Impact",
     "Request Files",

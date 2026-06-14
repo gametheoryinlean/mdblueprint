@@ -240,20 +240,25 @@ Task:
    - Lean/topic divergence only when justified by the evidence.
 4. Keep the proposal list bounded. Prefer the best 8-15 proposals over exhaustive coverage.
 5. For any proposal that modifies, weakens, strengthens, replaces, or deletes a node or dependency, include formulation-sensitive impact analysis.
-6. Before writing any new-node or missing-dependency request, check $RUN_ROOT/index/staged-index.json. Do not create a request for an id that already exists in the loaded graph or staged index. Do not add a staged-node promotion/review proposal kind; that belongs to the Admission Referee workflow.
-7. For any new-node, split-node, missing-dependency, or generalization proposal that remains after the staged-index check, write request files under:
+6. Before finalizing proposals, perform a refinement pass:
+   - rank semantic refactor candidates above mechanical lint-hygiene candidates unless the mechanical cleanup is clearly higher value and lower risk;
+   - reclassify policy decisions, broad Lean/topic divergence, and topic ownership questions as semantic-review or needs-human-review rather than mechanical-safe;
+   - account for major baseline signals not chosen as proposals, especially LINT_FUZZY_DUP, LINT_STAGED_OVERLAP, LINT_TOPIC_CYCLE, high-impact LINT_PROSE_DEP, and high-degree hot spots;
+   - remove or demote speculative dry-run operations that distract from higher-value semantic proposals.
+7. Before writing any new-node or missing-dependency request, check $RUN_ROOT/index/staged-index.json. Do not create a request for an id that already exists in the loaded graph or staged index. Do not add a staged-node promotion/review proposal kind; that belongs to the Admission Referee workflow.
+8. For any new-node, split-node, missing-dependency, or generalization proposal that remains after the staged-index check, write request files under:
    - $RUN_ROOT/requests/
-8. For concrete mechanical actions, write an explicit dry-run plan under:
+9. For concrete mechanical actions, write an explicit dry-run plan under:
    - $RUN_ROOT/dry-runs/refactor-plan.yml
    Use only operations supported by dry-run-plan-schema.md.
-9. Run these validators before finishing:
+10. Run these validators before finishing:
    - uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_report_check "$KB_ROOT" "$RUN_ROOT/reports/econcslib-graph-refactor-report.md"
    - uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_dry_run "$KB_ROOT" "$RUN_ROOT/dry-runs/refactor-plan.yml"$DRY_RUN_STAGED_FLAG --json
-10. Save the report here:
+11. Save the report here:
    - $RUN_ROOT/reports/econcslib-graph-refactor-report.md
-11. Save dry-run JSON here:
+12. Save dry-run JSON here:
    - $RUN_ROOT/dry-runs/refactor-dry-run.json
-12. Save a short human summary here:
+13. Save a short human summary here:
    - $RUN_ROOT/SUMMARY.md
 
 Report requirements:
@@ -261,6 +266,7 @@ Report requirements:
 - Use agent: graph-refactor-proposer.
 - Use decision: proposals, no_action, needs_human_decision, or blocked.
 - Cite concrete node ids and evidence pack paths.
+- Include a section titled "## Refinement Pass" explaining ranking, reclassification, and major signals not pursued.
 - Do not rely on graph reachability alone for descendant impact.
 - Do not claim a dry-run validates mathematical truth. It validates structural effects only.
 - Preserve uncertainty as semantic-review, request-needed, blocked, or needs_human_decision.

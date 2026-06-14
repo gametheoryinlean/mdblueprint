@@ -100,6 +100,13 @@ def _valid_report(root: Path) -> str:
     | --- | --- | --- | --- | --- | --- | --- | --- |
     | refactor-001 | remove-redundant-dependency | mechanical-safe | algebra.group_isomorphism, algebra.group | Remove `algebra.group` from `uses`. | `LINT_REDUNDANT_DEP`; algebra.group_homomorphism uses algebra.group | The edge may encode a deliberate direct formulation dependency. | `uv run python -m tools.knowledge.check docs/knowledge` |
 
+    ## Refinement Pass
+
+    Semantic candidates were checked before mechanical cleanup. No fuzzy
+    duplicate, staged overlap, topic-cycle, high-impact prose-dependency, or
+    higher-degree hot-spot signal was present in this fixture, so the single
+    redundant-edge proposal remains the highest-value candidate.
+
     ## Generality Gate
 
     Not applicable; no merge, split, generalization, or rehome is proposed.
