@@ -18,6 +18,9 @@ baseline:
   check: passed | failed | not_run
   lint: passed | findings | not_run
   stats: collected | not_run
+formulation_impact:
+  reviewed: true | false
+  reason: <why formulation-sensitive analysis was or was not needed>
 ```
 
 The Markdown body should contain these sections.
@@ -64,6 +67,17 @@ record the gate explicitly:
 
 If the answer is unclear, mark the proposal `semantic-review` or
 `needs-human-review`.
+
+## Formulation-Sensitive Impact
+
+For proposals that modify, weaken, strengthen, replace, or delete a node or
+dependency, include the analysis from `formulation-impact.md`:
+
+- descendants reviewed;
+- role of the changed item;
+- other ancestor formulations that may preserve descendant claims;
+- affected status for each important descendant;
+- bridge, split, or generalization requests needed.
 
 ## Request Files
 

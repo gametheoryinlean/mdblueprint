@@ -19,7 +19,7 @@ The maintained mdblueprint skills live in [`skills/`](../skills/). Each skill ha
 | Check semantic alignment between Markdown and Lean | `mdblueprint-alignment-review` | alignment report |
 | Publish or inspect the static site and dependency graph | `mdblueprint-publish` | generated site, `graph.json`, QA notes |
 | Answer from admitted KB content only | `mdblueprint-kb-reasoning` | cited answer, missing-fact report |
-| Review an existing knowledge graph for dependency, topic, duplicate, merge/split, or Lean/topic refactors | `mdblueprint-graph-refactor-review` | refactor report, request files |
+| Review an existing knowledge graph for dependency, formulation-sensitive impact, topic, duplicate, merge/split, or Lean/topic refactors | `mdblueprint-graph-refactor-review` | refactor report, request files |
 
 ## How To Use A Skill
 
@@ -33,8 +33,9 @@ Recommended order for building a knowledge base from a book:
 4. Use `tools.knowledge.admission_pipeline` only after review gates pass.
 5. Use `mdblueprint-publish` to validate and publish the generated site.
 6. Use `mdblueprint-graph-refactor-review` when a mature knowledge base needs
-   dependency cleanup, topic taxonomy review, duplicate triage, or merge/split
-   proposals before editing admitted nodes.
+   dependency cleanup, formulation-sensitive impact analysis, topic taxonomy
+   review, duplicate triage, or merge/split proposals before editing admitted
+   nodes.
 7. Use `tools.knowledge.lean_link_candidates`, `mdblueprint-lean-linking`,
    `tools.knowledge.lean_linking`, and `tools.knowledge.lean_alignment` when
    connecting admitted nodes to existing Lean declarations.
@@ -300,7 +301,9 @@ Must not:
 
 ### `mdblueprint-graph-refactor-review`
 
-Use when reviewing an existing knowledge graph for structural refactors.
+Use when reviewing an existing knowledge graph for structural refactors,
+especially when modifying a node may affect descendants through precise
+formulations of other ancestors.
 
 Reads:
 
@@ -320,11 +323,14 @@ Must not:
 - write generated graph/site artifacts;
 - silently edit admitted nodes;
 - treat `[[node:id]]` cross-links as automatic `uses` dependencies;
+- rely on graph reachability alone to decide whether descendant claims survive;
 - move mathematical truth across nodes without review evidence;
 - mark Lean/topic divergence intentional without a stated reason.
 
 Use `skills/mdblueprint-graph-refactor-review/references/refactor-report-schema.md`
-when writing a durable report.
+when writing a durable report. Use
+`skills/mdblueprint-graph-refactor-review/references/formulation-impact.md` when
+modifying, weakening, strengthening, replacing, or deleting a node or dependency.
 
 ### `mdblueprint-publish`
 

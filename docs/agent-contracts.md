@@ -443,7 +443,8 @@ instead of manually copying staged files into `docs/knowledge/nodes/`.
 
 Purpose: review node contents and deterministic graph structure, then propose
 bounded refactors that improve dependency accuracy, topic organization,
-duplicate handling, proof-plan separation, and Lean/topic consistency.
+formulation-sensitive impact analysis, duplicate handling, proof-plan
+separation, and Lean/topic consistency.
 
 Inputs:
 
@@ -488,6 +489,10 @@ Rules:
   that edit after seeing the proposal.
 - It must distinguish logical `uses` dependencies from expository
   `[[node:id]]` cross-links.
+- It must not treat graph reachability as a complete impact analysis. When a
+  node or dependency is modified or deleted, it must inspect whether descendant
+  statements survive because of the precise formulations of their other
+  ancestors.
 - It must keep proof-plan route dependencies on proof-plan nodes, not on target
   theorems, unless a dependency is also a genuine logical prerequisite of the
   theorem statement.
@@ -499,6 +504,8 @@ Rules:
   dependency impact and the validation commands to run after applying the change.
 
 Use `skills/mdblueprint-graph-refactor-review/SKILL.md` for the workflow and
+`skills/mdblueprint-graph-refactor-review/references/formulation-impact.md` for
+formulation-sensitive impact analysis. Use
 `skills/mdblueprint-graph-refactor-review/references/refactor-report-schema.md`
 for durable report shape.
 
