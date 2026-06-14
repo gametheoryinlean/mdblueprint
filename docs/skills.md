@@ -309,7 +309,8 @@ Reads:
 
 - admitted nodes by default;
 - staged nodes only when provisional evidence is explicitly in scope;
-- deterministic `check`, `lint`, `stats`, graph, and context-pack output;
+- deterministic `check`, `lint`, `stats`, graph, context-pack, and
+  refactor-pack output;
 - relevant docs for node format, topic model, lint rules, and graph semantics.
 
 Writes:
@@ -331,6 +332,12 @@ Use `skills/mdblueprint-graph-refactor-review/references/refactor-report-schema.
 when writing a durable report. Use
 `skills/mdblueprint-graph-refactor-review/references/formulation-impact.md` when
 modifying, weakening, strengthening, replacing, or deleting a node or dependency.
+For bounded graph-refactor evidence, run:
+
+```bash
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --target <node-id>
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --topic <topic-id>
+```
 
 ### `mdblueprint-publish`
 

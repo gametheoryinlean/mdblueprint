@@ -451,8 +451,8 @@ Inputs:
 - admitted nodes under `docs/knowledge/nodes/`;
 - staged nodes only when provisional evidence is explicitly requested;
 - `docs/knowledge/mdblueprint.yml` and relevant `topics.md` catalogs;
-- deterministic `check`, `lint`, `stats`, context-pack, graph, and topic export
-  output;
+- deterministic `check`, `lint`, `stats`, context-pack, refactor-pack, graph,
+  and topic export output;
 - existing review reports or request files when they affect the proposed
   refactor.
 
@@ -508,6 +508,13 @@ Use `skills/mdblueprint-graph-refactor-review/SKILL.md` for the workflow and
 formulation-sensitive impact analysis. Use
 `skills/mdblueprint-graph-refactor-review/references/refactor-report-schema.md`
 for durable report shape.
+
+For bounded graph-refactor evidence, use:
+
+```bash
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --target <node-id>
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --topic <topic-id>
+```
 
 ## 10. Proof Repair Order
 

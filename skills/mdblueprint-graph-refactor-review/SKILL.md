@@ -31,15 +31,17 @@ admitted-node rewrites.
    uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.stats <knowledge-root> --json
    ```
 
-4. Build a bounded context bundle for target-node or target-topic work:
+4. Build a bounded refactor evidence bundle for target-node or target-topic work:
 
    ```bash
-   uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.context_pack <knowledge-root> --target <node-id>
-   uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.context_pack <knowledge-root> --topic <topic-id>
+   uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_pack <knowledge-root> --target <node-id>
+   uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_pack <knowledge-root> --topic <topic-id>
    ```
 
    Add `--include-staged` only when provisional content is explicitly in scope,
-   and label staged evidence as non-admitted.
+   and label staged evidence as non-admitted. Use the pack's graph
+   neighborhoods, body references, lint findings, and formulation-impact hints
+   as evidence, not as automatic refactor decisions.
 
 5. Inspect the minimal node set needed: target, direct dependencies, reverse
    dependencies, sibling topic nodes, and staged overlaps when in scope.
