@@ -1,0 +1,1538 @@
+{
+  "kind": "mdblueprint-refactor-dry-run",
+  "mode": "admitted+staged",
+  "knowledge_root": "/home/user/EconCSLib/docs/knowledge",
+  "plan_path": "/home/user/mdblueprint/plans/econcslib-refactor-agent-dry-run/results/20260614T140053Z/dry-runs/refactor-plan.yml",
+  "writes": [],
+  "allowed_operations": [
+    "add-dependency",
+    "add-node-from-request",
+    "add-topic-membership",
+    "delete-node",
+    "mark-lean-topic-divergent",
+    "move-primary-topic",
+    "remove-dependency",
+    "remove-topic-membership",
+    "replace-node-body"
+  ],
+  "would_introduce_errors": false,
+  "after_has_errors": false,
+  "summary": {
+    "operation_status_counts": {
+      "applied": 17,
+      "noop": 0,
+      "error": 0
+    },
+    "added_node_count": 0,
+    "changed_node_count": 10,
+    "removed_node_count": 0,
+    "baseline_errors": 0,
+    "baseline_warnings": 0,
+    "new_errors": 0,
+    "new_warnings": 0,
+    "resolved_errors": 0,
+    "resolved_warnings": 0
+  },
+  "graph": {
+    "before": {
+      "nodes": 535,
+      "edges": 840
+    },
+    "after": {
+      "nodes": 535,
+      "edges": 829
+    }
+  },
+  "operations": [
+    {
+      "index": 1,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'foundation.cost.costm' from 'foundation.cost.examples.boyer_moore'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "foundation.cost.examples.boyer_moore",
+        "dependency": "foundation.cost.costm"
+      },
+      "before": {
+        "id": "foundation.cost.examples.boyer_moore",
+        "title": "Worked Example: Constant-Space Boyer–Moore Majority",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.cells"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/boyer_moore.md",
+        "body": "# Worked Example: Constant-Space Boyer–Moore Majority\n\nThe Boyer–Moore majority vote in `CostM Cells` ([[node:foundation.cost.cells]]),\nproving a **constant** peak-memory bound: regardless of input length, the peak\nworking set is two cells — one candidate and one counter,\n$$\n  (\\operatorname{majority}\\,xs).\\mathrm{cost}.\\mathrm{peak} \\;\\le\\; 2,\n$$\nwhich is `majority_peak_le`. The mechanism is that the single-pass `loop`\nallocates nothing — `loop_cost : (majority.loop \\ldots).cost = 0` — so the only\ncontributions to the peak come from one `alloc 2` / `free 2` pair bracketing\nthe pass. Because peak (not sum) is the resource, the tropical `Cells` monoid\nis essential here; an additive `ℕ` cost cannot state this bound.\n\nThis example deliberately **does not** prove functional correctness (that\n`majority` returns the true majority when one exists). That omission is the\npoint: in `CostM` the complexity bound lives on `.cost` and is provable in\ncomplete isolation from the `.ret` value, demonstrating the\ncorrectness/complexity decoupling described in [[node:foundation.cost.costm]].\n\n## Lean declarations\n\n- `BoyerMoore.majority : List α → CostM Cells (Option α)` with its single-pass\n  `where loop` carrying the candidate and counter.\n- `BoyerMoore.loop_cost` — the loop contributes zero cost.\n- `BoyerMoore.majority_peak_le` — the constant `peak ≤ 2` bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Cost monoids for\n  resource analysis ([[node:foundation.cost.cells]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.boyer_moore",
+        "title": "Worked Example: Constant-Space Boyer–Moore Majority",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.cells"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/boyer_moore.md",
+        "body": "# Worked Example: Constant-Space Boyer–Moore Majority\n\nThe Boyer–Moore majority vote in `CostM Cells` ([[node:foundation.cost.cells]]),\nproving a **constant** peak-memory bound: regardless of input length, the peak\nworking set is two cells — one candidate and one counter,\n$$\n  (\\operatorname{majority}\\,xs).\\mathrm{cost}.\\mathrm{peak} \\;\\le\\; 2,\n$$\nwhich is `majority_peak_le`. The mechanism is that the single-pass `loop`\nallocates nothing — `loop_cost : (majority.loop \\ldots).cost = 0` — so the only\ncontributions to the peak come from one `alloc 2` / `free 2` pair bracketing\nthe pass. Because peak (not sum) is the resource, the tropical `Cells` monoid\nis essential here; an additive `ℕ` cost cannot state this bound.\n\nThis example deliberately **does not** prove functional correctness (that\n`majority` returns the true majority when one exists). That omission is the\npoint: in `CostM` the complexity bound lives on `.cost` and is provable in\ncomplete isolation from the `.ret` value, demonstrating the\ncorrectness/complexity decoupling described in [[node:foundation.cost.costm]].\n\n## Lean declarations\n\n- `BoyerMoore.majority : List α → CostM Cells (Option α)` with its single-pass\n  `where loop` carrying the candidate and counter.\n- `BoyerMoore.loop_cost` — the loop contributes zero cost.\n- `BoyerMoore.majority_peak_le` — the constant `peak ≤ 2` bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Cost monoids for\n  resource analysis ([[node:foundation.cost.cells]])."
+      }
+    },
+    {
+      "index": 2,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'foundation.cost.costm' from 'foundation.cost.examples.lcs'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "foundation.cost.examples.lcs",
+        "dependency": "foundation.cost.costm"
+      },
+      "before": {
+        "id": "foundation.cost.examples.lcs",
+        "title": "Worked Example: Longest Common Subsequence DP Grid",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.visited"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/lcs.md",
+        "body": "# Worked Example: Longest Common Subsequence DP Grid\n\nLongest common subsequence in `CostM (Visited (ℕ × ℕ))`: the cost footprint is\nnow a set of **2-D grid cells** `(i, j)`, one per `(prefix of xs, prefix of\nys)` subproblem. The memoization footprint is contained in the full DP grid,\n$$\n  (\\operatorname{lcs}\\,xs\\,ys).\\mathrm{cost} \\;\\subseteq\\;\n    \\{0,\\dots,|xs|\\} \\times \\{0,\\dots,|ys|\\},\n$$\nwhich is `lcs_cost_subset`; taking cardinalities gives the polynomial-space\nbound\n$$\n  (\\operatorname{lcs}\\,xs\\,ys).\\mathrm{cost}.\\mathrm{toFinset}.\\mathrm{card}\n    \\;\\le\\; (|xs|+1)\\,(|ys|+1),\n$$\ni.e. `lcs_cost_card_le`. This is the canonical polynomial-space DP example —\nthe 2-D analogue of [[node:foundation.cost.examples.memo_fib]].\n\n`lcs` uses the bare `CostM.tick` form (rather than the `✓` macro) at its\nfootprint-recording points, since each tick records a specific grid cell\n`Visited.singleton (i, j)` rather than a unit cost.\n\n## Lean declarations\n\n- `LCS.lcs : List α → List α → CostM (Visited (ℕ × ℕ)) ℕ`.\n- `LCS.lcs_cost_subset` — footprint `⊆` the DP grid (via a private\n  `range_prod_mono` monotonicity lemma).\n- `LCS.lcs_cost_card_le` — the `(|xs|+1)(|ys|+1)` cell-count bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Footprint cost monoids\n  ([[node:foundation.cost.visited]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.lcs",
+        "title": "Worked Example: Longest Common Subsequence DP Grid",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.visited"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/lcs.md",
+        "body": "# Worked Example: Longest Common Subsequence DP Grid\n\nLongest common subsequence in `CostM (Visited (ℕ × ℕ))`: the cost footprint is\nnow a set of **2-D grid cells** `(i, j)`, one per `(prefix of xs, prefix of\nys)` subproblem. The memoization footprint is contained in the full DP grid,\n$$\n  (\\operatorname{lcs}\\,xs\\,ys).\\mathrm{cost} \\;\\subseteq\\;\n    \\{0,\\dots,|xs|\\} \\times \\{0,\\dots,|ys|\\},\n$$\nwhich is `lcs_cost_subset`; taking cardinalities gives the polynomial-space\nbound\n$$\n  (\\operatorname{lcs}\\,xs\\,ys).\\mathrm{cost}.\\mathrm{toFinset}.\\mathrm{card}\n    \\;\\le\\; (|xs|+1)\\,(|ys|+1),\n$$\ni.e. `lcs_cost_card_le`. This is the canonical polynomial-space DP example —\nthe 2-D analogue of [[node:foundation.cost.examples.memo_fib]].\n\n`lcs` uses the bare `CostM.tick` form (rather than the `✓` macro) at its\nfootprint-recording points, since each tick records a specific grid cell\n`Visited.singleton (i, j)` rather than a unit cost.\n\n## Lean declarations\n\n- `LCS.lcs : List α → List α → CostM (Visited (ℕ × ℕ)) ℕ`.\n- `LCS.lcs_cost_subset` — footprint `⊆` the DP grid (via a private\n  `range_prod_mono` monotonicity lemma).\n- `LCS.lcs_cost_card_le` — the `(|xs|+1)(|ys|+1)` cell-count bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Footprint cost monoids\n  ([[node:foundation.cost.visited]])."
+      }
+    },
+    {
+      "index": 3,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'foundation.cost.costm' from 'foundation.cost.examples.memo_fib'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "foundation.cost.examples.memo_fib",
+        "dependency": "foundation.cost.costm"
+      },
+      "before": {
+        "id": "foundation.cost.examples.memo_fib",
+        "title": "Worked Example: Memoized Fibonacci Footprint",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.visited"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/memo_fib.md",
+        "body": "# Worked Example: Memoized Fibonacci Footprint\n\nFibonacci instrumented in `CostM (Visited ℕ)` ([[node:foundation.cost.visited]]),\nso the cost field records the **set of indices** the recursion touches rather\nthan a call count. Because the `Visited` monoid is idempotent, the footprint\ncollapses to the distinct subproblems:\n$$\n  (\\operatorname{fib} n).\\mathrm{cost}.\\mathrm{toFinset}\n    \\;=\\; \\{0, 1, \\dots, n\\} \\;=\\; \\operatorname{range}(n+1),\n$$\nhence `fib_cost_card : (fib n).cost.toFinset.card = n + 1` — exactly `n+1`\ndistinct subproblems, the hallmark of an `O(n)` memoized DP.\n\nCorrectness and cost are proved independently: `fib_value : (fib n).ret =\nNat.fib n` lives on `.ret`, while `fib_cost` lives on `.cost`. This is the\nintended `CostM` separation ([[node:foundation.cost.costm]]).\n\n## Lean declarations\n\n- `MemoFib.fibAux`, `MemoFib.fib` — the instrumented recursion and its wrapper.\n- `MemoFib.fibAux_ret`, `MemoFib.fib_value` — correctness (`= Nat.fib`).\n- `MemoFib.fibAux_cost`, `MemoFib.fib_cost`, `MemoFib.fib_cost_card` — the\n  footprint equals `range (n+1)`, of cardinality `n+1`.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Memoization as an\n  idempotent cost monoid ([[node:foundation.cost.visited]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.memo_fib",
+        "title": "Worked Example: Memoized Fibonacci Footprint",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.visited"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/memo_fib.md",
+        "body": "# Worked Example: Memoized Fibonacci Footprint\n\nFibonacci instrumented in `CostM (Visited ℕ)` ([[node:foundation.cost.visited]]),\nso the cost field records the **set of indices** the recursion touches rather\nthan a call count. Because the `Visited` monoid is idempotent, the footprint\ncollapses to the distinct subproblems:\n$$\n  (\\operatorname{fib} n).\\mathrm{cost}.\\mathrm{toFinset}\n    \\;=\\; \\{0, 1, \\dots, n\\} \\;=\\; \\operatorname{range}(n+1),\n$$\nhence `fib_cost_card : (fib n).cost.toFinset.card = n + 1` — exactly `n+1`\ndistinct subproblems, the hallmark of an `O(n)` memoized DP.\n\nCorrectness and cost are proved independently: `fib_value : (fib n).ret =\nNat.fib n` lives on `.ret`, while `fib_cost` lives on `.cost`. This is the\nintended `CostM` separation ([[node:foundation.cost.costm]]).\n\n## Lean declarations\n\n- `MemoFib.fibAux`, `MemoFib.fib` — the instrumented recursion and its wrapper.\n- `MemoFib.fibAux_ret`, `MemoFib.fib_value` — correctness (`= Nat.fib`).\n- `MemoFib.fibAux_cost`, `MemoFib.fib_cost`, `MemoFib.fib_cost_card` — the\n  footprint equals `range (n+1)`, of cardinality `n+1`.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Memoization as an\n  idempotent cost monoid ([[node:foundation.cost.visited]])."
+      }
+    },
+    {
+      "index": 4,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'foundation.cost.costm' from 'foundation.cost.examples.par_all'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "foundation.cost.examples.par_all",
+        "dependency": "foundation.cost.costm"
+      },
+      "before": {
+        "id": "foundation.cost.examples.par_all",
+        "title": "Worked Example: N-ary parList Depth Bound",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.parallel"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/par_all.md",
+        "body": "# Worked Example: N-ary parList Depth Bound\n\nThe n-ary `parList` combinator ([[node:foundation.cost.parallel]]) applied to a\nlist of independent unit-cost operations. Because the costs are folded with\n`⊔` from `⊥`, running `n` operations that each charge one unit in parallel has\ndepth-1 cost:\n$$\n  (\\operatorname{parList}\\,ms).\\mathrm{cost}\n    \\;=\\; \\bigsqcup_i (m_i).\\mathrm{cost} \\;\\le\\; 1,\n$$\nproved as `parMap_unit_cost_le`. This is the flat fan-out / fan-in schedule:\narbitrarily many independent unit tasks cost the same as one, the defining\nproperty distinguishing the parallel `⊔` cost from the sequential `+` cost\n([[node:foundation.cost.costm]]). The empty-list base case (`parList [] `has\ncost `⊥ = 0`) is exercised by the accompanying examples in the source file.\n\n## Lean declarations\n\n- `ParAll.parMap_unit_cost_le` — the `parList`-of-unit-tasks depth bound `≤ 1`,\n  alongside two `example`s pinning the empty and singleton cases.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. The underlying cost\n  monad ([[node:foundation.cost.costm]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.par_all",
+        "title": "Worked Example: N-ary parList Depth Bound",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.parallel"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/par_all.md",
+        "body": "# Worked Example: N-ary parList Depth Bound\n\nThe n-ary `parList` combinator ([[node:foundation.cost.parallel]]) applied to a\nlist of independent unit-cost operations. Because the costs are folded with\n`⊔` from `⊥`, running `n` operations that each charge one unit in parallel has\ndepth-1 cost:\n$$\n  (\\operatorname{parList}\\,ms).\\mathrm{cost}\n    \\;=\\; \\bigsqcup_i (m_i).\\mathrm{cost} \\;\\le\\; 1,\n$$\nproved as `parMap_unit_cost_le`. This is the flat fan-out / fan-in schedule:\narbitrarily many independent unit tasks cost the same as one, the defining\nproperty distinguishing the parallel `⊔` cost from the sequential `+` cost\n([[node:foundation.cost.costm]]). The empty-list base case (`parList [] `has\ncost `⊥ = 0`) is exercised by the accompanying examples in the source file.\n\n## Lean declarations\n\n- `ParAll.parMap_unit_cost_le` — the `parList`-of-unit-tasks depth bound `≤ 1`,\n  alongside two `example`s pinning the empty and singleton cases.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. The underlying cost\n  monad ([[node:foundation.cost.costm]])."
+      }
+    },
+    {
+      "index": 5,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'foundation.cost.costm' from 'foundation.cost.examples.par_sum'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "foundation.cost.examples.par_sum",
+        "dependency": "foundation.cost.costm"
+      },
+      "before": {
+        "id": "foundation.cost.examples.par_sum",
+        "title": "Worked Example: Balanced Parallel Sum Depth",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.parallel"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/par_sum.md",
+        "body": "# Worked Example: Balanced Parallel Sum Depth\n\nA divide-and-conquer list sum built from `par` ([[node:foundation.cost.parallel]]),\nwhere cost is combined by `⊔` so that `.cost` measures parallel **depth**, not\ntotal work. Splitting the list in half and summing the halves in parallel\ngives a logarithmic depth,\n$$\n  (\\operatorname{parSum}\\,xs).\\mathrm{cost} \\;\\le\\; \\lceil \\log_2 |xs| \\rceil,\n$$\ni.e. `parSum_cost_le_clog` (`Nat.clog 2 xs.length`). The coarser linear bound\n`parSum_cost_le_length` is also provided. This is the depth-side counterpart of\nthe additive-work examples: the same algorithm under `+` would cost `O(n)`, but\nunder `⊔` the independent branches overlap and only the tree height counts.\n\n## Lean declarations\n\n- `ParSum.parSum : List ℕ → CostM ℕ ℕ` — the balanced parallel sum.\n- `ParSum.parSum_cost_le_clog` — the `⌈log₂ n⌉` depth bound.\n- `ParSum.parSum_cost_le_length` — the coarser linear bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. The underlying cost\n  monad ([[node:foundation.cost.costm]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.par_sum",
+        "title": "Worked Example: Balanced Parallel Sum Depth",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.parallel"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/par_sum.md",
+        "body": "# Worked Example: Balanced Parallel Sum Depth\n\nA divide-and-conquer list sum built from `par` ([[node:foundation.cost.parallel]]),\nwhere cost is combined by `⊔` so that `.cost` measures parallel **depth**, not\ntotal work. Splitting the list in half and summing the halves in parallel\ngives a logarithmic depth,\n$$\n  (\\operatorname{parSum}\\,xs).\\mathrm{cost} \\;\\le\\; \\lceil \\log_2 |xs| \\rceil,\n$$\ni.e. `parSum_cost_le_clog` (`Nat.clog 2 xs.length`). The coarser linear bound\n`parSum_cost_le_length` is also provided. This is the depth-side counterpart of\nthe additive-work examples: the same algorithm under `+` would cost `O(n)`, but\nunder `⊔` the independent branches overlap and only the tree height counts.\n\n## Lean declarations\n\n- `ParSum.parSum : List ℕ → CostM ℕ ℕ` — the balanced parallel sum.\n- `ParSum.parSum_cost_le_clog` — the `⌈log₂ n⌉` depth bound.\n- `ParSum.parSum_cost_le_length` — the coarser linear bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. The underlying cost\n  monad ([[node:foundation.cost.costm]])."
+      }
+    },
+    {
+      "index": 6,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance' from 'game_theory.strategic_game.finite_game_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.strategic_game.finite_game_catalog",
+        "dependency": "game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance"
+      },
+      "before": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance",
+          "game_theory.extensive_game.perfect_information.zermelo_determinacy",
+          "math.minimax.loomis_theorem",
+          "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium",
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      },
+      "after": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.zermelo_determinacy",
+          "math.minimax.loomis_theorem",
+          "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium",
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      }
+    },
+    {
+      "index": 7,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'game_theory.extensive_game.perfect_information.zermelo_determinacy' from 'game_theory.strategic_game.finite_game_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.strategic_game.finite_game_catalog",
+        "dependency": "game_theory.extensive_game.perfect_information.zermelo_determinacy"
+      },
+      "before": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.zermelo_determinacy",
+          "math.minimax.loomis_theorem",
+          "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium",
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      },
+      "after": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "math.minimax.loomis_theorem",
+          "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium",
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      }
+    },
+    {
+      "index": 8,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'math.minimax.loomis_theorem' from 'game_theory.strategic_game.finite_game_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.strategic_game.finite_game_catalog",
+        "dependency": "math.minimax.loomis_theorem"
+      },
+      "before": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "math.minimax.loomis_theorem",
+          "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium",
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      },
+      "after": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium",
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      }
+    },
+    {
+      "index": 9,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium' from 'game_theory.strategic_game.finite_game_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.strategic_game.finite_game_catalog",
+        "dependency": "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium"
+      },
+      "before": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium",
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      },
+      "after": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      }
+    },
+    {
+      "index": 10,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'game_theory.strategic_game.equilibrium.nash_existence_finite_games' from 'game_theory.strategic_game.finite_game_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.strategic_game.finite_game_catalog",
+        "dependency": "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+      },
+      "before": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      },
+      "after": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      }
+    },
+    {
+      "index": 11,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance' from 'game_theory.extensive_game.theorems_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.extensive_game.theorems_catalog",
+        "dependency": "game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance"
+      },
+      "before": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance",
+          "game_theory.extensive_game.perfect_information.zermelo_determinacy",
+          "game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium",
+          "game_theory.extensive_game.perfect_information.spe_implies_nash"
+        ],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      },
+      "after": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.zermelo_determinacy",
+          "game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium",
+          "game_theory.extensive_game.perfect_information.spe_implies_nash"
+        ],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      }
+    },
+    {
+      "index": 12,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'game_theory.extensive_game.perfect_information.zermelo_determinacy' from 'game_theory.extensive_game.theorems_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.extensive_game.theorems_catalog",
+        "dependency": "game_theory.extensive_game.perfect_information.zermelo_determinacy"
+      },
+      "before": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.zermelo_determinacy",
+          "game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium",
+          "game_theory.extensive_game.perfect_information.spe_implies_nash"
+        ],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      },
+      "after": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium",
+          "game_theory.extensive_game.perfect_information.spe_implies_nash"
+        ],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      }
+    },
+    {
+      "index": 13,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium' from 'game_theory.extensive_game.theorems_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.extensive_game.theorems_catalog",
+        "dependency": "game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium"
+      },
+      "before": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium",
+          "game_theory.extensive_game.perfect_information.spe_implies_nash"
+        ],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      },
+      "after": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.spe_implies_nash"
+        ],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      }
+    },
+    {
+      "index": 14,
+      "op": "remove-dependency",
+      "status": "applied",
+      "message": "would remove dependency 'game_theory.extensive_game.perfect_information.spe_implies_nash' from 'game_theory.extensive_game.theorems_catalog'",
+      "operation": {
+        "op": "remove-dependency",
+        "node_id": "game_theory.extensive_game.theorems_catalog",
+        "dependency": "game_theory.extensive_game.perfect_information.spe_implies_nash"
+      },
+      "before": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.spe_implies_nash"
+        ],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      },
+      "after": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      }
+    },
+    {
+      "index": 15,
+      "op": "add-dependency",
+      "status": "applied",
+      "message": "would add dependency 'social_choice.fair_division.allocation' to 'social_choice.fair_division.indivisible.allocation'",
+      "operation": {
+        "op": "add-dependency",
+        "node_id": "social_choice.fair_division.indivisible.allocation",
+        "dependency": "social_choice.fair_division.allocation"
+      },
+      "before": {
+        "id": "social_choice.fair_division.indivisible.allocation",
+        "title": "Indivisible Allocation",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/indivisible/allocation.md",
+        "body": "# Indivisible Allocation\n\nFor a population $N$ and a finite type of goods $G$ (with\n`[DecidableEq G]`), an *indivisible allocation* assigns each agent a\nbundle (a finite subset of $G$):\n$$\nA : N \\to \\mathrm{Finset}\\ G.\n$$\n\nIn Lean: `SocialChoice.FairDivision.Indivisible.Allocation N G := N → Finset G`,\na plain type alias.\n\n## Partition predicate\n\nA *complete* indivisible allocation partitions an outer good set\n`allGoods : Finset G`. In Lean: `IsAllocation` is a structure with two\nfields:\n\n- `disjoint : ∀ i ≠ j, Disjoint (A i) (A j)` — agents receive disjoint\n  bundles;\n- `complete : allGoods = Finset.univ.biUnion A` — every good in\n  `allGoods` is allocated to some agent.\n\nThe class hypotheses `[Fintype N]` and `[DecidableEq G]` are required\nby the `Finset.univ.biUnion` and `Disjoint` operators.\n\nA small derived fact `IsAllocation.mem_biUnion` says every good in\n`allGoods` belongs to some agent's bundle.\n\n## Why feasibility is a separate predicate\n\nAlgorithms like round-robin\n([[social_choice.fair_division.indivisible.round_robin_alloc]]) and\nenvy-cycle elimination\n([[social_choice.fair_division.indivisible.envy_cycle_algorithm]])\nmanipulate raw allocations (function values, not partition witnesses) in\nintermediate states. Keeping `Allocation` as a plain function type and\n`IsAllocation` as a separate hypothesis lets these algorithms be\nwritten without prematurely committing to partition invariants at\nevery step.\n\n## References\n\n- [AGT Chapter 11] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Indivisible goods allocations."
+      },
+      "after": {
+        "id": "social_choice.fair_division.indivisible.allocation",
+        "title": "Indivisible Allocation",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.allocation"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/indivisible/allocation.md",
+        "body": "# Indivisible Allocation\n\nFor a population $N$ and a finite type of goods $G$ (with\n`[DecidableEq G]`), an *indivisible allocation* assigns each agent a\nbundle (a finite subset of $G$):\n$$\nA : N \\to \\mathrm{Finset}\\ G.\n$$\n\nIn Lean: `SocialChoice.FairDivision.Indivisible.Allocation N G := N → Finset G`,\na plain type alias.\n\n## Partition predicate\n\nA *complete* indivisible allocation partitions an outer good set\n`allGoods : Finset G`. In Lean: `IsAllocation` is a structure with two\nfields:\n\n- `disjoint : ∀ i ≠ j, Disjoint (A i) (A j)` — agents receive disjoint\n  bundles;\n- `complete : allGoods = Finset.univ.biUnion A` — every good in\n  `allGoods` is allocated to some agent.\n\nThe class hypotheses `[Fintype N]` and `[DecidableEq G]` are required\nby the `Finset.univ.biUnion` and `Disjoint` operators.\n\nA small derived fact `IsAllocation.mem_biUnion` says every good in\n`allGoods` belongs to some agent's bundle.\n\n## Why feasibility is a separate predicate\n\nAlgorithms like round-robin\n([[social_choice.fair_division.indivisible.round_robin_alloc]]) and\nenvy-cycle elimination\n([[social_choice.fair_division.indivisible.envy_cycle_algorithm]])\nmanipulate raw allocations (function values, not partition witnesses) in\nintermediate states. Keeping `Allocation` as a plain function type and\n`IsAllocation` as a separate hypothesis lets these algorithms be\nwritten without prematurely committing to partition invariants at\nevery step.\n\n## References\n\n- [AGT Chapter 11] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Indivisible goods allocations."
+      }
+    },
+    {
+      "index": 16,
+      "op": "add-dependency",
+      "status": "applied",
+      "message": "would add dependency 'social_choice.fair_division.divisible.allocation' to 'social_choice.fair_division.divisible.ordinal_instance'",
+      "operation": {
+        "op": "add-dependency",
+        "node_id": "social_choice.fair_division.divisible.ordinal_instance",
+        "dependency": "social_choice.fair_division.divisible.allocation"
+      },
+      "before": {
+        "id": "social_choice.fair_division.divisible.ordinal_instance",
+        "title": "Divisible Ordinal Instance",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.share_instance"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.divisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.divisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/divisible/ordinal_instance.md",
+        "body": "# Divisible Ordinal Instance\n\nA *divisible ordinal instance* is the no-externality share model\nspecialized to cake-cutting: each agent's preference is an ordinal\npreference on cake pieces $\\mathrm{Set}\\ \\Omega$.\n\nIn Lean: structure `SocialChoice.FairDivision.Divisible.Instance N Ω`\nwith a single field `sharePref : N → Pref (Set Ω)`.\n\nFeasibility is fixed at the divisible-allocation level (a measurable\npartition of $\\Omega$, the predicate\n[[social_choice.fair_division.divisible.allocation]]). The instance's\n`feasible` member is therefore a definitional alias for `IsAllocation`.\n\n## Bridge to the generic share-instance API\n\n`Divisible.Instance.toShareInstance` views the divisible instance as a\nno-externality share instance\n([[social_choice.fair_division.share_instance]]) over the share type\n$S = \\mathrm{Set}\\ \\Omega$ and resource value $\\mathrm{Set.univ}$. This\nmakes every fair-division solution concept stated against the generic\n`ShareInstance` API ([[social_choice.fair_division.solution_concept]])\nautomatically applicable to divisible instances.\n\nThe cardinal-instance and measure-instance specializations\n([[social_choice.fair_division.divisible.cardinal_instance]],\n[[social_choice.fair_division.divisible.measure_instance]]) feed into\nthe same bridge — the entire divisible track plugs into the shared\nsocial-choice infrastructure through these wrappers.\n\n## References\n\n- [AGT Chapter 13] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Cake-cutting instances."
+      },
+      "after": {
+        "id": "social_choice.fair_division.divisible.ordinal_instance",
+        "title": "Divisible Ordinal Instance",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.share_instance",
+          "social_choice.fair_division.divisible.allocation"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.divisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.divisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/divisible/ordinal_instance.md",
+        "body": "# Divisible Ordinal Instance\n\nA *divisible ordinal instance* is the no-externality share model\nspecialized to cake-cutting: each agent's preference is an ordinal\npreference on cake pieces $\\mathrm{Set}\\ \\Omega$.\n\nIn Lean: structure `SocialChoice.FairDivision.Divisible.Instance N Ω`\nwith a single field `sharePref : N → Pref (Set Ω)`.\n\nFeasibility is fixed at the divisible-allocation level (a measurable\npartition of $\\Omega$, the predicate\n[[social_choice.fair_division.divisible.allocation]]). The instance's\n`feasible` member is therefore a definitional alias for `IsAllocation`.\n\n## Bridge to the generic share-instance API\n\n`Divisible.Instance.toShareInstance` views the divisible instance as a\nno-externality share instance\n([[social_choice.fair_division.share_instance]]) over the share type\n$S = \\mathrm{Set}\\ \\Omega$ and resource value $\\mathrm{Set.univ}$. This\nmakes every fair-division solution concept stated against the generic\n`ShareInstance` API ([[social_choice.fair_division.solution_concept]])\nautomatically applicable to divisible instances.\n\nThe cardinal-instance and measure-instance specializations\n([[social_choice.fair_division.divisible.cardinal_instance]],\n[[social_choice.fair_division.divisible.measure_instance]]) feed into\nthe same bridge — the entire divisible track plugs into the shared\nsocial-choice infrastructure through these wrappers.\n\n## References\n\n- [AGT Chapter 13] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Cake-cutting instances."
+      }
+    },
+    {
+      "index": 17,
+      "op": "add-dependency",
+      "status": "applied",
+      "message": "would add dependency 'social_choice.fair_division.indivisible.ordinal_instance' to 'social_choice.fair_division.indivisible.cardinal_instance'",
+      "operation": {
+        "op": "add-dependency",
+        "node_id": "social_choice.fair_division.indivisible.cardinal_instance",
+        "dependency": "social_choice.fair_division.indivisible.ordinal_instance"
+      },
+      "before": {
+        "id": "social_choice.fair_division.indivisible.cardinal_instance",
+        "title": "Indivisible Cardinal Instance",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.indivisible.valuation",
+          "social_choice.fair_division.cardinal_instance",
+          "social_choice.fair_division.envy_free",
+          "social_choice.fair_division.proportional",
+          "social_choice.fair_division.utilitarian_welfare",
+          "social_choice.fair_division.egalitarian_welfare"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/indivisible/cardinal_instance.md",
+        "body": "# Indivisible Cardinal Instance\n\nAn *indivisible cardinal instance* assigns each agent a real-valued\nutility for every bundle:\n$$\n\\mathrm{utility} : N \\to \\mathrm{Finset}\\ G \\to \\mathbb{R}.\n$$\n\nIn Lean: structure `SocialChoice.FairDivision.Indivisible.CardinalInstance N G`\nwith a `utility` field plus the outer good set `allGoods : Finset G`.\n\n## Bridges\n\n- `toValuation` — wrap as a bare `Valuation`\n  ([[social_choice.fair_division.indivisible.valuation]]).\n- `toGenericCardinalInstance` — view as a generic real-valued cardinal\n  fair-division instance ([[social_choice.fair_division.cardinal_instance]])\n  over share type $\\mathrm{Finset}\\ G$ and resource value `allGoods`.\n- `toShareInstance` — compose with `inducedSharePref` to get the\n  underlying indivisible ordinal instance\n  ([[social_choice.fair_division.indivisible.ordinal_instance]]).\n\n## Instance-keyed wrappers\n\nA full menu of instance-keyed fairness and welfare predicates is\nre-exported:\n\n- `IsEnvyFree`, `IsEF1`, `IsEFX`, `IsProportional`, `IsEquitable`,\n  `IsMaxminShare` — fairness predicates.\n- `IsParetoOptimal`, `IsUtilitarianOptimal`, `IsMaxmin` — efficiency\n  / welfare-optimality predicates.\n\nAll wrappers are definitional pass-throughs to the corresponding\ngeneric or `Indivisible`-prefixed predicates with $I.\\mathrm{utility}$\nand feasibility supplied from the instance.\n\n## References\n\n- [AGT Chapter 11] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Cardinal valuations in indivisible fair division."
+      },
+      "after": {
+        "id": "social_choice.fair_division.indivisible.cardinal_instance",
+        "title": "Indivisible Cardinal Instance",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.indivisible.valuation",
+          "social_choice.fair_division.cardinal_instance",
+          "social_choice.fair_division.envy_free",
+          "social_choice.fair_division.proportional",
+          "social_choice.fair_division.utilitarian_welfare",
+          "social_choice.fair_division.egalitarian_welfare",
+          "social_choice.fair_division.indivisible.ordinal_instance"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/indivisible/cardinal_instance.md",
+        "body": "# Indivisible Cardinal Instance\n\nAn *indivisible cardinal instance* assigns each agent a real-valued\nutility for every bundle:\n$$\n\\mathrm{utility} : N \\to \\mathrm{Finset}\\ G \\to \\mathbb{R}.\n$$\n\nIn Lean: structure `SocialChoice.FairDivision.Indivisible.CardinalInstance N G`\nwith a `utility` field plus the outer good set `allGoods : Finset G`.\n\n## Bridges\n\n- `toValuation` — wrap as a bare `Valuation`\n  ([[social_choice.fair_division.indivisible.valuation]]).\n- `toGenericCardinalInstance` — view as a generic real-valued cardinal\n  fair-division instance ([[social_choice.fair_division.cardinal_instance]])\n  over share type $\\mathrm{Finset}\\ G$ and resource value `allGoods`.\n- `toShareInstance` — compose with `inducedSharePref` to get the\n  underlying indivisible ordinal instance\n  ([[social_choice.fair_division.indivisible.ordinal_instance]]).\n\n## Instance-keyed wrappers\n\nA full menu of instance-keyed fairness and welfare predicates is\nre-exported:\n\n- `IsEnvyFree`, `IsEF1`, `IsEFX`, `IsProportional`, `IsEquitable`,\n  `IsMaxminShare` — fairness predicates.\n- `IsParetoOptimal`, `IsUtilitarianOptimal`, `IsMaxmin` — efficiency\n  / welfare-optimality predicates.\n\nAll wrappers are definitional pass-throughs to the corresponding\ngeneric or `Indivisible`-prefixed predicates with $I.\\mathrm{utility}$\nand feasibility supplied from the instance.\n\n## References\n\n- [AGT Chapter 11] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Cardinal valuations in indivisible fair division."
+      }
+    }
+  ],
+  "operation_diagnostics": [],
+  "new_diagnostics": [],
+  "resolved_diagnostics": [],
+  "added_nodes": [],
+  "changed_nodes": [
+    {
+      "node_id": "foundation.cost.examples.boyer_moore",
+      "before": {
+        "id": "foundation.cost.examples.boyer_moore",
+        "title": "Worked Example: Constant-Space Boyer–Moore Majority",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.cells"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/boyer_moore.md",
+        "body": "# Worked Example: Constant-Space Boyer–Moore Majority\n\nThe Boyer–Moore majority vote in `CostM Cells` ([[node:foundation.cost.cells]]),\nproving a **constant** peak-memory bound: regardless of input length, the peak\nworking set is two cells — one candidate and one counter,\n$$\n  (\\operatorname{majority}\\,xs).\\mathrm{cost}.\\mathrm{peak} \\;\\le\\; 2,\n$$\nwhich is `majority_peak_le`. The mechanism is that the single-pass `loop`\nallocates nothing — `loop_cost : (majority.loop \\ldots).cost = 0` — so the only\ncontributions to the peak come from one `alloc 2` / `free 2` pair bracketing\nthe pass. Because peak (not sum) is the resource, the tropical `Cells` monoid\nis essential here; an additive `ℕ` cost cannot state this bound.\n\nThis example deliberately **does not** prove functional correctness (that\n`majority` returns the true majority when one exists). That omission is the\npoint: in `CostM` the complexity bound lives on `.cost` and is provable in\ncomplete isolation from the `.ret` value, demonstrating the\ncorrectness/complexity decoupling described in [[node:foundation.cost.costm]].\n\n## Lean declarations\n\n- `BoyerMoore.majority : List α → CostM Cells (Option α)` with its single-pass\n  `where loop` carrying the candidate and counter.\n- `BoyerMoore.loop_cost` — the loop contributes zero cost.\n- `BoyerMoore.majority_peak_le` — the constant `peak ≤ 2` bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Cost monoids for\n  resource analysis ([[node:foundation.cost.cells]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.boyer_moore",
+        "title": "Worked Example: Constant-Space Boyer–Moore Majority",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.cells"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/boyer_moore.md",
+        "body": "# Worked Example: Constant-Space Boyer–Moore Majority\n\nThe Boyer–Moore majority vote in `CostM Cells` ([[node:foundation.cost.cells]]),\nproving a **constant** peak-memory bound: regardless of input length, the peak\nworking set is two cells — one candidate and one counter,\n$$\n  (\\operatorname{majority}\\,xs).\\mathrm{cost}.\\mathrm{peak} \\;\\le\\; 2,\n$$\nwhich is `majority_peak_le`. The mechanism is that the single-pass `loop`\nallocates nothing — `loop_cost : (majority.loop \\ldots).cost = 0` — so the only\ncontributions to the peak come from one `alloc 2` / `free 2` pair bracketing\nthe pass. Because peak (not sum) is the resource, the tropical `Cells` monoid\nis essential here; an additive `ℕ` cost cannot state this bound.\n\nThis example deliberately **does not** prove functional correctness (that\n`majority` returns the true majority when one exists). That omission is the\npoint: in `CostM` the complexity bound lives on `.cost` and is provable in\ncomplete isolation from the `.ret` value, demonstrating the\ncorrectness/complexity decoupling described in [[node:foundation.cost.costm]].\n\n## Lean declarations\n\n- `BoyerMoore.majority : List α → CostM Cells (Option α)` with its single-pass\n  `where loop` carrying the candidate and counter.\n- `BoyerMoore.loop_cost` — the loop contributes zero cost.\n- `BoyerMoore.majority_peak_le` — the constant `peak ≤ 2` bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Cost monoids for\n  resource analysis ([[node:foundation.cost.cells]])."
+      }
+    },
+    {
+      "node_id": "foundation.cost.examples.lcs",
+      "before": {
+        "id": "foundation.cost.examples.lcs",
+        "title": "Worked Example: Longest Common Subsequence DP Grid",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.visited"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/lcs.md",
+        "body": "# Worked Example: Longest Common Subsequence DP Grid\n\nLongest common subsequence in `CostM (Visited (ℕ × ℕ))`: the cost footprint is\nnow a set of **2-D grid cells** `(i, j)`, one per `(prefix of xs, prefix of\nys)` subproblem. The memoization footprint is contained in the full DP grid,\n$$\n  (\\operatorname{lcs}\\,xs\\,ys).\\mathrm{cost} \\;\\subseteq\\;\n    \\{0,\\dots,|xs|\\} \\times \\{0,\\dots,|ys|\\},\n$$\nwhich is `lcs_cost_subset`; taking cardinalities gives the polynomial-space\nbound\n$$\n  (\\operatorname{lcs}\\,xs\\,ys).\\mathrm{cost}.\\mathrm{toFinset}.\\mathrm{card}\n    \\;\\le\\; (|xs|+1)\\,(|ys|+1),\n$$\ni.e. `lcs_cost_card_le`. This is the canonical polynomial-space DP example —\nthe 2-D analogue of [[node:foundation.cost.examples.memo_fib]].\n\n`lcs` uses the bare `CostM.tick` form (rather than the `✓` macro) at its\nfootprint-recording points, since each tick records a specific grid cell\n`Visited.singleton (i, j)` rather than a unit cost.\n\n## Lean declarations\n\n- `LCS.lcs : List α → List α → CostM (Visited (ℕ × ℕ)) ℕ`.\n- `LCS.lcs_cost_subset` — footprint `⊆` the DP grid (via a private\n  `range_prod_mono` monotonicity lemma).\n- `LCS.lcs_cost_card_le` — the `(|xs|+1)(|ys|+1)` cell-count bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Footprint cost monoids\n  ([[node:foundation.cost.visited]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.lcs",
+        "title": "Worked Example: Longest Common Subsequence DP Grid",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.visited"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/lcs.md",
+        "body": "# Worked Example: Longest Common Subsequence DP Grid\n\nLongest common subsequence in `CostM (Visited (ℕ × ℕ))`: the cost footprint is\nnow a set of **2-D grid cells** `(i, j)`, one per `(prefix of xs, prefix of\nys)` subproblem. The memoization footprint is contained in the full DP grid,\n$$\n  (\\operatorname{lcs}\\,xs\\,ys).\\mathrm{cost} \\;\\subseteq\\;\n    \\{0,\\dots,|xs|\\} \\times \\{0,\\dots,|ys|\\},\n$$\nwhich is `lcs_cost_subset`; taking cardinalities gives the polynomial-space\nbound\n$$\n  (\\operatorname{lcs}\\,xs\\,ys).\\mathrm{cost}.\\mathrm{toFinset}.\\mathrm{card}\n    \\;\\le\\; (|xs|+1)\\,(|ys|+1),\n$$\ni.e. `lcs_cost_card_le`. This is the canonical polynomial-space DP example —\nthe 2-D analogue of [[node:foundation.cost.examples.memo_fib]].\n\n`lcs` uses the bare `CostM.tick` form (rather than the `✓` macro) at its\nfootprint-recording points, since each tick records a specific grid cell\n`Visited.singleton (i, j)` rather than a unit cost.\n\n## Lean declarations\n\n- `LCS.lcs : List α → List α → CostM (Visited (ℕ × ℕ)) ℕ`.\n- `LCS.lcs_cost_subset` — footprint `⊆` the DP grid (via a private\n  `range_prod_mono` monotonicity lemma).\n- `LCS.lcs_cost_card_le` — the `(|xs|+1)(|ys|+1)` cell-count bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Footprint cost monoids\n  ([[node:foundation.cost.visited]])."
+      }
+    },
+    {
+      "node_id": "foundation.cost.examples.memo_fib",
+      "before": {
+        "id": "foundation.cost.examples.memo_fib",
+        "title": "Worked Example: Memoized Fibonacci Footprint",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.visited"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/memo_fib.md",
+        "body": "# Worked Example: Memoized Fibonacci Footprint\n\nFibonacci instrumented in `CostM (Visited ℕ)` ([[node:foundation.cost.visited]]),\nso the cost field records the **set of indices** the recursion touches rather\nthan a call count. Because the `Visited` monoid is idempotent, the footprint\ncollapses to the distinct subproblems:\n$$\n  (\\operatorname{fib} n).\\mathrm{cost}.\\mathrm{toFinset}\n    \\;=\\; \\{0, 1, \\dots, n\\} \\;=\\; \\operatorname{range}(n+1),\n$$\nhence `fib_cost_card : (fib n).cost.toFinset.card = n + 1` — exactly `n+1`\ndistinct subproblems, the hallmark of an `O(n)` memoized DP.\n\nCorrectness and cost are proved independently: `fib_value : (fib n).ret =\nNat.fib n` lives on `.ret`, while `fib_cost` lives on `.cost`. This is the\nintended `CostM` separation ([[node:foundation.cost.costm]]).\n\n## Lean declarations\n\n- `MemoFib.fibAux`, `MemoFib.fib` — the instrumented recursion and its wrapper.\n- `MemoFib.fibAux_ret`, `MemoFib.fib_value` — correctness (`= Nat.fib`).\n- `MemoFib.fibAux_cost`, `MemoFib.fib_cost`, `MemoFib.fib_cost_card` — the\n  footprint equals `range (n+1)`, of cardinality `n+1`.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Memoization as an\n  idempotent cost monoid ([[node:foundation.cost.visited]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.memo_fib",
+        "title": "Worked Example: Memoized Fibonacci Footprint",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.visited"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/memo_fib.md",
+        "body": "# Worked Example: Memoized Fibonacci Footprint\n\nFibonacci instrumented in `CostM (Visited ℕ)` ([[node:foundation.cost.visited]]),\nso the cost field records the **set of indices** the recursion touches rather\nthan a call count. Because the `Visited` monoid is idempotent, the footprint\ncollapses to the distinct subproblems:\n$$\n  (\\operatorname{fib} n).\\mathrm{cost}.\\mathrm{toFinset}\n    \\;=\\; \\{0, 1, \\dots, n\\} \\;=\\; \\operatorname{range}(n+1),\n$$\nhence `fib_cost_card : (fib n).cost.toFinset.card = n + 1` — exactly `n+1`\ndistinct subproblems, the hallmark of an `O(n)` memoized DP.\n\nCorrectness and cost are proved independently: `fib_value : (fib n).ret =\nNat.fib n` lives on `.ret`, while `fib_cost` lives on `.cost`. This is the\nintended `CostM` separation ([[node:foundation.cost.costm]]).\n\n## Lean declarations\n\n- `MemoFib.fibAux`, `MemoFib.fib` — the instrumented recursion and its wrapper.\n- `MemoFib.fibAux_ret`, `MemoFib.fib_value` — correctness (`= Nat.fib`).\n- `MemoFib.fibAux_cost`, `MemoFib.fib_cost`, `MemoFib.fib_cost_card` — the\n  footprint equals `range (n+1)`, of cardinality `n+1`.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. Memoization as an\n  idempotent cost monoid ([[node:foundation.cost.visited]])."
+      }
+    },
+    {
+      "node_id": "foundation.cost.examples.par_all",
+      "before": {
+        "id": "foundation.cost.examples.par_all",
+        "title": "Worked Example: N-ary parList Depth Bound",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.parallel"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/par_all.md",
+        "body": "# Worked Example: N-ary parList Depth Bound\n\nThe n-ary `parList` combinator ([[node:foundation.cost.parallel]]) applied to a\nlist of independent unit-cost operations. Because the costs are folded with\n`⊔` from `⊥`, running `n` operations that each charge one unit in parallel has\ndepth-1 cost:\n$$\n  (\\operatorname{parList}\\,ms).\\mathrm{cost}\n    \\;=\\; \\bigsqcup_i (m_i).\\mathrm{cost} \\;\\le\\; 1,\n$$\nproved as `parMap_unit_cost_le`. This is the flat fan-out / fan-in schedule:\narbitrarily many independent unit tasks cost the same as one, the defining\nproperty distinguishing the parallel `⊔` cost from the sequential `+` cost\n([[node:foundation.cost.costm]]). The empty-list base case (`parList [] `has\ncost `⊥ = 0`) is exercised by the accompanying examples in the source file.\n\n## Lean declarations\n\n- `ParAll.parMap_unit_cost_le` — the `parList`-of-unit-tasks depth bound `≤ 1`,\n  alongside two `example`s pinning the empty and singleton cases.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. The underlying cost\n  monad ([[node:foundation.cost.costm]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.par_all",
+        "title": "Worked Example: N-ary parList Depth Bound",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.parallel"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/par_all.md",
+        "body": "# Worked Example: N-ary parList Depth Bound\n\nThe n-ary `parList` combinator ([[node:foundation.cost.parallel]]) applied to a\nlist of independent unit-cost operations. Because the costs are folded with\n`⊔` from `⊥`, running `n` operations that each charge one unit in parallel has\ndepth-1 cost:\n$$\n  (\\operatorname{parList}\\,ms).\\mathrm{cost}\n    \\;=\\; \\bigsqcup_i (m_i).\\mathrm{cost} \\;\\le\\; 1,\n$$\nproved as `parMap_unit_cost_le`. This is the flat fan-out / fan-in schedule:\narbitrarily many independent unit tasks cost the same as one, the defining\nproperty distinguishing the parallel `⊔` cost from the sequential `+` cost\n([[node:foundation.cost.costm]]). The empty-list base case (`parList [] `has\ncost `⊥ = 0`) is exercised by the accompanying examples in the source file.\n\n## Lean declarations\n\n- `ParAll.parMap_unit_cost_le` — the `parList`-of-unit-tasks depth bound `≤ 1`,\n  alongside two `example`s pinning the empty and singleton cases.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. The underlying cost\n  monad ([[node:foundation.cost.costm]])."
+      }
+    },
+    {
+      "node_id": "foundation.cost.examples.par_sum",
+      "before": {
+        "id": "foundation.cost.examples.par_sum",
+        "title": "Worked Example: Balanced Parallel Sum Depth",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.costm",
+          "foundation.cost.parallel"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/par_sum.md",
+        "body": "# Worked Example: Balanced Parallel Sum Depth\n\nA divide-and-conquer list sum built from `par` ([[node:foundation.cost.parallel]]),\nwhere cost is combined by `⊔` so that `.cost` measures parallel **depth**, not\ntotal work. Splitting the list in half and summing the halves in parallel\ngives a logarithmic depth,\n$$\n  (\\operatorname{parSum}\\,xs).\\mathrm{cost} \\;\\le\\; \\lceil \\log_2 |xs| \\rceil,\n$$\ni.e. `parSum_cost_le_clog` (`Nat.clog 2 xs.length`). The coarser linear bound\n`parSum_cost_le_length` is also provided. This is the depth-side counterpart of\nthe additive-work examples: the same algorithm under `+` would cost `O(n)`, but\nunder `⊔` the independent branches overlap and only the tree height counts.\n\n## Lean declarations\n\n- `ParSum.parSum : List ℕ → CostM ℕ ℕ` — the balanced parallel sum.\n- `ParSum.parSum_cost_le_clog` — the `⌈log₂ n⌉` depth bound.\n- `ParSum.parSum_cost_le_length` — the coarser linear bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. The underlying cost\n  monad ([[node:foundation.cost.costm]])."
+      },
+      "after": {
+        "id": "foundation.cost.examples.par_sum",
+        "title": "Worked Example: Balanced Parallel Sum Depth",
+        "kind": "example",
+        "status": "formalized",
+        "uses": [
+          "foundation.cost.parallel"
+        ],
+        "primary_topic": "foundation",
+        "home_topic": "foundation",
+        "topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "explicit_topics": [
+          "foundation",
+          "foundation.cost.examples"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/foundation/cost/examples/par_sum.md",
+        "body": "# Worked Example: Balanced Parallel Sum Depth\n\nA divide-and-conquer list sum built from `par` ([[node:foundation.cost.parallel]]),\nwhere cost is combined by `⊔` so that `.cost` measures parallel **depth**, not\ntotal work. Splitting the list in half and summing the halves in parallel\ngives a logarithmic depth,\n$$\n  (\\operatorname{parSum}\\,xs).\\mathrm{cost} \\;\\le\\; \\lceil \\log_2 |xs| \\rceil,\n$$\ni.e. `parSum_cost_le_clog` (`Nat.clog 2 xs.length`). The coarser linear bound\n`parSum_cost_le_length` is also provided. This is the depth-side counterpart of\nthe additive-work examples: the same algorithm under `+` would cost `O(n)`, but\nunder `⊔` the independent branches overlap and only the tree height counts.\n\n## Lean declarations\n\n- `ParSum.parSum : List ℕ → CostM ℕ ℕ` — the balanced parallel sum.\n- `ParSum.parSum_cost_le_clog` — the `⌈log₂ n⌉` depth bound.\n- `ParSum.parSum_cost_le_length` — the coarser linear bound.\n\n## References\n\n- [Danielsson 2008] Nils Anders Danielsson, POPL 2008. The underlying cost\n  monad ([[node:foundation.cost.costm]])."
+      }
+    },
+    {
+      "node_id": "game_theory.extensive_game.theorems_catalog",
+      "before": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance",
+          "game_theory.extensive_game.perfect_information.zermelo_determinacy",
+          "game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium",
+          "game_theory.extensive_game.perfect_information.spe_implies_nash"
+        ],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      },
+      "after": {
+        "id": "game_theory.extensive_game.theorems_catalog",
+        "title": "Extensive-Game Theorems Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [],
+        "primary_topic": "game_theory.extensive_game",
+        "home_topic": "game_theory.extensive_game",
+        "topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "explicit_topics": [
+          "game_theory.extensive_game",
+          "game_theory.extensive_game.perfect_information"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/extensive_game/theorems_catalog.md",
+        "body": "# Extensive-Game Theorems Catalog\n\nIndex of canonical results for **extensive-form games** and their Lean\nlocations in EconCSLib.  Each row links to the dedicated knowledge node and\nthe module that contains the proof.\n\nFor the analogous strategic-game / zero-sum catalog see\n[[game_theory.strategic_game.finite_game_catalog]].\n\n---\n\n## Catalog\n\n### 1. Kuhn's SPE Existence (no chance)\n\n**Result:** Every finite perfect-information game without chance nodes has a\npure-strategy subgame-perfect equilibrium.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeSPE` |\n| Lean declarations | `optStrategy_isSubgamePerfect`, `Kuhn_exists_SPE` |\n| Status | formalized (proof: gap — induction sketch accepted) |\n\n### 2. Kuhn's SPE Existence (with chance)\n\n**Result:** Kuhn's theorem extended to games that include Nature/chance nodes;\nexistence of a mixed-strategy SPE.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.kuhn_spe_existence_with_chance]] |\n| Lean module | pending — see EG-L6 [#220](https://github.com/gametheoryinlean/EconCSLib/issues/220) |\n| Lean declarations | pending |\n| Status | staged; blocked on chance-extension port |\n\n### 3. Zermelo's Determinacy\n\n**Result:** Every finite 2-player zero-sum perfect-information game is determined:\n`optStrategy` is a saddle point with value `value₀ g` — player 0 secures at least\n`value₀ g`, player 1 holds player 0 to at most `value₀ g`. (Bare pure-SPE / Nash\nexistence is the Kuhn instance `zermelo_exists_pure_SPE` / `zermelo_exists_pure_NE`,\nwhich needs no zero-sum hypothesis.)\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zermelo_determinacy]] |\n| Lean module | `EconCSLib.ExtensiveGame.Zermelo` |\n| Lean declarations | `zermelo_determinacy`, `value₀_eq_outcome_and_zeroSum` |\n| Status | formalized |\n\n### 4. Backward-Induction Value Function\n\n**Result:** The backward-induction recursion assigns a well-defined payoff\nvector `value : GameTree N U → (N → U)` to every node of the game tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.zero_sum_perfect_information_value_no_chance]] |\n| Lean module | `EconCSLib.ExtensiveGame.BackwardInduction` |\n| Lean declarations | `value`, `valueList` |\n| Status | formalized |\n\n### 5. SPE Implies Nash\n\n**Result:** Every subgame-perfect equilibrium is a Nash equilibrium of the\nwhole game.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.perfect_information.spe_implies_nash]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeNE` |\n| Lean declarations | `IsSubgamePerfect.toNE` |\n| Status | formalized |\n\n### 6. Normal-Form Reduction\n\n**Result:** The pure-strategy profiles of a game tree form a strategic game\n(`toStrategicGame`); a profile is a Nash equilibrium of that strategic game\nif and only if it is a Nash equilibrium at the root of the tree.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.normal_form.agent_normal_form]] |\n| Lean module | `EconCSLib.ExtensiveGame.GameTreeStrategicForm` |\n| Lean declarations | `GameTree.toStrategicGame`, `toStrategicGame_nash_iff_isNashAt` |\n| Status | formalized |\n\n### 7. Imperfect-Information Strategies\n\n**Result:** Definition of information sets, pure strategies, and behavioral\nstrategies for games with imperfect information.\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.imperfect_information.information_set]] |\n| Lean module | `EconCSLib.ExtensiveGame.ImperfectInformation` |\n| Lean declarations | see module |\n| Status | staged (definitions in place; key theorems pending) |\n\n### 8. Sequential Equilibrium\n\n**Result:** Every finite extensive game with perfect recall has a sequential\nequilibrium (Kreps–Wilson 1982).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.sequential_equilibrium]] |\n| Lean module | pending — see EG-L4 [#182](https://github.com/gametheoryinlean/EconCSLib/issues/182) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L4 #182 |\n\n### 9. Behavioral ≡ Mixed Under Perfect Recall\n\n**Result:** Under perfect recall every mixed strategy is outcome-equivalent to\na behavioral strategy (Kuhn 1953).\n\n| Field | Value |\n|-------|-------|\n| Knowledge node | [[game_theory.extensive_game.isbell_behavioral_to_mixed]] |\n| Lean module | pending — see EG-L2 [#180](https://github.com/gametheoryinlean/EconCSLib/issues/180) |\n| Lean declarations | pending |\n| Status | staged; pending EG-L2 #180 |\n\n---\n\n## Pending items\n\n| Item | Blocked on |\n|------|-----------|\n| Kuhn with chance (row 2) | EG-L6 #220 (chance-extension port) |\n| Sequential equilibrium (row 8) | EG-L4 #182 |\n| Behavioral ≡ mixed (row 9) | EG-L2 #180 |\n\n## References\n\n- Kuhn, H. W. (1953). \"Extensive Games and the Problem of Information.\" In *Contributions to the Theory of Games, Vol. II*.\n- [MFoGT, Ch. 6] Laraki, Renault, and Sorin, *Mathematical Foundations of Game Theory*.\n- [MSZ, Ch. 3–4] Maschler, Solan, Zamir, *Game Theory*.\n- Zermelo, E. (1913). \"Über eine Anwendung der Mengenlehre auf die Theorie des Schachspiels.\""
+      }
+    },
+    {
+      "node_id": "game_theory.strategic_game.finite_game_catalog",
+      "before": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [
+          "game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance",
+          "game_theory.extensive_game.perfect_information.zermelo_determinacy",
+          "math.minimax.loomis_theorem",
+          "game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium",
+          "game_theory.strategic_game.equilibrium.nash_existence_finite_games"
+        ],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      },
+      "after": {
+        "id": "game_theory.strategic_game.finite_game_catalog",
+        "title": "Finite Game Catalog",
+        "kind": "definition",
+        "status": "staged",
+        "uses": [],
+        "primary_topic": "game_theory.strategic_game",
+        "home_topic": "game_theory.strategic_game",
+        "topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "explicit_topics": [
+          "game_theory.strategic_game",
+          "game_theory.strategic_game.core"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/staged/strategic_game/finite_game_catalog.md",
+        "body": "# Finite Game Catalog\n\nIndex of canonical theorems about finite games that are formally proved in\nEconCSLib, distributed across `ExtensiveGame` and `StrategicGame`.  Readers\nlooking for a specific existence result should start here.\n\n## Catalog\n\n- **Kuhn's SPE existence (no chance)** — every finite perfect-information game\n  without chance moves has a pure subgame-perfect equilibrium, constructed by\n  backward induction.\n  Lean: `EconCSLib.ExtensiveGame.GameTreeSPE :: Kuhn_exists_SPE`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance]].\n\n- **Zermelo's determinacy (2-player zero-sum, perfect information)** — every\n  finite 2-player zero-sum perfect-information game is determined: `optStrategy`\n  is a saddle with value `value₀ g`.\n  Lean: `EconCSLib.ExtensiveGame.Zermelo :: zermelo_determinacy`.\n  Knowledge node: [[game_theory.extensive_game.perfect_information.zermelo_determinacy]].\n\n- **Backward-induction value** — the `value` function assigns a payoff vector\n  to every node by backward induction; `valueList` is the mutually recursive\n  helper over lists of subtrees.\n  Lean: `EconCSLib.ExtensiveGame.BackwardInduction :: GameTree.value`,\n  `GameTree.valueList`.\n\n- **Loomis minimax** — every finite matrix game over `ℝ` satisfies\n  `max_x min_y xᵀAy = min_y max_x xᵀAy`, proved by the simplified Loomis\n  induction on `|I| + |J|`.\n  Lean: `EconCSLib.Math.Minimax.LoomisGeneral :: LoomisGeneral.minmax_from_general`\n  (the `B = 𝟙` corollary of the general Loomis theorem).\n  Knowledge nodes: [[math.minimax.loomis_theorem]],\n  [[math.minimax.minimax_from_loomis]].\n\n- **Ordered-field minimax** — the von Neumann minimax theorem over any\n  linearly ordered field, via symmetrisation (an independent route to the\n  same equality).\n  Lean: `EconCSLib.Math.Minimax.Minimax :: Minimax.minimax`.\n\n- **Matrix-game mixed Nash (Loomis route)** — every finite 2-player zero-sum\n  matrix game has a mixed Nash equilibrium, derived from the Loomis minimax\n  saddle point.\n  Lean: `EconCSLib.StrategicGame.MatrixGameNash ::\n  MatrixGame.exists_mixed_nash_equilibrium`.\n  Knowledge node: [[game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium]].\n\n- **General n-player finite Nash (Brouwer route)** — every finite strategic\n  game has a mixed Nash equilibrium (Nash 1951).\n  Lean: planned — `EconCSLib.StrategicGame.Nash ::\n  exists_mixed_nash_equilibrium_finite` (see SG-L2 #199).\n  Knowledge node: [[game_theory.strategic_game.equilibrium.nash_existence_finite_games]].\n\n## Scope\n\nThis node covers *finite* games only.  Infinite-horizon, continuous-action, and\nstochastic game results live in their own sections of the knowledge base.  The\nchance-node extension of Kuhn's theorem (requiring vNM lottery utility) is\ntracked by [[game_theory.extensive_game.kuhn_spe_existence_with_chance]].\n\n## See also\n\n- [[game_theory.extensive_game.theorems_catalog]] — comprehensive index of extensive-game theorems and their Lean locations.\n\n## References\n\n- [MSZ, Ch. 3, 4] Maschler, Solan, and Zamir, *Game Theory*.\n- [MFoGT, §§2.3, 4.6, 6.2] Laraki, Renault, and Sorin,\n  *Mathematical Foundations of Game Theory*."
+      }
+    },
+    {
+      "node_id": "social_choice.fair_division.divisible.ordinal_instance",
+      "before": {
+        "id": "social_choice.fair_division.divisible.ordinal_instance",
+        "title": "Divisible Ordinal Instance",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.share_instance"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.divisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.divisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/divisible/ordinal_instance.md",
+        "body": "# Divisible Ordinal Instance\n\nA *divisible ordinal instance* is the no-externality share model\nspecialized to cake-cutting: each agent's preference is an ordinal\npreference on cake pieces $\\mathrm{Set}\\ \\Omega$.\n\nIn Lean: structure `SocialChoice.FairDivision.Divisible.Instance N Ω`\nwith a single field `sharePref : N → Pref (Set Ω)`.\n\nFeasibility is fixed at the divisible-allocation level (a measurable\npartition of $\\Omega$, the predicate\n[[social_choice.fair_division.divisible.allocation]]). The instance's\n`feasible` member is therefore a definitional alias for `IsAllocation`.\n\n## Bridge to the generic share-instance API\n\n`Divisible.Instance.toShareInstance` views the divisible instance as a\nno-externality share instance\n([[social_choice.fair_division.share_instance]]) over the share type\n$S = \\mathrm{Set}\\ \\Omega$ and resource value $\\mathrm{Set.univ}$. This\nmakes every fair-division solution concept stated against the generic\n`ShareInstance` API ([[social_choice.fair_division.solution_concept]])\nautomatically applicable to divisible instances.\n\nThe cardinal-instance and measure-instance specializations\n([[social_choice.fair_division.divisible.cardinal_instance]],\n[[social_choice.fair_division.divisible.measure_instance]]) feed into\nthe same bridge — the entire divisible track plugs into the shared\nsocial-choice infrastructure through these wrappers.\n\n## References\n\n- [AGT Chapter 13] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Cake-cutting instances."
+      },
+      "after": {
+        "id": "social_choice.fair_division.divisible.ordinal_instance",
+        "title": "Divisible Ordinal Instance",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.share_instance",
+          "social_choice.fair_division.divisible.allocation"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.divisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.divisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/divisible/ordinal_instance.md",
+        "body": "# Divisible Ordinal Instance\n\nA *divisible ordinal instance* is the no-externality share model\nspecialized to cake-cutting: each agent's preference is an ordinal\npreference on cake pieces $\\mathrm{Set}\\ \\Omega$.\n\nIn Lean: structure `SocialChoice.FairDivision.Divisible.Instance N Ω`\nwith a single field `sharePref : N → Pref (Set Ω)`.\n\nFeasibility is fixed at the divisible-allocation level (a measurable\npartition of $\\Omega$, the predicate\n[[social_choice.fair_division.divisible.allocation]]). The instance's\n`feasible` member is therefore a definitional alias for `IsAllocation`.\n\n## Bridge to the generic share-instance API\n\n`Divisible.Instance.toShareInstance` views the divisible instance as a\nno-externality share instance\n([[social_choice.fair_division.share_instance]]) over the share type\n$S = \\mathrm{Set}\\ \\Omega$ and resource value $\\mathrm{Set.univ}$. This\nmakes every fair-division solution concept stated against the generic\n`ShareInstance` API ([[social_choice.fair_division.solution_concept]])\nautomatically applicable to divisible instances.\n\nThe cardinal-instance and measure-instance specializations\n([[social_choice.fair_division.divisible.cardinal_instance]],\n[[social_choice.fair_division.divisible.measure_instance]]) feed into\nthe same bridge — the entire divisible track plugs into the shared\nsocial-choice infrastructure through these wrappers.\n\n## References\n\n- [AGT Chapter 13] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Cake-cutting instances."
+      }
+    },
+    {
+      "node_id": "social_choice.fair_division.indivisible.allocation",
+      "before": {
+        "id": "social_choice.fair_division.indivisible.allocation",
+        "title": "Indivisible Allocation",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/indivisible/allocation.md",
+        "body": "# Indivisible Allocation\n\nFor a population $N$ and a finite type of goods $G$ (with\n`[DecidableEq G]`), an *indivisible allocation* assigns each agent a\nbundle (a finite subset of $G$):\n$$\nA : N \\to \\mathrm{Finset}\\ G.\n$$\n\nIn Lean: `SocialChoice.FairDivision.Indivisible.Allocation N G := N → Finset G`,\na plain type alias.\n\n## Partition predicate\n\nA *complete* indivisible allocation partitions an outer good set\n`allGoods : Finset G`. In Lean: `IsAllocation` is a structure with two\nfields:\n\n- `disjoint : ∀ i ≠ j, Disjoint (A i) (A j)` — agents receive disjoint\n  bundles;\n- `complete : allGoods = Finset.univ.biUnion A` — every good in\n  `allGoods` is allocated to some agent.\n\nThe class hypotheses `[Fintype N]` and `[DecidableEq G]` are required\nby the `Finset.univ.biUnion` and `Disjoint` operators.\n\nA small derived fact `IsAllocation.mem_biUnion` says every good in\n`allGoods` belongs to some agent's bundle.\n\n## Why feasibility is a separate predicate\n\nAlgorithms like round-robin\n([[social_choice.fair_division.indivisible.round_robin_alloc]]) and\nenvy-cycle elimination\n([[social_choice.fair_division.indivisible.envy_cycle_algorithm]])\nmanipulate raw allocations (function values, not partition witnesses) in\nintermediate states. Keeping `Allocation` as a plain function type and\n`IsAllocation` as a separate hypothesis lets these algorithms be\nwritten without prematurely committing to partition invariants at\nevery step.\n\n## References\n\n- [AGT Chapter 11] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Indivisible goods allocations."
+      },
+      "after": {
+        "id": "social_choice.fair_division.indivisible.allocation",
+        "title": "Indivisible Allocation",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.allocation"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/indivisible/allocation.md",
+        "body": "# Indivisible Allocation\n\nFor a population $N$ and a finite type of goods $G$ (with\n`[DecidableEq G]`), an *indivisible allocation* assigns each agent a\nbundle (a finite subset of $G$):\n$$\nA : N \\to \\mathrm{Finset}\\ G.\n$$\n\nIn Lean: `SocialChoice.FairDivision.Indivisible.Allocation N G := N → Finset G`,\na plain type alias.\n\n## Partition predicate\n\nA *complete* indivisible allocation partitions an outer good set\n`allGoods : Finset G`. In Lean: `IsAllocation` is a structure with two\nfields:\n\n- `disjoint : ∀ i ≠ j, Disjoint (A i) (A j)` — agents receive disjoint\n  bundles;\n- `complete : allGoods = Finset.univ.biUnion A` — every good in\n  `allGoods` is allocated to some agent.\n\nThe class hypotheses `[Fintype N]` and `[DecidableEq G]` are required\nby the `Finset.univ.biUnion` and `Disjoint` operators.\n\nA small derived fact `IsAllocation.mem_biUnion` says every good in\n`allGoods` belongs to some agent's bundle.\n\n## Why feasibility is a separate predicate\n\nAlgorithms like round-robin\n([[social_choice.fair_division.indivisible.round_robin_alloc]]) and\nenvy-cycle elimination\n([[social_choice.fair_division.indivisible.envy_cycle_algorithm]])\nmanipulate raw allocations (function values, not partition witnesses) in\nintermediate states. Keeping `Allocation` as a plain function type and\n`IsAllocation` as a separate hypothesis lets these algorithms be\nwritten without prematurely committing to partition invariants at\nevery step.\n\n## References\n\n- [AGT Chapter 11] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Indivisible goods allocations."
+      }
+    },
+    {
+      "node_id": "social_choice.fair_division.indivisible.cardinal_instance",
+      "before": {
+        "id": "social_choice.fair_division.indivisible.cardinal_instance",
+        "title": "Indivisible Cardinal Instance",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.indivisible.valuation",
+          "social_choice.fair_division.cardinal_instance",
+          "social_choice.fair_division.envy_free",
+          "social_choice.fair_division.proportional",
+          "social_choice.fair_division.utilitarian_welfare",
+          "social_choice.fair_division.egalitarian_welfare"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/indivisible/cardinal_instance.md",
+        "body": "# Indivisible Cardinal Instance\n\nAn *indivisible cardinal instance* assigns each agent a real-valued\nutility for every bundle:\n$$\n\\mathrm{utility} : N \\to \\mathrm{Finset}\\ G \\to \\mathbb{R}.\n$$\n\nIn Lean: structure `SocialChoice.FairDivision.Indivisible.CardinalInstance N G`\nwith a `utility` field plus the outer good set `allGoods : Finset G`.\n\n## Bridges\n\n- `toValuation` — wrap as a bare `Valuation`\n  ([[social_choice.fair_division.indivisible.valuation]]).\n- `toGenericCardinalInstance` — view as a generic real-valued cardinal\n  fair-division instance ([[social_choice.fair_division.cardinal_instance]])\n  over share type $\\mathrm{Finset}\\ G$ and resource value `allGoods`.\n- `toShareInstance` — compose with `inducedSharePref` to get the\n  underlying indivisible ordinal instance\n  ([[social_choice.fair_division.indivisible.ordinal_instance]]).\n\n## Instance-keyed wrappers\n\nA full menu of instance-keyed fairness and welfare predicates is\nre-exported:\n\n- `IsEnvyFree`, `IsEF1`, `IsEFX`, `IsProportional`, `IsEquitable`,\n  `IsMaxminShare` — fairness predicates.\n- `IsParetoOptimal`, `IsUtilitarianOptimal`, `IsMaxmin` — efficiency\n  / welfare-optimality predicates.\n\nAll wrappers are definitional pass-throughs to the corresponding\ngeneric or `Indivisible`-prefixed predicates with $I.\\mathrm{utility}$\nand feasibility supplied from the instance.\n\n## References\n\n- [AGT Chapter 11] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Cardinal valuations in indivisible fair division."
+      },
+      "after": {
+        "id": "social_choice.fair_division.indivisible.cardinal_instance",
+        "title": "Indivisible Cardinal Instance",
+        "kind": "definition",
+        "status": "formalized",
+        "uses": [
+          "social_choice.fair_division.indivisible.valuation",
+          "social_choice.fair_division.cardinal_instance",
+          "social_choice.fair_division.envy_free",
+          "social_choice.fair_division.proportional",
+          "social_choice.fair_division.utilitarian_welfare",
+          "social_choice.fair_division.egalitarian_welfare",
+          "social_choice.fair_division.indivisible.ordinal_instance"
+        ],
+        "primary_topic": "social_choice",
+        "home_topic": "social_choice",
+        "topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "explicit_topics": [
+          "social_choice",
+          "social_choice.fair_division",
+          "social_choice.fair_division.indivisible"
+        ],
+        "topic_lean_alignment": null,
+        "file_path": "/home/user/EconCSLib/docs/knowledge/nodes/social_choice/fair_division/indivisible/cardinal_instance.md",
+        "body": "# Indivisible Cardinal Instance\n\nAn *indivisible cardinal instance* assigns each agent a real-valued\nutility for every bundle:\n$$\n\\mathrm{utility} : N \\to \\mathrm{Finset}\\ G \\to \\mathbb{R}.\n$$\n\nIn Lean: structure `SocialChoice.FairDivision.Indivisible.CardinalInstance N G`\nwith a `utility` field plus the outer good set `allGoods : Finset G`.\n\n## Bridges\n\n- `toValuation` — wrap as a bare `Valuation`\n  ([[social_choice.fair_division.indivisible.valuation]]).\n- `toGenericCardinalInstance` — view as a generic real-valued cardinal\n  fair-division instance ([[social_choice.fair_division.cardinal_instance]])\n  over share type $\\mathrm{Finset}\\ G$ and resource value `allGoods`.\n- `toShareInstance` — compose with `inducedSharePref` to get the\n  underlying indivisible ordinal instance\n  ([[social_choice.fair_division.indivisible.ordinal_instance]]).\n\n## Instance-keyed wrappers\n\nA full menu of instance-keyed fairness and welfare predicates is\nre-exported:\n\n- `IsEnvyFree`, `IsEF1`, `IsEFX`, `IsProportional`, `IsEquitable`,\n  `IsMaxminShare` — fairness predicates.\n- `IsParetoOptimal`, `IsUtilitarianOptimal`, `IsMaxmin` — efficiency\n  / welfare-optimality predicates.\n\nAll wrappers are definitional pass-throughs to the corresponding\ngeneric or `Indivisible`-prefixed predicates with $I.\\mathrm{utility}$\nand feasibility supplied from the instance.\n\n## References\n\n- [AGT Chapter 11] Nisan, Roughgarden, Tardos, and Vazirani, *Algorithmic Game Theory*. Cardinal valuations in indivisible fair division."
+      }
+    }
+  ],
+  "removed_nodes": []
+}
