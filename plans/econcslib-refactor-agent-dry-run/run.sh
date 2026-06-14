@@ -231,7 +231,7 @@ cat > "$RUN_ROOT/run-codex.sh" <<SCRIPT
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$REPO_ROOT"
-CODEX_CMD=(codex exec -C "$REPO_ROOT" --add-dir "$KB_REPO_ROOT" --sandbox workspace-write --ask-for-approval never --output-last-message "$RUN_ROOT/logs/agent-last-message.md" --json)
+CODEX_CMD=(codex --ask-for-approval never exec -C "$REPO_ROOT" --add-dir "$KB_REPO_ROOT" --sandbox workspace-write --output-last-message "$RUN_ROOT/logs/agent-last-message.md" --json)
 if [[ -n "\${CODEX_MODEL:-$CODEX_MODEL}" ]]; then
   CODEX_CMD+=(-m "\${CODEX_MODEL:-$CODEX_MODEL}")
 fi
