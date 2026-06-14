@@ -31,35 +31,46 @@ admitted-node rewrites.
    uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.stats <knowledge-root> --json
    ```
 
-4. Build a bounded refactor evidence bundle for target-node or target-topic work:
+4. Choose the staged-node scope before interpreting missing dependencies:
+
+   - In `admitted+staged` mode, pass `--include-staged` to bounded evidence
+     tools. Treat staged nodes as existing graph nodes for refactor analysis:
+     they can satisfy dependency existence, reachability, duplicate/overlap,
+     topic, and formulation-impact questions. Still label their staged status
+     and do not imply admission.
+   - In `admitted` mode, build or consult a staged id index before writing
+     missing-node requests. If a dependency id is absent from the admitted graph
+     but present under `staged/`, do not write a duplicate request and do not
+     introduce a staged-promotion proposal. Record it as outside the admitted
+     scope or as a human/admission-referee decision.
+
+5. Build a bounded refactor evidence bundle for target-node or target-topic work:
 
    ```bash
    uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_pack <knowledge-root> --target <node-id>
    uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_pack <knowledge-root> --topic <topic-id>
    ```
 
-   Add `--include-staged` only when provisional content is explicitly in scope,
-   and label staged evidence as non-admitted. Use the pack's graph
-   neighborhoods, body references, lint findings, and formulation-impact hints
-   as evidence, not as automatic refactor decisions.
+   Use the pack's graph neighborhoods, body references, lint findings, and
+   formulation-impact hints as evidence, not as automatic refactor decisions.
 
-5. Inspect the minimal node set needed: target, direct dependencies, reverse
+6. Inspect the minimal node set needed: target, direct dependencies, reverse
    dependencies, sibling topic nodes, and staged overlaps when in scope.
-6. For a proposal that modifies, weakens, strengthens, deletes, or replaces a
+7. For a proposal that modifies, weakens, strengthens, deletes, or replaces a
    node or dependency, read `references/formulation-impact.md`. Graph
    reachability is only the first pass; inspect whether descendant statements
    survive because of the precise formulations of their other ancestors.
-7. Classify each proposed action:
+8. Classify each proposed action:
    - `mechanical-safe`: deterministic cleanup such as a clearly redundant edge;
    - `semantic-review`: requires mathematical judgment or human confirmation;
    - `request-needed`: requires a `docs/knowledge/requests/` file first;
    - `blocked`: insufficient evidence or failing baseline checks.
-8. Apply the generality gate when a proposal generalizes, splits, merges, or
+9. Apply the generality gate when a proposal generalizes, splits, merges, or
    rehomes mathematical content. Ask what the most general useful form is,
    whether the current node has that form, and what assumptions might be
    removable. Put uncertain answers in the report or a request, not in admitted
    truth.
-9. Produce a structured report. Use
+10. Produce a structured report. Use
    `references/refactor-report-schema.md` for durable reports.
    Validate durable reports before treating proposals as actionable:
 
@@ -67,18 +78,19 @@ admitted-node rewrites.
    uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_report_check <knowledge-root> <report-path>
    ```
 
-10. For concrete mechanical actions, write an explicit dry-run plan using
+11. For concrete mechanical actions, write an explicit dry-run plan using
     `references/dry-run-plan-schema.md` and simulate it before editing files:
 
     ```bash
     uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_dry_run <knowledge-root> <plan.yml> --json
     ```
 
-    Node additions should reference request files. Body rewrites must provide
-    explicit replacement Markdown, a body file, or a request file; do not ask the
-    dry-run tool to infer prose edits.
+    Add `--include-staged` to the dry-run command when the report uses
+    `admitted+staged` mode. Node additions should reference request files. Body
+    rewrites must provide explicit replacement Markdown, a body file, or a
+    request file; do not ask the dry-run tool to infer prose edits.
 
-11. If the user asks for actual edits, make focused changes only after the report
+12. If the user asks for actual edits, make focused changes only after the report
    identifies exact files, risks, and validation commands.
 
 ## Proposal kinds
@@ -119,6 +131,9 @@ admitted-node rewrites.
   impact.
 - For split and generalization proposals, write a request instead of staging or
   admitting mathematical truth directly.
+- Do not create request files for node ids already present in the loaded graph
+  or staged id index. Staged-node admission or promotion belongs to the
+  Admission Referee workflow, not this refactor proposal workflow.
 - Keep proof-route `uses` on proof-plan nodes, not on target theorems, unless a
   dependency is also a genuine logical prerequisite of the theorem statement.
 - Treat `lean:` as a mechanical link. Semantic alignment requires alignment

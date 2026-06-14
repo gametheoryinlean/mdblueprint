@@ -293,8 +293,17 @@ def build_refactor_pack(
         "target_id": target_id,
         "topic": topic,
         "allowed_inputs": ALLOWED_INPUTS + (
-            ["docs/knowledge/staged/**/*.md as non-admitted evidence"] if include_staged else []
+            ["docs/knowledge/staged/**/*.md as loaded provisional graph nodes"] if include_staged else []
         ),
+        "staged_policy": {
+            "included": include_staged,
+            "graph_role": (
+                "loaded nodes for dependency existence, reachability, topic, duplicate/overlap, and formulation-impact analysis"
+                if include_staged
+                else "outside loaded graph; consult a staged id index before writing missing-node requests"
+            ),
+            "admission_role": "staged nodes are not admitted truth and this pack does not propose promotion",
+        },
         "forbidden_inputs": FORBIDDEN_INPUTS,
         "bounds": {
             "ancestor_depth": ancestor_depth,

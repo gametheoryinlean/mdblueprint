@@ -449,7 +449,12 @@ separation, and Lean/topic consistency.
 Inputs:
 
 - admitted nodes under `docs/knowledge/nodes/`;
-- staged nodes only when provisional evidence is explicitly requested;
+- staged nodes when included by the review scope. When included, they are
+  equivalent to admitted nodes for refactor graph existence, reachability,
+  duplicate/overlap, topic, and formulation-impact analysis, but not for
+  admission or durable truth;
+- a staged id index when staged nodes are excluded but missing-node requests are
+  being considered;
 - `docs/knowledge/mdblueprint.yml` and relevant `topics.md` catalogs;
 - deterministic `check`, `lint`, `stats`, context-pack, refactor-pack,
   refactor-dry-run, graph, and topic export output;
@@ -501,6 +506,9 @@ Rules:
   alignment from Lean declaration existence.
 - It must preserve uncertainty as a report item, request file, or
   `needs_human_decision`, not as a silent node rewrite.
+- It must not write duplicate missing-node requests for ids already present in
+  staged content. Staged-node admission or promotion belongs to the Admission
+  Referee workflow, not this refactor proposer.
 - If it proposes a merge, split, or generalization, it must identify reverse
   dependency impact and the validation commands to run after applying the change.
 

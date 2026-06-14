@@ -18,6 +18,8 @@ plans/econcslib-refactor-agent-dry-run/results/
 Each run directory contains:
 
 - `baseline/`: structural check, lint, and stats output;
+- `index/staged-index.json`: deterministic index of staged node ids for
+  duplicate-request avoidance;
 - `targets/`: selected high-impact target nodes and topics;
 - `packs/`: bounded `refactor_pack` bundles for those targets;
 - `agent-prompt.md`: the exact prompt passed to Codex;
@@ -38,8 +40,11 @@ Useful variants:
 # Prepare evidence and prompt only; do not launch Codex.
 RUN_AGENT=0 bash plans/econcslib-refactor-agent-dry-run/run.sh
 
-# Include staged EconCSLib nodes in packs and simulation baselines.
+# The default includes staged EconCSLib nodes in packs and dry-run validation.
 INCLUDE_STAGED=1 bash plans/econcslib-refactor-agent-dry-run/run.sh
+
+# Restrict packs and dry-run validation to admitted nodes only.
+INCLUDE_STAGED=0 bash plans/econcslib-refactor-agent-dry-run/run.sh
 
 # Change how many hot spots and topics are packed.
 TOP_N=12 TOPIC_LIMIT=12 bash plans/econcslib-refactor-agent-dry-run/run.sh

@@ -34,7 +34,14 @@ The Markdown body should contain these sections.
 ## Scope
 
 State whether the report covers the whole knowledge base, one topic, one node,
-or a selected set of lint findings. Say whether staged nodes were included.
+or a selected set of lint findings. Say whether staged nodes were included:
+
+- `admitted+staged`: staged nodes are part of the reviewed graph for dependency
+  existence, reachability, duplicate/overlap, topic, and formulation-impact
+  analysis, but are still not admitted truth.
+- `admitted`: staged nodes are outside the reviewed graph. Before writing
+  missing-node requests, consult a staged id index when available and avoid
+  duplicate requests for ids that already exist under `staged/`.
 
 ## Deterministic Baseline
 
@@ -89,7 +96,9 @@ dependency, include the analysis from `formulation-impact.md`:
 
 If a proposal requires a `docs/knowledge/requests/` file, include the intended
 request kind and fields. Do not state unreviewed mathematical truth as admitted
-fact.
+fact. Do not write request files for node ids already present in the loaded graph
+or staged id index; mention the staged counterpart as a scope note or human
+decision rather than as a refactor proposal kind.
 
 ## Human Decisions
 

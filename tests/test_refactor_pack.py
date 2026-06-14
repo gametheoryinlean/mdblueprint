@@ -141,8 +141,11 @@ def test_refactor_pack_includes_staged_only_when_requested(tmp_path):
     with_staged = build_refactor_pack(root, topic="algebra", include_staged=True)
 
     assert "algebra.ring" not in {node["id"] for node in admitted["nodes"]}
+    assert admitted["staged_policy"]["included"] is False
     staged = next(node for node in with_staged["nodes"] if node["id"] == "algebra.ring")
     assert staged["evidence"] == "non-admitted"
+    assert with_staged["staged_policy"]["included"] is True
+    assert with_staged["staged_policy"]["graph_role"].startswith("loaded nodes")
 
 
 def test_refactor_pack_cli_outputs_json(tmp_path):

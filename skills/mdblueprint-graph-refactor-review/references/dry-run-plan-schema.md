@@ -11,6 +11,13 @@ not write node files.
 uv run python -m tools.knowledge.refactor_dry_run docs/knowledge <plan.yml> --json
 ```
 
+If the report was prepared in `admitted+staged` mode, validate the plan in the
+same mode:
+
+```bash
+uv run python -m tools.knowledge.refactor_dry_run docs/knowledge <plan.yml> --include-staged --json
+```
+
 ```yaml
 operations:
   - op: add-node-from-request
