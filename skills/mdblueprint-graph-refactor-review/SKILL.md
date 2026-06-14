@@ -61,6 +61,12 @@ admitted-node rewrites.
    truth.
 9. Produce a structured report. Use
    `references/refactor-report-schema.md` for durable reports.
+   Validate durable reports before treating proposals as actionable:
+
+   ```bash
+   uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_report_check <knowledge-root> <report-path>
+   ```
+
 10. If the user asks for actual edits, make focused changes only after the report
    identifies exact files, risks, and validation commands.
 

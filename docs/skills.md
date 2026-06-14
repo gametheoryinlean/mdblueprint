@@ -339,6 +339,12 @@ uv run python -m tools.knowledge.refactor_pack docs/knowledge --target <node-id>
 uv run python -m tools.knowledge.refactor_pack docs/knowledge --topic <topic-id>
 ```
 
+Before acting on a durable refactor report, validate its report contract:
+
+```bash
+uv run python -m tools.knowledge.refactor_report_check docs/knowledge <report-path>
+```
+
 ### `mdblueprint-publish`
 
 Use when generating or checking the blueprint-style site and dependency graph.

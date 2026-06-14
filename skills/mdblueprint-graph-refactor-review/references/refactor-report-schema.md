@@ -3,6 +3,12 @@
 Use this schema for durable graph-refactor review reports under
 `docs/knowledge/reviews/`.
 
+Validate a completed report before treating its proposals as actionable:
+
+```bash
+uv run python -m tools.knowledge.refactor_report_check docs/knowledge <report-path>
+```
+
 ```yaml
 agent: graph-refactor-proposer
 target:

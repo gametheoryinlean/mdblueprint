@@ -516,6 +516,12 @@ uv run python -m tools.knowledge.refactor_pack docs/knowledge --target <node-id>
 uv run python -m tools.knowledge.refactor_pack docs/knowledge --topic <topic-id>
 ```
 
+Validate durable reports before acting on them:
+
+```bash
+uv run python -m tools.knowledge.refactor_report_check docs/knowledge <report-path>
+```
+
 ## 10. Proof Repair Order
 
 For theorem-like nodes with missing or incomplete proof content, the Python
