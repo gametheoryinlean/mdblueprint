@@ -67,7 +67,14 @@ admitted-node rewrites.
    uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_report_check <knowledge-root> <report-path>
    ```
 
-10. If the user asks for actual edits, make focused changes only after the report
+10. For concrete mechanical actions, write an explicit dry-run plan using
+    `references/dry-run-plan-schema.md` and simulate it before editing files:
+
+    ```bash
+    uv --cache-dir /tmp/uv-cache run python -m tools.knowledge.refactor_dry_run <knowledge-root> <plan.yml> --json
+    ```
+
+11. If the user asks for actual edits, make focused changes only after the report
    identifies exact files, risks, and validation commands.
 
 ## Proposal kinds
@@ -122,4 +129,5 @@ admitted-node rewrites.
 
 ## Report format
 
-See `references/refactor-report-schema.md`.
+See `references/refactor-report-schema.md`. For dry-run plans, see
+`references/dry-run-plan-schema.md`.

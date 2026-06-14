@@ -451,14 +451,15 @@ Inputs:
 - admitted nodes under `docs/knowledge/nodes/`;
 - staged nodes only when provisional evidence is explicitly requested;
 - `docs/knowledge/mdblueprint.yml` and relevant `topics.md` catalogs;
-- deterministic `check`, `lint`, `stats`, context-pack, refactor-pack, graph,
-  and topic export output;
+- deterministic `check`, `lint`, `stats`, context-pack, refactor-pack,
+  refactor-dry-run, graph, and topic export output;
 - existing review reports or request files when they affect the proposed
   refactor.
 
 Outputs:
 
 - graph-refactor report under `docs/knowledge/reviews/`;
+- optional dry-run plan for concrete mechanical actions;
 - optional request files under `docs/knowledge/requests/` for new nodes,
   missing dependencies, split nodes, generalized nodes, or Lean bridges.
 
@@ -520,6 +521,13 @@ Validate durable reports before acting on them:
 
 ```bash
 uv run python -m tools.knowledge.refactor_report_check docs/knowledge <report-path>
+```
+
+For concrete mechanical actions, use an explicit dry-run plan before editing
+admitted node files:
+
+```bash
+uv run python -m tools.knowledge.refactor_dry_run docs/knowledge <plan.yml> --json
 ```
 
 ## 10. Proof Repair Order

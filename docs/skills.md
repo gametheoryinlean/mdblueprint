@@ -19,7 +19,7 @@ The maintained mdblueprint skills live in [`skills/`](../skills/). Each skill ha
 | Check semantic alignment between Markdown and Lean | `mdblueprint-alignment-review` | alignment report |
 | Publish or inspect the static site and dependency graph | `mdblueprint-publish` | generated site, `graph.json`, QA notes |
 | Answer from admitted KB content only | `mdblueprint-kb-reasoning` | cited answer, missing-fact report |
-| Review an existing knowledge graph for dependency, formulation-sensitive impact, topic, duplicate, merge/split, or Lean/topic refactors | `mdblueprint-graph-refactor-review` | refactor report, request files |
+| Review an existing knowledge graph for dependency, formulation-sensitive impact, topic, duplicate, merge/split, or Lean/topic refactors | `mdblueprint-graph-refactor-review` | refactor report, dry-run plan, request files |
 
 ## How To Use A Skill
 
@@ -309,13 +309,14 @@ Reads:
 
 - admitted nodes by default;
 - staged nodes only when provisional evidence is explicitly in scope;
-- deterministic `check`, `lint`, `stats`, graph, context-pack, and
-  refactor-pack output;
+- deterministic `check`, `lint`, `stats`, graph, context-pack, refactor-pack,
+  and dry-run output;
 - relevant docs for node format, topic model, lint rules, and graph semantics.
 
 Writes:
 
 - graph-refactor review reports under `docs/knowledge/reviews/`;
+- dry-run plans for concrete mechanical actions;
 - request files under `docs/knowledge/requests/` for new-node, split-node,
   generalize-node, missing-dependency, or Lean-bridge proposals.
 
@@ -343,6 +344,13 @@ Before acting on a durable refactor report, validate its report contract:
 
 ```bash
 uv run python -m tools.knowledge.refactor_report_check docs/knowledge <report-path>
+```
+
+For concrete mechanical actions, write an explicit dry-run plan and simulate it
+before editing admitted node files:
+
+```bash
+uv run python -m tools.knowledge.refactor_dry_run docs/knowledge <plan.yml> --json
 ```
 
 ### `mdblueprint-publish`

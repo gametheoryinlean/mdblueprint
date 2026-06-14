@@ -58,7 +58,7 @@ Use one table row per proposal.
 | `action` | Exact proposed change or request to write. |
 | `evidence` | Node ids, file paths, lint findings, or graph facts supporting the action. |
 | `risk` | What could be wrong if the proposal is accepted. |
-| `validation` | Commands to run after applying the proposal. |
+| `validation` | Dry-run commands to run before applying the proposal and checks to run after applying it. |
 
 ## Generality Gate
 
