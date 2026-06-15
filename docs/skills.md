@@ -19,6 +19,7 @@ The maintained mdblueprint skills live in [`skills/`](../skills/). Each skill ha
 | Check semantic alignment between Markdown and Lean | `mdblueprint-alignment-review` | alignment report |
 | Publish or inspect the static site and dependency graph | `mdblueprint-publish` | generated site, `graph.json`, QA notes |
 | Answer from admitted KB content only | `mdblueprint-kb-reasoning` | cited answer, missing-fact report |
+| Review an existing knowledge graph for dependency, formulation-sensitive impact, topic, duplicate, merge/split, or Lean/topic refactors | `mdblueprint-graph-refactor-review` | refactor report, dry-run plan, request files |
 
 ## How To Use A Skill
 
@@ -31,10 +32,14 @@ Recommended order for building a knowledge base from a book:
 3. For existing theorem-like nodes with missing or incomplete proofs, use `mdblueprint-source-proof-recovery` before bounded `mdblueprint-proof-fill` when `source.spans` or source hints exist.
 4. Use `tools.knowledge.admission_pipeline` only after review gates pass.
 5. Use `mdblueprint-publish` to validate and publish the generated site.
-6. Use `tools.knowledge.lean_link_candidates`, `mdblueprint-lean-linking`,
+6. Use `mdblueprint-graph-refactor-review` when a mature knowledge base needs
+   dependency cleanup, formulation-sensitive impact analysis, topic taxonomy
+   review, duplicate triage, or merge/split proposals before editing admitted
+   nodes.
+7. Use `tools.knowledge.lean_link_candidates`, `mdblueprint-lean-linking`,
    `tools.knowledge.lean_linking`, and `tools.knowledge.lean_alignment` when
    connecting admitted nodes to existing Lean declarations.
-7. Use `mdblueprint-lean-generation` when no suitable existing Lean declaration
+8. Use `mdblueprint-lean-generation` when no suitable existing Lean declaration
    exists and new Lean code is needed.
 
 Admission is deterministic and Python-orchestrated:
@@ -293,6 +298,63 @@ Must not:
 - update final status directly;
 - rely on mechanical existence checks as semantic equivalence;
 - ignore extra hypotheses or special cases.
+
+### `mdblueprint-graph-refactor-review`
+
+Use when reviewing an existing knowledge graph for structural refactors,
+especially when modifying a node may affect descendants through precise
+formulations of other ancestors.
+
+Reads:
+
+- admitted nodes by default;
+- staged nodes only when provisional evidence is explicitly in scope;
+- deterministic `check`, `lint`, `stats`, graph, context-pack, refactor-pack,
+  and dry-run output;
+- relevant docs for node format, topic model, lint rules, and graph semantics.
+
+Writes:
+
+- graph-refactor review reports under `docs/knowledge/reviews/`;
+- dry-run plans for concrete mechanical actions;
+- request files under `docs/knowledge/requests/` for new-node, split-node,
+  generalize-node, missing-dependency, or Lean-bridge proposals.
+
+Must not:
+
+- write generated graph/site artifacts;
+- silently edit admitted nodes;
+- treat `[[node:id]]` cross-links as automatic `uses` dependencies;
+- rely on graph reachability alone to decide whether descendant claims survive;
+- move mathematical truth across nodes without review evidence;
+- mark Lean/topic divergence intentional without a stated reason.
+
+Use `skills/mdblueprint-graph-refactor-review/references/refactor-report-schema.md`
+when writing a durable report. Use
+`skills/mdblueprint-graph-refactor-review/references/formulation-impact.md` when
+modifying, weakening, strengthening, replacing, or deleting a node or dependency.
+For bounded graph-refactor evidence, run:
+
+```bash
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --target <node-id>
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --topic <topic-id>
+```
+
+Before acting on a durable refactor report, validate its report contract:
+
+```bash
+uv run python -m tools.knowledge.refactor_report_check docs/knowledge <report-path>
+```
+
+For concrete mechanical actions, write an explicit dry-run plan and simulate it
+before editing admitted node files:
+
+```bash
+uv run python -m tools.knowledge.refactor_dry_run docs/knowledge <plan.yml> --json
+```
+
+Dry-run node additions should reference request files. Dry-run body rewrites
+must provide explicit replacement Markdown, a body file, or a request file.
 
 ### `mdblueprint-publish`
 

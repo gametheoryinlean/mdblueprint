@@ -1,0 +1,52 @@
+operations:
+  - op: remove-dependency
+    node_id: foundation.cost.examples.boyer_moore
+    dependency: foundation.cost.costm
+  - op: remove-dependency
+    node_id: foundation.cost.examples.lcs
+    dependency: foundation.cost.costm
+  - op: remove-dependency
+    node_id: foundation.cost.examples.memo_fib
+    dependency: foundation.cost.costm
+  - op: remove-dependency
+    node_id: foundation.cost.examples.par_all
+    dependency: foundation.cost.costm
+  - op: remove-dependency
+    node_id: foundation.cost.examples.par_sum
+    dependency: foundation.cost.costm
+  - op: remove-dependency
+    node_id: game_theory.strategic_game.finite_game_catalog
+    dependency: game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance
+  - op: remove-dependency
+    node_id: game_theory.strategic_game.finite_game_catalog
+    dependency: game_theory.extensive_game.perfect_information.zermelo_determinacy
+  - op: remove-dependency
+    node_id: game_theory.strategic_game.finite_game_catalog
+    dependency: math.minimax.loomis_theorem
+  - op: remove-dependency
+    node_id: game_theory.strategic_game.finite_game_catalog
+    dependency: game_theory.strategic_game.zero_sum.matrix_game_nash_equilibrium
+  - op: remove-dependency
+    node_id: game_theory.strategic_game.finite_game_catalog
+    dependency: game_theory.strategic_game.equilibrium.nash_existence_finite_games
+  - op: remove-dependency
+    node_id: game_theory.extensive_game.theorems_catalog
+    dependency: game_theory.extensive_game.perfect_information.kuhn_spe_existence_no_chance
+  - op: remove-dependency
+    node_id: game_theory.extensive_game.theorems_catalog
+    dependency: game_theory.extensive_game.perfect_information.zermelo_determinacy
+  - op: remove-dependency
+    node_id: game_theory.extensive_game.theorems_catalog
+    dependency: game_theory.extensive_game.perfect_information.subgame_perfect_equilibrium
+  - op: remove-dependency
+    node_id: game_theory.extensive_game.theorems_catalog
+    dependency: game_theory.extensive_game.perfect_information.spe_implies_nash
+  - op: add-dependency
+    node_id: social_choice.fair_division.indivisible.allocation
+    dependency: social_choice.fair_division.allocation
+  - op: add-dependency
+    node_id: social_choice.fair_division.divisible.ordinal_instance
+    dependency: social_choice.fair_division.divisible.allocation
+  - op: add-dependency
+    node_id: social_choice.fair_division.indivisible.cardinal_instance
+    dependency: social_choice.fair_division.indivisible.ordinal_instance
