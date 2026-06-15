@@ -91,3 +91,12 @@ Produce:
 - a final filter table that explicitly labels true discrepancies versus false abends
 
 The report is a review artifact. Do not overwrite authored files automatically.
+
+
+## Final Adjudication
+
+The final adjudication step happens after the refactor proposal, dry-run, and
+Lean countercheck stages. It is the last review gate before anything is treated
+as an accepted discrepancy or a false abend.
+
+The adjudicator is the last review gate, not an intermediate proposal stage.

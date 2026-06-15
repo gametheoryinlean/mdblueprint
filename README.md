@@ -2,7 +2,7 @@
 
 `mdblueprint` is a Markdown-first blueprint system for mathematical knowledge bases that are meant to work with Lean. It keeps small Markdown files as the durable source of truth, then uses deterministic Python tools to validate the dependency graph, check mechanical Lean references, export machine-readable graph data, publish a leanblueprint-style static site, and generate bounded refactor / countercheck reports for review.
 
-It does not use LaTeX, plasTeX, or leanblueprint as the source pipeline. The project borrows the useful presentation style of leanblueprint while keeping the source model simple enough for humans and AI agents to edit safely. The newer refactor and countercheck workflows are intentionally review-oriented: they produce proposals, dry runs, and adjudication notes without silently rewriting the authored graph.
+It does not use LaTeX, plasTeX, or leanblueprint as the source pipeline. The project borrows the useful presentation style of leanblueprint while keeping the source model simple enough for humans and AI agents to edit safely. The newer refactor and countercheck workflows are intentionally review-oriented: they produce proposals, dry runs, counterchecks, and a final adjudication step without silently rewriting the authored graph.
 
 ## Agent Entry Points
 
@@ -31,7 +31,8 @@ nodes can be reviewed against formal source text without replacing the human-
 authored graph.
 
 Use them from the repository root in this order when you want an isolated
-proposal run:
+proposal-and-review run. There is no single end-to-end command that performs
+all stages automatically:
 
 ```bash
 # Build bounded evidence packs for a target node or topic
@@ -45,7 +46,24 @@ uv run mdblueprint-refactor-report-check <report.md>
 
 # Compare Lean-derived theorem/dependency structure against one authored node
 uv run mdblueprint-lean-countercheck   --node-file <node.md>   --lean-file <file.lean>   --source-root <EconCSLib>   --corpus-root <EconCSLib/docs/knowledge>
+
+# Batch the countercheck over many nodes without rescanning the Lean corpus each time
+uv run python -m tools.knowledge.lean_countercheck_batch   --pairs-file runs/<run>/pairs.json   --source-root <EconCSLib>   --corpus-root <EconCSLib>   --output-dir runs/<run>
+# Treat the adjudicator as the final review step after proposals, dry-run, and countercheck.
 ```
+
+## Workflow Order
+
+For a review-first run, use this sequence:
+
+1. Build bounded refactor evidence with `mdblueprint-refactor-pack`.
+2. Write and validate a refactor report.
+3. Simulate the proposal with `mdblueprint-refactor-dry-run`.
+4. Review the dry-run result manually and decide which proposals are accepted.
+5. Run `mdblueprint-lean-countercheck` on the accepted or candidate nodes.
+6. Use `mdblueprint-lean-adjudicate` as the final step to classify true discrepancies, false abends, and items that still need human review.
+
+There is no single top-level command that performs all of these stages in one shot.
 
 ## What This Tool Owns
 

@@ -170,6 +170,9 @@ Field contract:
   when they match exactly one indexed declaration by suffix.
 - An `external-theorem` node must include both `lean.modules` and
   `lean.declarations`.
+- A Lean reference is mechanical evidence. It helps linking, counterchecking,
+  and alignment review, but it does not replace the Markdown node as the source
+  of truth.
 - A Lean reference proves existence of a Lean object, not semantic alignment with
   the Markdown statement. Use `verification.alignment` and alignment review reports
   for that claim.
@@ -471,7 +474,8 @@ proof block in any theorem-like  requires verification.proof: accepted
 
 Lean remains optional for ordinary admitted Markdown nodes. Lean evidence becomes
 mandatory only when the node status is `formalized` or `proved`, or when the kind
-is `external-theorem`.
+is `external-theorem`. Lean-backed counterchecking may still be used on ordinary
+admitted nodes as review evidence without changing their source-of-truth role.
 
 ## Requests Format
 

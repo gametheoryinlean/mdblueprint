@@ -45,6 +45,16 @@ This helps authored hints like `strategic_games.weakly_dominates` match Lean nam
 - deduplicate extracted dependencies
 - treat blank or flawed proofs as incompleteness, not inconsistency
 
+
+## Batching note
+
+The CLI is designed around one authored node and one Lean file at a time.
+If you need to compare many nodes, use the repo batch driver
+`tools.knowledge.lean_countercheck_batch`. It calls `build_name_corpus(...)`
+once, then loops over node/file pairs using the precomputed corpus names.
+Do not rebuild the full corpus inside each loop iteration; that turns a quick
+countercheck into a slow repeated scan.
+
 ## Output
 
 Generate a countercheck report that lists:

@@ -20,6 +20,12 @@ The maintained mdblueprint skills live in [`skills/`](../skills/). Each skill ha
 | Publish or inspect the static site and dependency graph | `mdblueprint-publish` | generated site, `graph.json`, QA notes |
 | Answer from admitted KB content only | `mdblueprint-kb-reasoning` | cited answer, missing-fact report |
 | Review an existing knowledge graph for dependency, formulation-sensitive impact, topic, duplicate, merge/split, or Lean/topic refactors | `mdblueprint-graph-refactor-review` | refactor report, dry-run plan, request files |
+| Extract theorem names from Lean source text | `mdblueprint-lean-theorem-extraction` | theorem extraction report |
+| Extract theorem-local dependencies from Lean source text | `mdblueprint-lean-dependency-extraction` | dependency extraction report |
+| Generate nodes and blueprint artifacts from Lean-text outputs | `mdblueprint-lean-node-generation` | staged nodes, graph-ready bundle |
+| Run the full Lean-text extraction pipeline | `mdblueprint-lean-run-full` | end-to-end run artifacts |
+| Countercheck authored nodes against Lean-derived facts | `mdblueprint-lean-countercheck` | countercheck report, mismatch review |
+| Make the final judgment on Lean-vs-authored mismatches | `mdblueprint-lean-adjudicate` | adjudication report, true-discrepancy / false-abend labels |
 
 ## How To Use A Skill
 
@@ -41,6 +47,20 @@ Recommended order for building a knowledge base from a book:
    connecting admitted nodes to existing Lean declarations.
 8. Use `mdblueprint-lean-generation` when no suitable existing Lean declaration
    exists and new Lean code is needed.
+
+Recommended order for graph-improvement work:
+
+1. Use `mdblueprint-graph-refactor-review` to build bounded evidence and
+   propose structural improvements.
+2. Simulate any concrete mechanical edit with `tools.knowledge.refactor_dry_run`
+   before touching admitted files.
+3. Treat the dry-run result as a human-acceptance checkpoint rather than a
+   graph rewrite.
+4. Use `mdblueprint-lean-countercheck` on the accepted candidate nodes to
+   compare Lean-derived facts against authored nodes and `mdblueprint.yml`.
+5. Use `mdblueprint-lean-adjudicate` as the final value-judgment gate that
+   classifies each mismatch as a true discrepancy, a false abend, or a
+   needs-review case.
 
 Admission is deterministic and Python-orchestrated:
 

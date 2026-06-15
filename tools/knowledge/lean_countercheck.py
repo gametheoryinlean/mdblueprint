@@ -208,13 +208,15 @@ def build_countercheck_report(
     lean_file: Path,
     source_root: Path,
     corpus_root: Path,
+    corpus_names: set[str] | None = None,
     method: str = "heuristic",
 ) -> CountercheckResult:
     _ = method
     node = _load_node(node_file)
     records = extract_decl_records(lean_file, source_root)
     extracted_names = [record.name for record in records]
-    corpus_names = build_name_corpus(corpus_root, source_root=source_root)
+    if corpus_names is None:
+        corpus_names = build_name_corpus(corpus_root, source_root=source_root)
     edges = extract_dependency_edges(records, corpus_names | set(extracted_names))
 
     node_decls = list(node.lean.declarations) if node.lean else []
