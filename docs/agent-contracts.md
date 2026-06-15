@@ -92,6 +92,7 @@ The Markdown body of a report can explain reasons, but the decision must be mach
 | Lean Linking Proposer | Choose existing Lean declarations from a bounded candidate bundle | mechanical proposal for `tools.knowledge.lean_linking` | `verification.alignment`, final status, broad repo scans |
 | MD-Lean Alignment Verifier | Judge semantic alignment from a bounded bundle | `docs/knowledge/reviews/` | final status directly |
 | Admission Referee | Decide whether reports justify admission | admission report, optional controlled move | direct mathematical rewriting without record |
+| Knowledge Graph Refactor Proposer | Propose dependency, topic, duplicate, merge/split, and Lean/topic refactors from node content and graph structure | `docs/knowledge/reviews/`, `docs/knowledge/requests/` | admitted nodes, generated graph/site artifacts |
 
 External-theorem nodes bypass Source-to-MD extraction and are admitted directly after
 alignment verification. See section 4 for details.
@@ -438,7 +439,112 @@ The pipeline reports `schema`, `generality`, `verification`, `reviews`, `dag`,
 and `write` gates. Agents should cite that report in review or issue comments
 instead of manually copying staged files into `docs/knowledge/nodes/`.
 
-## 9. Proof Repair Order
+## 9. Knowledge Graph Refactor Proposer
+
+Purpose: review node contents and deterministic graph structure, then propose
+bounded refactors that improve dependency accuracy, topic organization,
+formulation-sensitive impact analysis, duplicate handling, proof-plan
+separation, and Lean/topic consistency.
+
+Inputs:
+
+- admitted nodes under `docs/knowledge/nodes/`;
+- staged nodes when included by the review scope. When included, they are
+  equivalent to admitted nodes for refactor graph existence, reachability,
+  duplicate/overlap, topic, and formulation-impact analysis, but not for
+  admission or durable truth;
+- a staged id index when staged nodes are excluded but missing-node requests are
+  being considered;
+- `docs/knowledge/mdblueprint.yml` and relevant `topics.md` catalogs;
+- deterministic `check`, `lint`, `stats`, context-pack, refactor-pack,
+  refactor-dry-run, graph, and topic export output;
+- existing review reports or request files when they affect the proposed
+  refactor.
+
+Outputs:
+
+- graph-refactor report under `docs/knowledge/reviews/`;
+- optional dry-run plan for concrete mechanical actions;
+- optional request files under `docs/knowledge/requests/` for new nodes,
+  missing dependencies, split nodes, generalized nodes, or Lean bridges.
+
+Decision vocabulary:
+
+```text
+proposals
+no_action
+needs_human_decision
+blocked
+```
+
+Proposal classifications:
+
+```text
+mechanical-safe
+semantic-review
+request-needed
+blocked
+```
+
+May propose new nodes: yes, but only through `docs/knowledge/requests/`.
+
+Rules:
+
+- It must not write generated graph or site artifacts.
+- It must not directly edit admitted nodes unless a human explicitly asks for
+  that edit after seeing the proposal.
+- It must distinguish logical `uses` dependencies from expository
+  `[[node:id]]` cross-links.
+- It must not treat graph reachability as a complete impact analysis. When a
+  node or dependency is modified or deleted, it must inspect whether descendant
+  statements survive because of the precise formulations of their other
+  ancestors.
+- It must keep proof-plan route dependencies on proof-plan nodes, not on target
+  theorems, unless a dependency is also a genuine logical prerequisite of the
+  theorem statement.
+- It must treat `lean:` as a mechanical link and must not infer semantic
+  alignment from Lean declaration existence.
+- It must preserve uncertainty as a report item, request file, or
+  `needs_human_decision`, not as a silent node rewrite.
+- It must not write duplicate missing-node requests for ids already present in
+  staged content. Staged-node admission or promotion belongs to the Admission
+  Referee workflow, not this refactor proposer.
+- Before finalizing, it must run a refinement pass that ranks semantic refactor
+  candidates above mechanical lint hygiene, reclassifies policy decisions out of
+  `mechanical-safe`, and records why major baseline signals were not pursued.
+- If it proposes a merge, split, or generalization, it must identify reverse
+  dependency impact and the validation commands to run after applying the change.
+
+Use `skills/mdblueprint-graph-refactor-review/SKILL.md` for the workflow and
+`skills/mdblueprint-graph-refactor-review/references/formulation-impact.md` for
+formulation-sensitive impact analysis. Use
+`skills/mdblueprint-graph-refactor-review/references/refactor-report-schema.md`
+for durable report shape.
+
+For bounded graph-refactor evidence, use:
+
+```bash
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --target <node-id>
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --topic <topic-id>
+```
+
+Validate durable reports before acting on them:
+
+```bash
+uv run python -m tools.knowledge.refactor_report_check docs/knowledge <report-path>
+```
+
+For concrete mechanical actions, use an explicit dry-run plan before editing
+admitted node files:
+
+```bash
+uv run python -m tools.knowledge.refactor_dry_run docs/knowledge <plan.yml> --json
+```
+
+Dry-run node additions should be request-backed, and body rewrites must use
+explicit replacement content rather than inferred prose edits.
+
+## 10. Proof Repair Order
 
 For theorem-like nodes with missing or incomplete proof content, the Python
 orchestrator owns the repair sequence:
@@ -451,7 +557,7 @@ If the node has `source.spans`, source-proof-recovery runs before proof-fill. If
 source recovery returns `hint_only`, the orchestrator may pass that explicit
 source hint to proof-fill. Proof-fill must not read source files directly.
 
-## 10. Proof-Fill Agents
+## 11. Proof-Fill Agents
 
 The proof-fill agents handle a bounded repair loop that fills a single, local
 natural-language proof gap. They are invoked only after the statement verifier
@@ -460,7 +566,7 @@ can be completed from the node's existing `uses` list. If source spans exist,
 they are invoked only after source-proof-recovery has failed or produced an
 explicit source hint.
 
-### 10.1 Proof-Fill Generator
+### 11.1 Proof-Fill Generator
 
 Purpose: write a short local proof for the target node using only facts already
 listed in the node's `uses` field.
@@ -495,7 +601,7 @@ Rules:
 - If a valid local proof cannot be written from the allowed context, it must
   return `cannot_fill` with a reason.
 
-### 10.2 Proof-Fill Verifier
+### 11.2 Proof-Fill Verifier
 
 Purpose: independently verify the candidate proof without access to the
 generator's reasoning chain.
