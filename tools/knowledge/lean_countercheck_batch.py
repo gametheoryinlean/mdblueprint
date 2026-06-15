@@ -56,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
             lean_file=Path(pair['lean_file']),
             source_root=args.source_root,
             corpus_root=args.corpus_root,
+            corpus_names=corpus_names,
         )
         report_path = counter_dir / f"{report.node_id.replace('.', '_')}.json"
         report_path.write_text(json.dumps(report.raw, indent=2, sort_keys=True) + '\n', encoding='utf-8')

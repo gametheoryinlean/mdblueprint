@@ -30,40 +30,43 @@ countercheck path separately extracts theorem/dependency evidence so authored
 nodes can be reviewed against formal source text without replacing the human-
 authored graph.
 
-Use them from the repository root in this order when you want an isolated
-proposal-and-review run. There is no single end-to-end command that performs
-all stages automatically:
+Use the end-to-end orchestrator from the repository root when `EconCSLib` is a
+sibling checkout at `../EconCSLib`:
 
 ```bash
-# Build bounded evidence packs for a target node or topic
+uv run mdblueprint-refactor-countercheck --include-staged
+```
+
+By default this command writes a timestamped run under
+`runs/refactor-countercheck/`, asks the graph-refactor agent to write a report
+and dry-run plan, validates and simulates the plan, derives Lean countercheck
+pairs, runs the deterministic counterchecks, and asks the Lean adjudicator to
+classify the results. Use `--prepare-only` to create the prompts and runnable
+scripts without invoking agents, `--skip-adjudicator` to stop after factual
+counterchecks, or `--knowledge-root` / `--lean-source-root` when the KB is not
+the sibling `../EconCSLib` checkout.
+
+The lower-level tools remain available for targeted review:
+
+```bash
 uv run mdblueprint-refactor-pack --help
-
-# Review or simulate the proposed graph change without editing nodes/
 uv run mdblueprint-refactor-dry-run <plan.yml>
-
-# Validate the resulting refactor report before promotion
 uv run mdblueprint-refactor-report-check <report.md>
-
-# Compare Lean-derived theorem/dependency structure against one authored node
-uv run mdblueprint-lean-countercheck   --node-file <node.md>   --lean-file <file.lean>   --source-root <EconCSLib>   --corpus-root <EconCSLib/docs/knowledge>
-
-# Batch the countercheck over many nodes without rescanning the Lean corpus each time
-uv run python -m tools.knowledge.lean_countercheck_batch   --pairs-file runs/<run>/pairs.json   --source-root <EconCSLib>   --corpus-root <EconCSLib>   --output-dir runs/<run>
-# Treat the adjudicator as the final review step after proposals, dry-run, and countercheck.
+uv run mdblueprint-lean-countercheck --node-file <node.md> --lean-file <file.lean> --source-root <EconCSLib> --corpus-root <EconCSLib>
 ```
 
 ## Workflow Order
 
-For a review-first run, use this sequence:
+For a review-first run, `mdblueprint-refactor-countercheck` performs this
+sequence:
 
 1. Build bounded refactor evidence with `mdblueprint-refactor-pack`.
 2. Write and validate a refactor report.
 3. Simulate the proposal with `mdblueprint-refactor-dry-run`.
-4. Review the dry-run result manually and decide which proposals are accepted.
-5. Run `mdblueprint-lean-countercheck` on the accepted or candidate nodes.
-6. Use `mdblueprint-lean-adjudicate` as the final step to classify true discrepancies, false abends, and items that still need human review.
-
-There is no single top-level command that performs all of these stages in one shot.
+4. Select semantically meaningful candidates for Lean countercheck.
+5. Run `mdblueprint-lean-countercheck` on the selected candidate nodes.
+6. Use the Lean adjudicator as the final step to classify true discrepancies,
+   false abends, and items that still need human review.
 
 ## What This Tool Owns
 

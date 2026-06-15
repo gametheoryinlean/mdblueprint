@@ -46,6 +46,9 @@ value judgment against the authored blueprint.
    - `false_abend`
    - `needs_review`
 
+For orchestrated runs, use `references/agent-config.toml` as the default role
+configuration.
+
 ## Judgment rules
 
 - Do not treat missing Lean provenance as an inconsistency if the authored node is intentionally informal or `sorry`-backed.
@@ -56,6 +59,13 @@ value judgment against the authored blueprint.
 - Treat definition-node vs theorem-node mapping mistakes as a basic sanity check: accept wrapper-style mappings when the node is clearly a conceptual anchor, but flag obvious oversights and mismatches.
 - Use random spot checks to catch silly, obvious mapping mistakes and feed those into targeted fixes.
 - Do not silently upgrade heuristic extraction output to ground truth; the final filter must justify the verdict case by case.
+
+## Orchestration defaults
+
+- Use a skeptical review style, but do not force a verdict when mapping is ambiguous.
+- Treat summary nodes and wrapper nodes as coarse-grained targets unless the semantic contract changes.
+- Spawn extraction, mapping, or final-review subagents only when the orchestrator supports them and the input bundle is large enough to justify splitting the task.
+- Keep all reports in the run directory or review directory selected by the orchestrator.
 
 ## Post-hoc failure modes to score
 

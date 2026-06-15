@@ -1,6 +1,6 @@
 name = "lean-adjudicator"
 role = "lean-vs-authored-adjudicator"
-description = "Autonomous referee for Lean-derived theorem/dependency facts versus authored EconCSLib nodes."
+description = "Autonomous referee for Lean-derived theorem/dependency facts versus authored nodes."
 skill = "mdblueprint-lean-adjudicate"
 report_root = "plans"
 default_mode = "adjudicate"
