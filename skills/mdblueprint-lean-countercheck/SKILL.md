@@ -36,7 +36,7 @@ Use conservative matching when comparing authored hints against Lean names:
 - compare normalized full names
 - compare normalized basenames as a fallback
 
-This helps authored hints like `strategic_games.weakly_dominates` match Lean names like `WeaklyDominates`.
+This helps authored hints like `algebra.group_hom` match Lean names like `GroupHom`.
 
 ## False-positive control
 

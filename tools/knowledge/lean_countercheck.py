@@ -12,7 +12,7 @@ from tools.knowledge.parser import parse_file
 
 
 DECL_RE = re.compile(
-    r"(?m)^(?:@[^\n]*\n\s*)*(?:theorem|lemma|def|abbrev|example)\s+"
+    r"(?m)^(?:@[^\n]*\n\s*)*(?P<kind>theorem|lemma|def|abbrev|example)\s+"
     r"(?P<name>(?:[A-Za-z_][\w']*\.)*[A-Za-z_][\w']*)\b"
 )
 
@@ -77,14 +77,6 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _file_kind(line: str) -> str | None:
-    stripped = line.lstrip()
-    for kind in ("theorem", "lemma", "def", "abbrev", "example"):
-        if stripped.startswith(kind + " "):
-            return kind
-    return None
-
-
 def _line_starts(text: str) -> list[int]:
     starts = [0]
     starts.extend(m.end() for m in re.finditer(r"\n", text))
@@ -110,13 +102,11 @@ def extract_decl_records(lean_file: Path, source_root: Path) -> list[DeclRecord]
     for i, match in enumerate(matches):
         start = match.start()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        line_start = text.rfind("\n", 0, start) + 1
         line_no, col_no = _position_of_offset(text, start)
-        kind = _file_kind(text[line_start:start]) or "theorem"
         records.append(
             DeclRecord(
                 name=match.group("name"),
-                kind=kind,
+                kind=match.group("kind"),
                 module=module,
                 source_path=str(lean_file),
                 start=start,
@@ -179,6 +169,11 @@ def _names_match(left: str, right: str) -> bool:
     return _normalize_name(left_base) == _normalize_name(right_base)
 
 
+def _declarations_match(left: str, right: str) -> bool:
+    """Match authored Lean declarations without basename-only collisions."""
+    return left == right or _normalize_name(left) == _normalize_name(right)
+
+
 def extract_dependency_edges(records: list[DeclRecord], corpus_names: set[str]) -> list[dict[str, str]]:
     edges: list[dict[str, str]] = []
     current_names = {record.name for record in records}
@@ -221,12 +216,15 @@ def build_countercheck_report(
 
     node_decls = list(node.lean.declarations) if node.lean else []
     node_uses = list(node.uses or [])
-    matched = [decl for decl in node_decls if any(_names_match(decl, name) for name in extracted_names)]
-    missing_decls = [decl for decl in node_decls if not any(_names_match(decl, name) for name in extracted_names)]
-    extra_decls = [name for name in extracted_names if not any(_names_match(name, decl) for decl in node_decls)]
+    matched = [decl for decl in node_decls if any(_declarations_match(decl, name) for name in extracted_names)]
+    missing_decls = [decl for decl in node_decls if not any(_declarations_match(decl, name) for name in extracted_names)]
+    extra_decls = [name for name in extracted_names if not any(_declarations_match(name, decl) for decl in node_decls)]
 
     extracted_targets = {edge["target"] for edge in edges}
-    missing_uses = [use for use in node_uses if not any(_names_match(use, target) for target in extracted_targets)]
+    missing_uses = (
+        [use for use in node_uses if not any(_names_match(use, target) for target in extracted_targets)]
+        if extracted_targets else []
+    )
     extra_uses = [target for target in sorted(extracted_targets) if not any(_names_match(target, use) for use in node_uses)]
 
     method_status: dict[str, str] = {"heuristic": "used"}
