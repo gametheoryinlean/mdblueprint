@@ -1,8 +1,8 @@
 # mdblueprint
 
-`mdblueprint` is a Markdown-first blueprint system for mathematical knowledge bases that are meant to work with Lean. It keeps small Markdown files as the durable source of truth, then uses deterministic Python tools to validate the dependency graph, check mechanical Lean references, export machine-readable graph data, and publish a leanblueprint-style static site.
+`mdblueprint` is a Markdown-first blueprint system for mathematical knowledge bases that are meant to work with Lean. It keeps small Markdown files as the durable source of truth, then uses deterministic Python tools to validate the dependency graph, check mechanical Lean references, export machine-readable graph data, publish a leanblueprint-style static site, and generate bounded refactor / countercheck reports for review.
 
-It does not use LaTeX, plasTeX, or leanblueprint as the source pipeline. The project borrows the useful presentation style of leanblueprint while keeping the source model simple enough for humans and AI agents to edit safely.
+It does not use LaTeX, plasTeX, or leanblueprint as the source pipeline. The project borrows the useful presentation style of leanblueprint while keeping the source model simple enough for humans and AI agents to edit safely. The newer refactor and countercheck workflows are intentionally review-oriented: they produce proposals, dry runs, and adjudication notes without silently rewriting the authored graph.
 
 ## Agent Entry Points
 
@@ -16,9 +16,36 @@ agents can work on it at the same time without sharing hidden state.
 - Detailed agent role contracts: [`docs/agent-contracts.md`](docs/agent-contracts.md).
 - Skills and how to install/use them: [`docs/skills.md`](docs/skills.md).
 - GitHub Actions publishing setup: [`docs/github-integration.md`](docs/github-integration.md).
+- Refactor/dry-run support: see the `tools.knowledge.refactor_*` commands in the command reference below.
 
 When in doubt, an agent should read `AGENTS.md` first, then the specific docs for
 the files it plans to edit.
+
+## Refactor / Countercheck Quickstart
+
+These modules were added to make graph improvement work auditable instead of ad
+hoc. The refactor harness packages bounded evidence, produces a dry-run plan,
+and checks the resulting report before any graph edit is promoted. The Lean
+countercheck path separately extracts theorem/dependency evidence so authored
+nodes can be reviewed against formal source text without replacing the human-
+authored graph.
+
+Use them from the repository root in this order when you want an isolated
+proposal run:
+
+```bash
+# Build bounded evidence packs for a target node or topic
+uv run mdblueprint-refactor-pack --help
+
+# Review or simulate the proposed graph change without editing nodes/
+uv run mdblueprint-refactor-dry-run <plan.yml>
+
+# Validate the resulting refactor report before promotion
+uv run mdblueprint-refactor-report-check <report.md>
+
+# Compare Lean-derived theorem/dependency structure against one authored node
+uv run mdblueprint-lean-countercheck   --node-file <node.md>   --lean-file <file.lean>   --source-root <EconCSLib>   --corpus-root <EconCSLib/docs/knowledge>
+```
 
 ## What This Tool Owns
 
@@ -47,9 +74,12 @@ AI-assisted output:
   Lean proposals
   alignment reports
   requests for missing nodes
+  bounded refactor proposals
+  dry-run plans and reports
+  Lean countercheck adjudication notes
 ```
 
-Python tools, not LLMs, generate the final graph, reverse dependencies, HTML pages, and static-site index pages.
+Python tools, not LLMs, generate the final graph, reverse dependencies, HTML pages, and static-site index pages. The newer refactor harness also uses deterministic dry-run validation to separate proposal quality from commit-time graph edits.
 
 ## Install
 
@@ -163,6 +193,31 @@ Rules for concurrent agents:
 - Close issues only after tests or the real-library gate relevant to that issue
   have passed.
 
+
+## Leangen Implementation Notes
+
+The source-text `tools/leangen` pipeline currently has a clear active/legacy split.
+
+Active modules used by the round3 source-text workflow:
+
+- `tools/leangen/common.py`
+- `tools/leangen/extract_theorems.py`
+- `tools/leangen/extract_dependencies.py`
+- `tools/leangen/generate_nodes.py`
+- `tools/leangen/generate_mdblueprint.py`
+- `tools/leangen/run_full.py`
+- `tools/leangen/text_extract.py`
+- `tools/leangen/__init__.py`
+
+Legacy or currently unreachable modules in the import graph:
+
+- `tools/leangen/extract_project.py`
+- `tools/leangen/lean_runner.py`
+- `tools/leangen/templates.py`
+- `tools/leangen/validate_theorem_inputs.py`
+
+The active path is the source-text pipeline driven by `run_full.py`. The legacy modules remain in the tree for historical context and should not be treated as the default route for the current branch.
+
 ## Command Reference
 
 Call the tools as Python modules from the repository root.
@@ -203,6 +258,11 @@ uv run python -m tools.knowledge.lean_alignment docs/knowledge --report alignmen
 
 # Run the Python-orchestrated admission pipeline after review gates pass
 uv run python -m tools.knowledge.admission_pipeline docs/knowledge/staged/example.md docs/knowledge
+
+# Produce bounded refactor evidence packs and dry-run plans
+uv run python -m tools.knowledge.refactor_pack docs/knowledge --node-id <node-id>
+uv run python -m tools.knowledge.refactor_report_check /tmp/refactor-report.md
+uv run python -m tools.knowledge.refactor_dry_run plans/econcslib-refactor-agent-dry-run/results/<run>/dry-runs/refactor-plan.yml
 
 # Legacy direct admission helper
 uv run python -m tools.knowledge.admit docs/knowledge/staged/example.md docs/knowledge
