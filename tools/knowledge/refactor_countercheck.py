@@ -4,10 +4,14 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import shutil
+import shlex
 import stat
+import subprocess
 import sys
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +50,10 @@ DRY_RUN_PRIORITY = 90
 NODE_REF_RE = re.compile(r"(?:\[\[node:|(?<![A-Za-z0-9_])node:)([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*)")
 DOTTED_ID_RE = re.compile(r"\b[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+\b")
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_ECONCSLIB_ROOT = REPO_ROOT.parent / "EconCSLib"
+DEFAULT_KNOWLEDGE_ROOT = DEFAULT_ECONCSLIB_ROOT / "docs" / "knowledge"
+DEFAULT_OUTPUT_ROOT = REPO_ROOT / "runs" / "refactor-countercheck"
+AgentRunner = Callable[..., dict[str, Any]]
 
 
 class PipelineError(RuntimeError):
@@ -71,6 +79,11 @@ def _copy_file(src: Path, dst: Path) -> Path:
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
     return dst
+
+
+def _display_path(path: Path) -> str:
+    relpath = os.path.relpath(path, REPO_ROOT)
+    return relpath if not relpath.startswith(".." + os.sep + "..") else str(path)
 
 
 def _section_map(markdown: str) -> dict[str, str]:
@@ -365,7 +378,88 @@ def _run_counterchecks(
     return summary
 
 
-def _write_prompt_files(run_dir: Path, *, knowledge_root: Path, lean_source_root: Path) -> dict[str, str]:
+def _codex_command_parts(codex_cmd: str | Sequence[str]) -> list[str]:
+    if isinstance(codex_cmd, str):
+        parts = shlex.split(codex_cmd)
+    else:
+        parts = list(codex_cmd)
+    if not parts:
+        raise PipelineError("codex command is empty")
+    return parts
+
+
+def _run_codex_agent(
+    *,
+    stage: str,
+    prompt_path: Path,
+    last_message_path: Path,
+    events_path: Path,
+    stderr_path: Path,
+    knowledge_root: Path,
+    lean_source_root: Path,
+    codex_cmd: str | Sequence[str],
+    codex_model: str | None = None,
+) -> dict[str, Any]:
+    last_message_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    stderr_path.parent.mkdir(parents=True, exist_ok=True)
+
+    run_dir = prompt_path.parent.parent.resolve()
+    add_dirs = []
+    for path in (lean_source_root.resolve(), knowledge_root.resolve(), run_dir):
+        if path == REPO_ROOT or path.is_relative_to(REPO_ROOT):
+            continue
+        if path not in add_dirs:
+            add_dirs.append(path)
+
+    command = _codex_command_parts(codex_cmd) + [
+        "exec",
+        "-C",
+        str(REPO_ROOT),
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "-o",
+        str(last_message_path),
+    ]
+    for path in add_dirs:
+        command.extend(["--add-dir", str(path)])
+    if codex_model:
+        command.extend(["-m", codex_model])
+    command.append("-")
+
+    try:
+        with events_path.open("w", encoding="utf-8") as stdout, stderr_path.open("w", encoding="utf-8") as stderr:
+            completed = subprocess.run(
+                command,
+                input=prompt_path.read_text(encoding="utf-8"),
+                stdout=stdout,
+                stderr=stderr,
+                text=True,
+                cwd=REPO_ROOT,
+                check=False,
+            )
+    except FileNotFoundError as exc:
+        raise PipelineError(f"failed to run Codex command {command[0]!r}: {exc}") from exc
+
+    return {
+        "stage": stage,
+        "returncode": completed.returncode,
+        "command": command,
+        "prompt_path": str(prompt_path),
+        "last_message_path": str(last_message_path),
+        "events_path": str(events_path),
+        "stderr_path": str(stderr_path),
+    }
+
+
+def _write_prompt_files(
+    run_dir: Path,
+    *,
+    knowledge_root: Path,
+    lean_source_root: Path,
+    include_staged: bool,
+) -> dict[str, str]:
     prompt_dir = run_dir / "prompts"
     script_dir = run_dir / "scripts"
     log_dir = run_dir / "logs"
@@ -374,15 +468,19 @@ def _write_prompt_files(run_dir: Path, *, knowledge_root: Path, lean_source_root
     log_dir.mkdir(parents=True, exist_ok=True)
 
     refactor_prompt = prompt_dir / "refactor-agent.md"
+    staged_scope = "admitted+staged" if include_staged else "admitted"
     refactor_prompt.write_text(
         "\n".join([
             "# Graph Refactor Agent Run",
             "",
             "Use `skills/mdblueprint-graph-refactor-review/SKILL.md`.",
-            f"Knowledge root: `{knowledge_root}`",
+            f"Knowledge root: `{_display_path(knowledge_root)}`",
+            f"Scope mode: `{staged_scope}`.",
+            f"Pass `--include-staged`: `{str(include_staged).lower()}`.",
             "",
-            f"Write the refactor report to `{run_dir / 'reports' / 'refactor-report.md'}`.",
-            f"Write the dry-run plan to `{run_dir / 'dry-runs' / 'refactor-plan.yml'}`.",
+            f"Write the refactor report to `{_display_path(run_dir / 'reports' / 'refactor-report.md')}`.",
+            f"Write the dry-run plan to `{_display_path(run_dir / 'dry-runs' / 'refactor-plan.yml')}`.",
+            "If no concrete operation survives refinement, write a valid dry-run plan with `operations: []`.",
             "Do not edit admitted or staged knowledge files.",
             "",
         ]),
@@ -396,17 +494,17 @@ def _write_prompt_files(run_dir: Path, *, knowledge_root: Path, lean_source_root
             "",
             "Use `skills/mdblueprint-lean-adjudicate/SKILL.md`.",
             "Use `skills/mdblueprint-lean-adjudicate/references/agent-config.toml` for defaults.",
-            f"Knowledge root: `{knowledge_root}`",
-            f"Lean source root: `{lean_source_root}`",
+            f"Knowledge root: `{_display_path(knowledge_root)}`",
+            f"Lean source root: `{_display_path(lean_source_root)}`",
             "",
-            "Inputs:",
-            f"- refactor report: `{run_dir / 'reports' / 'refactor-report.md'}`",
-            f"- dry-run JSON: `{run_dir / 'dry-runs' / 'refactor-dry-run.json'}`",
-            f"- countercheck pairs: `{run_dir / 'countercheck' / 'pairs.json'}`",
-            f"- skipped candidates: `{run_dir / 'countercheck' / 'skipped.json'}`",
-            f"- countercheck summary: `{run_dir / 'countercheck' / 'summary.json'}`",
+            "Inputs, when present:",
+            f"- refactor report: `{_display_path(run_dir / 'reports' / 'refactor-report.md')}`",
+            f"- dry-run JSON: `{_display_path(run_dir / 'dry-runs' / 'refactor-dry-run.json')}`",
+            f"- countercheck pairs: `{_display_path(run_dir / 'countercheck' / 'pairs.json')}`",
+            f"- skipped candidates: `{_display_path(run_dir / 'countercheck' / 'skipped.json')}`",
+            f"- countercheck summary: `{_display_path(run_dir / 'countercheck' / 'summary.json')}`",
             "",
-            f"Write the adjudication report to `{run_dir / 'adjudication' / 'adjudication-report.md'}`.",
+            f"Write the adjudication report to `{_display_path(run_dir / 'adjudication' / 'adjudication-report.md')}`.",
             "Do not edit admitted or staged knowledge files.",
             "",
         ]),
@@ -419,13 +517,41 @@ def _write_prompt_files(run_dir: Path, *, knowledge_root: Path, lean_source_root
         ("run-adjudicator.sh", adjudicator_prompt),
     ):
         script = script_dir / name
-        last_message = log_dir / name.replace(".sh", "-last-message.md")
-        events = log_dir / name.replace(".sh", "-events.jsonl")
+        last_message_name = name.replace(".sh", "-last-message.md")
+        events_name = name.replace(".sh", "-events.jsonl")
         script.write_text(
             "\n".join([
                 "#!/usr/bin/env bash",
                 "set -euo pipefail",
-                f'codex exec -C "{REPO_ROOT}" --json -o "{last_message}" "$(cat "{prompt}")" | tee "{events}"',
+                'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
+                'RUN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"',
+                'if [[ -n "${MDBLUEPRINT_REPO_ROOT:-}" ]]; then',
+                '  REPO_ROOT="$MDBLUEPRINT_REPO_ROOT"',
+                "else",
+                '  if git -C "$SCRIPT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then',
+                '    REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"',
+                "  else",
+                '    REPO_ROOT="$(git rev-parse --show-toplevel)"',
+                "  fi",
+                "fi",
+                'LEAN_SOURCE_ROOT="${MDBLUEPRINT_LEAN_SOURCE_ROOT:-$REPO_ROOT/../EconCSLib}"',
+                'KNOWLEDGE_ROOT="${MDBLUEPRINT_KNOWLEDGE_ROOT:-$LEAN_SOURCE_ROOT/docs/knowledge}"',
+                'CODEX_BIN="${CODEX_BIN:-codex}"',
+                "MODEL_ARGS=()",
+                'if [[ -n "${CODEX_MODEL:-}" ]]; then',
+                '  MODEL_ARGS=(-m "$CODEX_MODEL")',
+                "fi",
+                "ADD_DIR_ARGS=()",
+                'for EXTRA_DIR in "$LEAN_SOURCE_ROOT" "$KNOWLEDGE_ROOT" "$RUN_DIR"; do',
+                '  case "$EXTRA_DIR" in',
+                '    "$REPO_ROOT"|"$REPO_ROOT"/*) ;;',
+                '    *) ADD_DIR_ARGS+=(--add-dir "$EXTRA_DIR") ;;',
+                "  esac",
+                "done",
+                f'PROMPT="$RUN_DIR/prompts/{prompt.name}"',
+                f'LAST_MESSAGE="$RUN_DIR/logs/{last_message_name}"',
+                f'EVENTS="$RUN_DIR/logs/{events_name}"',
+                '"$CODEX_BIN" exec -C "$REPO_ROOT" --sandbox workspace-write --json -o "$LAST_MESSAGE" "${ADD_DIR_ARGS[@]}" "${MODEL_ARGS[@]}" - < "$PROMPT" | tee "$EVENTS"',
                 "",
             ]),
             encoding="utf-8",
@@ -443,10 +569,12 @@ def _write_summary(run_dir: Path, result: dict[str, Any]) -> Path:
         f"- knowledge root: `{result['knowledge_root']}`",
         f"- Lean source root: `{result['lean_source_root']}`",
         f"- include staged: `{str(result['include_staged']).lower()}`",
+        f"- refactor agent run: `{str(result['refactor_agent_ran']).lower()}`",
         f"- candidates: `{result['candidate_count']}`",
         f"- countercheck pairs: `{result['pair_count']}`",
         f"- skipped candidates: `{result['skipped_count']}`",
         f"- countercheck run: `{str(result['countercheck_ran']).lower()}`",
+        f"- adjudicator run: `{str(result['adjudicator_ran']).lower()}`",
         "",
         "Key files:",
         "",
@@ -459,6 +587,7 @@ def _write_summary(run_dir: Path, result: dict[str, Any]) -> Path:
         "pairs_json",
         "skipped_json",
         "countercheck_summary",
+        "adjudication_report",
         "adjudicator_prompt",
     ):
         value = result.get("paths", {}).get(key)
@@ -481,9 +610,24 @@ def build_refactor_countercheck_run(
     max_countercheck_pairs: int = 16,
     timestamp: str | None = None,
     prepare_only: bool = False,
+    run_refactor_agent: bool = False,
     run_countercheck: bool = True,
+    run_adjudicator: bool = False,
     allow_dry_run_errors: bool = False,
+    codex_cmd: str | Sequence[str] = "codex",
+    codex_model: str | None = None,
+    agent_runner: AgentRunner | None = None,
 ) -> dict[str, Any]:
+    if prepare_only and (run_refactor_agent or run_adjudicator):
+        raise PipelineError("prepare-only cannot run agent stages")
+    if run_refactor_agent and (refactor_report is not None or dry_run_plan is not None):
+        raise PipelineError("do not pass --refactor-report or --dry-run-plan when running the refactor agent")
+
+    knowledge_root = knowledge_root.resolve()
+    lean_source_root = lean_source_root.resolve()
+    output_root = output_root.resolve()
+    lean_corpus_root = lean_corpus_root.resolve() if lean_corpus_root else lean_source_root
+
     run_id = timestamp or _timestamp()
     run_dir = output_root / run_id
     if run_dir.exists():
@@ -494,18 +638,48 @@ def build_refactor_countercheck_run(
     (run_dir / "countercheck").mkdir()
     (run_dir / "adjudication").mkdir()
 
-    scripts = _write_prompt_files(run_dir, knowledge_root=knowledge_root, lean_source_root=lean_source_root)
+    scripts = _write_prompt_files(
+        run_dir,
+        knowledge_root=knowledge_root,
+        lean_source_root=lean_source_root,
+        include_staged=include_staged,
+    )
     nodes_by_id = _load_nodes(knowledge_root, include_staged=include_staged)
     report_copy: Path | None = None
     plan_copy: Path | None = None
     dry_run_json: Path | None = None
     dry_run: dict[str, Any] | None = None
     report_diagnostics: list[dict[str, Any]] = []
+    agent_results: list[dict[str, Any]] = []
+    adjudication_report: Path | None = None
+    runner = agent_runner or _run_codex_agent
 
     if refactor_report is not None:
         report_copy = _copy_file(refactor_report, run_dir / "reports" / "refactor-report.md")
     if dry_run_plan is not None:
         plan_copy = _copy_file(dry_run_plan, run_dir / "dry-runs" / "refactor-plan.yml")
+
+    if run_refactor_agent:
+        refactor_result = runner(
+            stage="refactor",
+            prompt_path=run_dir / "prompts" / "refactor-agent.md",
+            last_message_path=run_dir / "logs" / "run-refactor-agent-last-message.md",
+            events_path=run_dir / "logs" / "run-refactor-agent-events.jsonl",
+            stderr_path=run_dir / "logs" / "run-refactor-agent.stderr",
+            knowledge_root=knowledge_root,
+            lean_source_root=lean_source_root,
+            codex_cmd=codex_cmd,
+            codex_model=codex_model,
+        )
+        agent_results.append(refactor_result)
+        if int(refactor_result.get("returncode", 1)) != 0:
+            raise PipelineError("refactor agent failed; see run-refactor-agent stderr/events logs")
+        report_copy = run_dir / "reports" / "refactor-report.md"
+        plan_copy = run_dir / "dry-runs" / "refactor-plan.yml"
+        missing_outputs = [path for path in (report_copy, plan_copy) if not path.exists()]
+        if missing_outputs:
+            joined = ", ".join(str(path) for path in missing_outputs)
+            raise PipelineError(f"refactor agent did not produce required output(s): {joined}")
 
     if not prepare_only and report_copy is not None:
         diagnostics = check_refactor_report(report_copy, knowledge_root)
@@ -544,14 +718,45 @@ def build_refactor_countercheck_run(
 
     countercheck_summary: dict[str, Any] | None = None
     countercheck_summary_path: Path | None = None
-    if not prepare_only and run_countercheck and pairs:
-        countercheck_summary = _run_counterchecks(
-            pairs,
-            lean_source_root=lean_source_root,
-            lean_corpus_root=lean_corpus_root or lean_source_root,
-            output_dir=run_dir / "countercheck",
-        )
+    if not prepare_only and run_countercheck:
         countercheck_summary_path = run_dir / "countercheck" / "summary.json"
+        if pairs:
+            countercheck_summary = _run_counterchecks(
+                pairs,
+                lean_source_root=lean_source_root,
+                lean_corpus_root=lean_corpus_root,
+                output_dir=run_dir / "countercheck",
+            )
+        else:
+            countercheck_summary = {
+                "pairs": 0,
+                "corpus_names": 0,
+                "nodes_with_missing_decls": 0,
+                "nodes_with_extra_decls": 0,
+                "nodes_with_missing_uses": 0,
+                "nodes_with_extra_uses": 0,
+                "reports": [],
+            }
+            _write_json(countercheck_summary_path, countercheck_summary)
+
+    if run_adjudicator:
+        adjudicator_result = runner(
+            stage="adjudicator",
+            prompt_path=run_dir / "prompts" / "adjudicator.md",
+            last_message_path=run_dir / "logs" / "run-adjudicator-last-message.md",
+            events_path=run_dir / "logs" / "run-adjudicator-events.jsonl",
+            stderr_path=run_dir / "logs" / "run-adjudicator.stderr",
+            knowledge_root=knowledge_root,
+            lean_source_root=lean_source_root,
+            codex_cmd=codex_cmd,
+            codex_model=codex_model,
+        )
+        agent_results.append(adjudicator_result)
+        if int(adjudicator_result.get("returncode", 1)) != 0:
+            raise PipelineError("adjudicator agent failed; see run-adjudicator stderr/events logs")
+        adjudication_report = run_dir / "adjudication" / "adjudication-report.md"
+        if not adjudication_report.exists():
+            raise PipelineError(f"adjudicator did not produce required output: {adjudication_report}")
 
     paths = {
         "metadata": str(run_dir / "metadata.json"),
@@ -562,6 +767,7 @@ def build_refactor_countercheck_run(
         "pairs_json": str(pairs_json),
         "skipped_json": str(skipped_json),
         "countercheck_summary": str(countercheck_summary_path) if countercheck_summary_path else None,
+        "adjudication_report": str(adjudication_report) if adjudication_report else None,
         "refactor_prompt": str(run_dir / "prompts" / "refactor-agent.md"),
         "adjudicator_prompt": str(run_dir / "prompts" / "adjudicator.md"),
         "run_refactor_agent": scripts.get("run-refactor-agent.sh"),
@@ -573,13 +779,16 @@ def build_refactor_countercheck_run(
         "run_dir": str(run_dir),
         "knowledge_root": str(knowledge_root),
         "lean_source_root": str(lean_source_root),
-        "lean_corpus_root": str(lean_corpus_root or lean_source_root),
+        "lean_corpus_root": str(lean_corpus_root),
         "include_staged": include_staged,
         "prepare_only": prepare_only,
+        "refactor_agent_ran": run_refactor_agent,
         "candidate_count": len(candidates),
         "pair_count": len(pairs),
         "skipped_count": len(skipped),
         "countercheck_ran": countercheck_summary is not None,
+        "adjudicator_ran": run_adjudicator,
+        "agent_results": agent_results,
         "report_diagnostics": report_diagnostics,
         "dry_run_summary": dry_run.get("summary") if dry_run else None,
         "countercheck_summary": countercheck_summary,
@@ -595,11 +804,21 @@ def build_refactor_countercheck_run(
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mdblueprint-refactor-countercheck",
-        description="Prepare and run deterministic refactor -> Lean countercheck scaffolding.",
+        description="Run an orchestrated refactor -> Lean countercheck -> adjudication pipeline.",
     )
-    parser.add_argument("--knowledge-root", required=True, type=Path)
-    parser.add_argument("--lean-source-root", required=True, type=Path)
-    parser.add_argument("--output-root", type=Path, default=Path("runs") / "refactor-countercheck")
+    parser.add_argument(
+        "--knowledge-root",
+        type=Path,
+        default=DEFAULT_KNOWLEDGE_ROOT,
+        help="Knowledge root. Defaults to ../EconCSLib/docs/knowledge relative to this repository.",
+    )
+    parser.add_argument(
+        "--lean-source-root",
+        type=Path,
+        default=DEFAULT_ECONCSLIB_ROOT,
+        help="Lean source root. Defaults to ../EconCSLib relative to this repository.",
+    )
+    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--refactor-report", type=Path)
     parser.add_argument("--dry-run-plan", type=Path)
     parser.add_argument("--lean-corpus-root", type=Path)
@@ -607,13 +826,45 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-countercheck-pairs", type=int, default=16)
     parser.add_argument("--timestamp")
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument(
+        "--run-refactor-agent",
+        action="store_true",
+        help="Force a fresh refactor-agent pass. By default this is enabled when no report or plan is provided.",
+    )
+    parser.add_argument(
+        "--skip-refactor-agent",
+        action="store_true",
+        help="Do not run the refactor agent; use this with --refactor-report and/or --dry-run-plan.",
+    )
     parser.add_argument("--skip-countercheck", action="store_true")
+    parser.add_argument("--skip-adjudicator", action="store_true")
     parser.add_argument("--allow-dry-run-errors", action="store_true")
+    parser.add_argument("--codex-cmd", default="codex", help="Codex executable or command prefix for agent stages.")
+    parser.add_argument("--codex-model", help="Optional Codex model passed with -m during agent stages.")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _build_arg_parser().parse_args(sys.argv[1:] if argv is None else argv)
+    parser = _build_arg_parser()
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    if args.run_refactor_agent and args.skip_refactor_agent:
+        parser.error("--run-refactor-agent and --skip-refactor-agent are mutually exclusive")
+    if args.run_refactor_agent and (args.refactor_report is not None or args.dry_run_plan is not None):
+        parser.error("--run-refactor-agent cannot be combined with --refactor-report or --dry-run-plan")
+
+    run_refactor_agent = (
+        not args.prepare_only
+        and not args.skip_refactor_agent
+        and (args.run_refactor_agent or (args.refactor_report is None and args.dry_run_plan is None))
+    )
+    if (
+        not args.prepare_only
+        and not run_refactor_agent
+        and args.refactor_report is None
+        and args.dry_run_plan is None
+    ):
+        parser.error("no refactor artifacts provided; omit --skip-refactor-agent or pass --prepare-only")
+
     try:
         result = build_refactor_countercheck_run(
             knowledge_root=args.knowledge_root,
@@ -626,8 +877,12 @@ def main(argv: list[str] | None = None) -> int:
             max_countercheck_pairs=args.max_countercheck_pairs,
             timestamp=args.timestamp,
             prepare_only=args.prepare_only,
+            run_refactor_agent=run_refactor_agent,
             run_countercheck=not args.skip_countercheck,
+            run_adjudicator=not args.prepare_only and not args.skip_countercheck and not args.skip_adjudicator,
             allow_dry_run_errors=args.allow_dry_run_errors,
+            codex_cmd=args.codex_cmd,
+            codex_model=args.codex_model,
         )
     except PipelineError as exc:
         print(f"error: {exc}", file=sys.stderr)
