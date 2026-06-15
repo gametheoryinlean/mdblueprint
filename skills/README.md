@@ -10,3 +10,8 @@
 | Generate dependency edges between Lean theorems | `mdblueprint-lean-dependency-extraction` |
 | Draft nodes from Lean theorem bundles | `mdblueprint-lean-node-generation` |
 | Export node bundles into `mdblueprint.yml` | `mdblueprint-lean-blueprint-export` |
+
+Use `mdblueprint-lean-theorem-extraction` and `mdblueprint-lean-run-full` for the
+current source-text workflow. The `-legacy` theorem-extraction skill is retained
+for comparison against earlier runs, but the branch is no longer built around
+the removed Lean-backed helper modules.

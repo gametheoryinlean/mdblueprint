@@ -196,7 +196,9 @@ Rules for concurrent agents:
 
 ## Leangen Implementation Notes
 
-The source-text `tools/leangen` pipeline currently has a clear active/legacy split.
+The source-text `tools/leangen` pipeline is the active route on this branch.
+The older Lean-backed helper files were removed from the current working tree,
+so a fresh agent should follow the source-text path below.
 
 Active modules used by the round3 source-text workflow:
 
@@ -209,14 +211,10 @@ Active modules used by the round3 source-text workflow:
 - `tools/leangen/text_extract.py`
 - `tools/leangen/__init__.py`
 
-Legacy or currently unreachable modules in the import graph:
-
-- `tools/leangen/extract_project.py`
-- `tools/leangen/lean_runner.py`
-- `tools/leangen/templates.py`
-- `tools/leangen/validate_theorem_inputs.py`
-
-The active path is the source-text pipeline driven by `run_full.py`. The legacy modules remain in the tree for historical context and should not be treated as the default route for the current branch.
+The active path is the source-text pipeline driven by `run_full.py`.
+It reads Lean files as text, extracts theorem and dependency candidates,
+and emits the staged node and blueprint artifacts without requiring Lean
+compilation helpers from the earlier route.
 
 ## Command Reference
 
