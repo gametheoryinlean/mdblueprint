@@ -18,15 +18,20 @@ def _node(
     *,
     uses: list[str] | None = None,
     lean: bool = False,
+    lean_modules: list[str] | None = None,
+    lean_declarations: list[str] | None = None,
 ) -> Path:
     lean_block = ""
-    if lean:
-        lean_block = """lean:
-  modules:
-    - Example.Algebra
-  declarations:
-    - Example.Group
-"""
+    if lean or lean_modules or lean_declarations:
+        modules = lean_modules or ["Example.Algebra"]
+        declarations = lean_declarations or ["Example.Group"]
+        lean_block = (
+            "lean:\n"
+            "  modules:\n"
+            f"{''.join(f'    - {module}\n' for module in modules)}"
+            "  declarations:\n"
+            f"{''.join(f'    - {declaration}\n' for declaration in declarations)}"
+        )
     return _write(
         root / "nodes" / "algebra" / f"{node_id.split('.')[-1]}.md",
         f"""---
@@ -153,6 +158,53 @@ def test_refactor_countercheck_scaffold_generates_pairs_and_skips(tmp_path: Path
     assert counter_summary["pairs"] == 1
     assert (run_dir / "prompts" / "adjudicator.md").exists()
     assert (run_dir / "scripts" / "run-adjudicator.sh").exists()
+
+
+def test_refactor_countercheck_names_countercheck_artifacts_per_module(tmp_path: Path) -> None:
+    knowledge_root = tmp_path / "knowledge"
+    _node(
+        knowledge_root,
+        "algebra.group",
+        lean_modules=["Example.Algebra", "Example.Order"],
+        lean_declarations=["Example.Group"],
+    )
+    report = _report(tmp_path / "report.md", knowledge_root)
+    lean_root = tmp_path / "lean"
+    _write(
+        lean_root / "Example" / "Algebra.lean",
+        """def Example.Group : True := by
+  trivial
+""",
+    )
+    _write(
+        lean_root / "Example" / "Order.lean",
+        """def Example.OrderedGroup : True := by
+  trivial
+""",
+    )
+
+    result = build_refactor_countercheck_run(
+        knowledge_root=knowledge_root,
+        lean_source_root=lean_root,
+        output_root=tmp_path / "runs",
+        refactor_report=report,
+        timestamp="20260615T030000Z",
+    )
+
+    run_dir = Path(result["run_dir"])
+    counter_summary = json.loads((run_dir / "countercheck" / "summary.json").read_text())
+    json_paths = [Path(item["countercheck_json"]) for item in counter_summary["reports"]]
+    review_paths = [Path(item["review_path"]) for item in counter_summary["reports"]]
+
+    assert result["pair_count"] == 2
+    assert len(json_paths) == len(set(json_paths)) == 2
+    assert len(review_paths) == len(set(review_paths)) == 2
+    assert all(path.exists() for path in json_paths)
+    assert all(path.exists() for path in review_paths)
+    assert {path.name for path in json_paths} == {
+        "algebra_group__Example_Algebra.json",
+        "algebra_group__Example_Order.json",
+    }
 
 
 def test_refactor_countercheck_can_run_agent_stages_with_fake_runner(tmp_path: Path) -> None:
