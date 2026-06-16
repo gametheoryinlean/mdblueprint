@@ -18,6 +18,7 @@ from typing import Any
 from tools.knowledge.lean_countercheck import (
     build_countercheck_report,
     build_name_corpus,
+    safe_countercheck_artifact_stem,
     write_countercheck_report,
 )
 from tools.knowledge.parser import scan_directory
@@ -343,6 +344,7 @@ def _run_counterchecks(
     counter_dir.mkdir(parents=True, exist_ok=True)
     corpus_names = build_name_corpus(lean_corpus_root, source_root=lean_source_root)
     reports: list[dict[str, Any]] = []
+    used_stems: dict[str, int] = {}
     for pair in pairs:
         report = build_countercheck_report(
             node_file=Path(pair["node_file"]),
@@ -351,9 +353,17 @@ def _run_counterchecks(
             corpus_root=lean_corpus_root,
             corpus_names=corpus_names,
         )
-        report_path = counter_dir / f"{report.node_id.replace('.', '_')}.json"
+        base_stem = safe_countercheck_artifact_stem(
+            report.node_id,
+            pair["lean_file"],
+            module=pair.get("module") if isinstance(pair.get("module"), str) else None,
+        )
+        stem_count = used_stems.get(base_stem, 0)
+        used_stems[base_stem] = stem_count + 1
+        stem = base_stem if stem_count == 0 else f"{base_stem}__{stem_count + 1}"
+        report_path = counter_dir / f"{stem}.json"
         _write_json(report_path, report.raw)
-        review_path = write_countercheck_report(report, review_dir)
+        review_path = write_countercheck_report(report, review_dir, filename_stem=f"{stem}_lean_countercheck")
         reports.append({
             "node_id": report.node_id,
             "node_file": pair["node_file"],

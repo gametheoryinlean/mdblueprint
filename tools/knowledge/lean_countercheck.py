@@ -159,6 +159,14 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", name.lower())
 
 
+def safe_countercheck_artifact_stem(node_id: str, lean_file: Path | str, module: str | None = None) -> str:
+    """Build a stable per-node/per-Lean-module stem for countercheck artifacts."""
+    node_slug = re.sub(r"[^A-Za-z0-9]+", "_", node_id).strip("_") or "node"
+    module_source = module or Path(lean_file).with_suffix("").name
+    module_slug = re.sub(r"[^A-Za-z0-9]+", "_", module_source).strip("_") or "lean"
+    return f"{node_slug}__{module_slug}"
+
+
 def _names_match(left: str, right: str) -> bool:
     if left == right:
         return True
@@ -271,11 +279,17 @@ def build_countercheck_report(
     )
 
 
-def write_countercheck_report(report: CountercheckResult, reviews_dir: Path) -> Path:
+def write_countercheck_report(
+    report: CountercheckResult,
+    reviews_dir: Path,
+    *,
+    filename_stem: str | None = None,
+) -> Path:
     reviews_dir.mkdir(parents=True, exist_ok=True)
     timestamp = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
     safe_ts = re.sub(r"[:+]", "_", timestamp)
-    path = reviews_dir / f"{report.node_id.replace('.', '_')}_lean_countercheck_{safe_ts}.md"
+    stem = filename_stem or f"{report.node_id.replace('.', '_')}_lean_countercheck"
+    path = reviews_dir / f"{stem}_{safe_ts}.md"
     lines = [
         "---",
         "agent: lean-countercheck",

@@ -14,6 +14,7 @@ from typing import Any
 from tools.knowledge.lean_countercheck import (
     build_countercheck_report,
     build_name_corpus,
+    safe_countercheck_artifact_stem,
     write_countercheck_report,
 )
 
@@ -50,6 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     counter_dir.mkdir(parents=True, exist_ok=True)
 
     reports: list[dict[str, Any]] = []
+    used_stems: dict[str, int] = {}
     for pair in pairs:
         report = build_countercheck_report(
             node_file=Path(pair['node_file']),
@@ -58,10 +60,18 @@ def main(argv: list[str] | None = None) -> int:
             corpus_root=args.corpus_root,
             corpus_names=corpus_names,
         )
-        report_path = counter_dir / f"{report.node_id.replace('.', '_')}.json"
+        base_stem = safe_countercheck_artifact_stem(
+            report.node_id,
+            pair['lean_file'],
+            module=pair.get('module') if isinstance(pair.get('module'), str) else None,
+        )
+        stem_count = used_stems.get(base_stem, 0)
+        used_stems[base_stem] = stem_count + 1
+        stem = base_stem if stem_count == 0 else f"{base_stem}__{stem_count + 1}"
+        report_path = counter_dir / f"{stem}.json"
         report_path.write_text(json.dumps(report.raw, indent=2, sort_keys=True) + '\n', encoding='utf-8')
         if args.reviews_dir:
-            review_path = write_countercheck_report(report, args.reviews_dir)
+            review_path = write_countercheck_report(report, args.reviews_dir, filename_stem=f"{stem}_lean_countercheck")
         else:
             review_path = None
         reports.append({
