@@ -41,5 +41,20 @@ tags:
 
 # <Title>
 
-<Mathematical content only. No operational sections.>
+<Statement, proof, motivation — written in ordinary mathematical
+language. Cross-reference other nodes with `[[id]]`. Inline mentions of
+declarations listed in `lean.declarations` (e.g. `welfare_can_be_zero`)
+auto-link to the Lean source URL.>
+
+<No Lean syntax in the prose: avoid `⊤`, `↑t`, `WithTop`, `Lex (F × B)`,
+`toLex`/`ofLex`, `Fin n`, `Function.Injective`, internal Lean lemma
+names, Lean code blocks. Push all of that down into the section below.>
+
+## Lean formalization
+
+<Optional section describing the Lean design: type signatures, key
+structure fields, structural lemmas the proof goes through, and any
+design-rationale paragraphs that explain *why* the Lean formalization
+is shaped the way it is. Lean identifiers and code blocks are
+expected here.>
 ```
