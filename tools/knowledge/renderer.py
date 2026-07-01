@@ -498,7 +498,7 @@ def build_jinja_env(config: ProjectConfig) -> Environment:
 
 def _build_html_payload(ctx: "KnowledgeContext", node: Node) -> dict:
     topic = home_topic_for_node(node)
-    md = Markdown(extensions=["tables"])
+    md = Markdown(extensions=["tables", "fenced_code"])
 
     deps = []
     for dep_id in node.uses:
@@ -628,7 +628,7 @@ def render_topic(ctx: "KnowledgeContext", topic_id: str) -> str:
 
     topic_nodes = ctx.topics[topic_id]
     root = _root_prefix_for_topic(topic_id)
-    md = Markdown(extensions=["tables"])
+    md = Markdown(extensions=["tables", "fenced_code"])
 
     catalog_html = _load_topic_catalog(ctx.knowledge_root, topic_id, md)
     if catalog_html:

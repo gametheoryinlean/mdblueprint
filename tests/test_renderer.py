@@ -168,6 +168,26 @@ class TestBoundaryConditions:
         with pytest.raises(KeyError):
             node_detail_payload(ctx, "does.not.exist")
 
+    def test_node_with_fenced_code_block(self, tmp_path):
+        """Regression: ```lean fenced code blocks must render as <pre><code>,
+        not as running <p> text with the triple-backticks visible."""
+        nodes = tmp_path / "nodes"
+        nodes.mkdir(parents=True)
+        (nodes / "fenced.md").write_text(
+            "---\nid: fenced.node\ntitle: Fenced Code\nkind: definition\nstatus: admitted\n---\n"
+            "Prose paragraph.\n\n"
+            "```lean\n"
+            "def foo (n : ℕ) : ℕ := n + 1\n"
+            "```\n\n"
+            "Trailing paragraph.\n"
+        )
+        ctx = KnowledgeContext.load(tmp_path)
+        html = render_node(ctx, "fenced.node")
+        assert "<pre>" in html and "<code" in html, (
+            "fenced ```lean block was not rendered as <pre><code>"
+        )
+        assert "```" not in html, "raw triple-backticks leaked into rendered HTML"
+
     def test_node_with_empty_body(self, tmp_path):
         nodes = tmp_path / "nodes"
         nodes.mkdir(parents=True)
