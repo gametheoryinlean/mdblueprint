@@ -6,7 +6,7 @@ import posixpath
 import re
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown import Markdown
@@ -180,6 +180,10 @@ def _resolve_node_refs_in_html(
 _INLINE_CODE_NODE_REF_RE = re.compile(
     r"<code>([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+)</code>"
 )
+# Lean identifiers can start uppercase and use dots for namespacing.
+_INLINE_CODE_LEAN_DECL_RE = re.compile(
+    r"<code>([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*)</code>"
+)
 _PRE_BLOCK_RE = re.compile(r"<pre\b[^>]*>.*?</pre>", flags=re.DOTALL | re.IGNORECASE)
 _ANCHOR_BLOCK_RE = re.compile(r"<a\b[^>]*>.*?</a>", flags=re.DOTALL | re.IGNORECASE)
 
@@ -225,11 +229,127 @@ def _autolink_bare_node_refs_in_html(
     return re.sub(r"\x00AUTOLINKMASK(\d+)\x00", _restore, linked)
 
 
+def _build_lean_decl_fallback(
+    node: Node, ctx: "KnowledgeContext",
+) -> Callable[[str], str | None] | None:
+    """Return a `(name) -> source-url | None` fallback that resolves an
+    inline backtick mention against the project-wide LeanIndex when the
+    node's explicit `lean.declarations` map doesn't cover it.
+
+    Returns `None` when the node has no Lean repository configured or the
+    configured repository is not indexed (e.g. running without a Lean
+    checkout). Ambiguous suffix matches resolve to `None` and stay
+    unlinked rather than getting linked to the wrong declaration.
+    """
+    lean_config = ctx.config.lean
+    indexes = ctx.lean_indexes
+    if not indexes:
+        return None
+    repo_id = None
+    if node.lean is not None:
+        repo_id = node.lean.repository or lean_config.default_repository
+    else:
+        repo_id = lean_config.default_repository
+    if repo_id is None or repo_id not in indexes:
+        return None
+    idx = indexes[repo_id]
+
+    def _resolve(name: str) -> str | None:
+        decl = idx.resolve_inline(name)
+        return decl.source_url if decl is not None else None
+
+    return _resolve
+
+
+def _build_lean_decl_url_map(lean_refs: list[dict]) -> dict[str, str]:
+    """Build `{decl-name → GitHub source URL}` from resolved Lean refs.
+
+    Each ref with a `source_url` contributes its yaml `name` and `qualified_name`
+    as exact aliases, plus the last dotted segment as a short alias. Short
+    aliases that would map to more than one URL are dropped to avoid linking
+    an ambiguous mention to the wrong declaration.
+    """
+    if not lean_refs:
+        return {}
+    exact: dict[str, str] = {}
+    short_candidates: dict[str, set[str]] = {}
+    for ref in lean_refs:
+        url = ref.get("source_url")
+        if not url:
+            continue
+        for key in (ref.get("name"), ref.get("qualified_name")):
+            if key:
+                exact.setdefault(key, url)
+        full = ref.get("qualified_name") or ref.get("name") or ""
+        short = full.rsplit(".", 1)[-1] if full else ""
+        if short:
+            short_candidates.setdefault(short, set()).add(url)
+    for short, urls in short_candidates.items():
+        if len(urls) == 1 and short not in exact:
+            exact[short] = next(iter(urls))
+    return exact
+
+
+def _autolink_lean_decls_in_html(
+    html: str,
+    decl_to_url: dict[str, str],
+    fallback: "Callable[[str], str | None] | None" = None,
+) -> str:
+    """Wrap `<code>name</code>` in an anchor when `name` resolves to a Lean
+    source URL.
+
+    Resolution proceeds in two tiers:
+
+    1. **Explicit map** — `decl_to_url`, built from this node's YAML
+       `lean.declarations`. Both fully-qualified and unambiguous short names
+       are in the map.
+    2. **Project fallback** — the optional `fallback` callable, which
+       resolves a name against the whole project-wide Lean index when the
+       explicit map misses. Returns the source URL of a unique match, or
+       `None` for unknown / ambiguous names.
+
+    Same masking rules as `_autolink_bare_node_refs_in_html`: skips
+    `<pre>` blocks and existing `<a>` tags.
+    """
+    if not decl_to_url and fallback is None:
+        return html
+
+    masks: list[str] = []
+
+    def _mask(match: re.Match[str]) -> str:
+        masks.append(match.group(0))
+        return f"\x00LEANDECLMASK{len(masks) - 1}\x00"
+
+    masked = _PRE_BLOCK_RE.sub(_mask, html)
+    masked = _ANCHOR_BLOCK_RE.sub(_mask, masked)
+
+    def _link(match: re.Match[str]) -> str:
+        name = match.group(1)
+        url = decl_to_url.get(name)
+        if url is None and fallback is not None:
+            url = fallback(name)
+        if url is None:
+            return match.group(0)
+        return (
+            f'<a class="lean-decl-ref" href="{escape(url)}">'
+            f'<code>{escape(name)}</code></a>'
+        )
+
+    linked = _INLINE_CODE_LEAN_DECL_RE.sub(_link, masked)
+
+    def _restore(match: re.Match[str]) -> str:
+        return masks[int(match.group(1))]
+
+    return re.sub(r"\x00LEANDECLMASK(\d+)\x00", _restore, linked)
+
+
 def _render_body(
     md: markdown.Markdown,
     body: str,
     all_nodes: dict[str, Node] | None = None,
     from_topic: str | None = None,
+    lean_decl_urls: dict[str, str] | None = None,
+    lean_decl_fallback: "Callable[[str], str | None] | None" = None,
 ) -> dict[str, str | None]:
     statement_md, proof_md = _split_proof_markdown(body)
     md.reset()
@@ -244,6 +364,14 @@ def _render_body(
         if proof_html is not None:
             proof_html, _ = _resolve_node_refs_in_html(proof_html, all_nodes, from_topic)
             proof_html = _autolink_bare_node_refs_in_html(proof_html, all_nodes, from_topic)
+    if lean_decl_urls or lean_decl_fallback is not None:
+        statement_html = _autolink_lean_decls_in_html(
+            statement_html, lean_decl_urls or {}, fallback=lean_decl_fallback,
+        )
+        if proof_html is not None:
+            proof_html = _autolink_lean_decls_in_html(
+                proof_html, lean_decl_urls or {}, fallback=lean_decl_fallback,
+            )
     return {
         "body_html": statement_html,
         "proof_html": proof_html,
@@ -498,7 +626,7 @@ def build_jinja_env(config: ProjectConfig) -> Environment:
 
 def _build_html_payload(ctx: "KnowledgeContext", node: Node) -> dict:
     topic = home_topic_for_node(node)
-    md = Markdown(extensions=["tables"])
+    md = Markdown(extensions=["tables", "fenced_code"])
 
     deps = []
     for dep_id in node.uses:
@@ -520,10 +648,15 @@ def _build_html_payload(ctx: "KnowledgeContext", node: Node) -> dict:
                 "href": _node_href_for_node(rev_node, from_topic=topic),
             })
 
+    lean_refs = _resolve_lean_refs(node, ctx.config.lean, ctx.lean_indexes)
+    lean_modules = _resolve_lean_modules(node, ctx.config.lean, ctx.lean_indexes)
+
     rendered = _render_body(
         md, node.body,
         all_nodes=ctx.nodes_by_id,
         from_topic=topic,
+        lean_decl_urls=_build_lean_decl_url_map(lean_refs),
+        lean_decl_fallback=_build_lean_decl_fallback(node, ctx),
     )
 
     return {
@@ -532,8 +665,8 @@ def _build_html_payload(ctx: "KnowledgeContext", node: Node) -> dict:
         "proof_html": rendered["proof_html"],
         "deps": deps,
         "dependents": dependents,
-        "lean_refs": _resolve_lean_refs(node, ctx.config.lean, ctx.lean_indexes),
-        "lean_modules": _resolve_lean_modules(node, ctx.config.lean, ctx.lean_indexes),
+        "lean_refs": lean_refs,
+        "lean_modules": lean_modules,
     }
 
 
@@ -628,7 +761,7 @@ def render_topic(ctx: "KnowledgeContext", topic_id: str) -> str:
 
     topic_nodes = ctx.topics[topic_id]
     root = _root_prefix_for_topic(topic_id)
-    md = Markdown(extensions=["tables"])
+    md = Markdown(extensions=["tables", "fenced_code"])
 
     catalog_html = _load_topic_catalog(ctx.knowledge_root, topic_id, md)
     if catalog_html:
