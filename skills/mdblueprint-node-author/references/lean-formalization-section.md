@@ -125,6 +125,78 @@ only `[MulAction G X]`.
 No fenced block needed — the whole content is one paragraph of
 prose with three inline identifiers.
 
+## Terminology: "axiom" is reserved for Lean-kernel axioms
+
+**Do not call a `structure` field, `class` field, or general
+mathematical hypothesis an "axiom" in the KB body prose.**  In Lean 4
+the word "axiom" has a precise, non-metaphorical meaning: it names a
+`Prop` declared without proof via
+
+```lean
+axiom foo : SomeProp
+```
+
+The declaration is added to the kernel as a postulate, checkable via
+`#print axioms`.  A well-tended Lean project has very few of these
+(typically only Mathlib's foundational `Classical.choice`,
+`Quot.sound`, `propext`, and a handful of well-known others).
+
+**Structure and typeclass fields are NOT axioms.** They are
+*proof obligations* the constructor of an instance must supply:
+
+```lean
+structure InductionDatum (X' : Type*) [...] where
+  G' : Subgroup G                          -- data
+  P  : X' → Subgroup G                     -- data
+  P0 : ∀ {E F}, E ≤ F → P F ≤ P E          -- proof obligation, NOT an axiom
+  P1 : ∀ n ∈ G', ...                       -- proof obligation, NOT an axiom
+  P2 : ∀ E m, m ∈ P E → m ∈ G' → ...       -- proof obligation, NOT an axiom
+```
+
+To construct a concrete `d : InductionDatum X'`, the caller must
+*prove* `P0`, `P1`, `P2` from their concrete `G'` and `P`.  These are
+hypotheses on the input data, not postulates.
+
+Similarly, `class GCellComplex ...` fields (`smul_le`, `smul_dim`)
+are proof obligations, not axioms.
+
+### Why the distinction matters
+
+Calling them "axioms" is doubly misleading:
+
+1. **Kernel confusion.** A reader familiar with Lean will assume you
+   have declared genuine `axiom` postulates, which is a red flag
+   (unfounded assumptions in the kernel).  You almost never do.
+2. **Provability confusion.** Axioms in Lean's sense are *unprovable
+   by design*.  Structure fields are provable by ordinary Lean proofs
+   in every concrete instance — the whole point of the framework is
+   that specific constructions of `InductionDatum` provide these
+   proofs.
+
+### Approved replacements
+
+For "which conditions does this theorem consume" tables and prose,
+use:
+
+- **"Hypotheses used"** — cleanest for math-first readers.
+- **"Conditions used"** — matches paper terminology when the paper
+  itself uses "conditions (P1), (P2)".
+- **"Structure fields consumed"** — most explicit about the Lean
+  correspondence.
+- **"Datum fields used"** / **"Class fields used"** — even more
+  specific if the theorem is a general statement about `InductionDatum`
+  or `GCellComplex` instances.
+
+Do **not** write:
+
+- ~~"Axioms used"~~
+- ~~"Which axioms feed into which theorem"~~
+- ~~"Axiom cost"~~
+
+Reserve the word "axiom" for actual `axiom`-declared postulates on
+the Lean side (rare) and for genuine axiomatic systems on the math
+side (Peano, ZFC, choice principles).
+
 ## Common mistakes and their symptoms
 
 | Mistake | Rendered symptom |
