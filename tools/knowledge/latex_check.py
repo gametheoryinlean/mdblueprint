@@ -42,6 +42,19 @@ KNOWN_MACROS = frozenset({
     "upharpoonleft", "upharpoonright", "downharpoonleft", "downharpoonright",
     "circlearrowleft", "circlearrowright", "curvearrowleft", "curvearrowright",
     "Lleftarrow", "Rrightarrow",
+    # ---- Extensible arrows (AMS/KaTeX) — take an optional [subscript] and
+    # a mandatory {superscript} that render above/below the arrow.  These
+    # MUST NOT be aliased to the non-extensible variants (\rightarrow etc.)
+    # in user macros, because that strips the argument.
+    "xleftarrow", "xrightarrow", "xLeftarrow", "xRightarrow",
+    "xleftrightarrow", "xLeftrightarrow",
+    "xhookleftarrow", "xhookrightarrow",
+    "xtwoheadleftarrow", "xtwoheadrightarrow",
+    "xleftharpoonup", "xrightharpoonup",
+    "xleftharpoondown", "xrightharpoondown",
+    "xleftrightharpoons", "xrightleftharpoons",
+    "xleftrightarrows", "xrightleftarrows",
+    "xmapsto", "xlongequal",
     # ---- Logic / set membership / order ----
     "exists", "forall", "nexists",
     "land", "lor", "lnot", "neg",

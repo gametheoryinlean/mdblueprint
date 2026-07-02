@@ -138,6 +138,28 @@ def test_static_math_check_accepts_katex_builtin_macros(tmp_path):
     assert errors == []
 
 
+def test_static_math_check_accepts_extensible_arrows(tmp_path):
+    """Regression: KaTeX's extensible arrows (\\xrightarrow{...}, \\xleftarrow{...},
+    etc.) must be recognised as built-ins so they do not require a user macro
+    override — a naive override like `\\xrightarrow -> \\rightarrow` strips
+    the argument and breaks rendering (`→ ∼` instead of `→~`)."""
+    node_path = tmp_path / "nodes" / "math" / "xarrows.md"
+    _write_node(
+        node_path,
+        node_id="math.xarrows",
+        body=r"""
+        The natural isomorphism $A \xrightarrow{\;\sim\;} B$ should render
+        with the tilde above the arrow, and $C \xleftarrow{f} D$ should
+        render with `f` above.  Other extensibles: $\xhookrightarrow{}$,
+        $\xtwoheadrightarrow{}$, $\xLeftrightarrow{}$, $\xmapsto{}$.
+        """,
+    )
+
+    errors = [d for d in check_knowledge_base(tmp_path) if d.level == "error"]
+
+    assert errors == [], f"expected no errors, got: {errors}"
+
+
 def test_static_math_check_uses_project_macro_config(tmp_path):
     node_path = tmp_path / "nodes" / "math" / "macro.md"
     _write_node(node_path, node_id="math.macro", body=r"Configured macro $\R$ should pass.")
