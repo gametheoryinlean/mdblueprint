@@ -69,13 +69,22 @@ class LeanIndex:
     warnings: list[str] = field(default_factory=list)
 
 
+_ATTRIBUTE_PREFIX_RE = re.compile(r"^(?:@\[[^\]]*\]\s*)+")
+
+
 def _extract_decl_name(line: str) -> tuple[str, str] | None:
-    m = DECL_KEYWORDS.match(line.lstrip())
+    stripped = line.lstrip()
+    # Skip any leading `@[…]` attribute blocks (e.g. `@[simp] theorem foo`).
+    # A declaration can carry one or several attributes on the same line, so
+    # match them greedily and strip.  Without this, `@[simp] theorem dim_smul`
+    # would be silently missed by the index.
+    stripped = _ATTRIBUTE_PREFIX_RE.sub("", stripped)
+    m = DECL_KEYWORDS.match(stripped)
     if m is None:
         return None
     keyword = m.group(1)
     canonical = _CANONICAL_KIND.get(keyword, keyword)
-    rest = line.lstrip()[m.end():]
+    rest = stripped[m.end():]
     name_match = re.match(r"(\S+)", rest)
     if name_match is None:
         return None
