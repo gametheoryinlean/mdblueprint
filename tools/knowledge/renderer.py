@@ -133,12 +133,23 @@ def _split_proof_markdown(body: str) -> tuple[str, str | None]:
     return statement, proof or None
 
 
+_BLOCKQUOTE_LINE_PREFIX_RE = re.compile(r"\n>[ \t]?")
+
+
 def _convert_markdown_preserving_tex(md: markdown.Markdown, source: str) -> str:
     replacements: list[tuple[str, str]] = []
 
     def protect(match: re.Match[str]) -> str:
+        raw = match.group(0)
+        # Strip blockquote line-prefix from math bodies: TEX_MATH_RE captures
+        # the raw source before Python-Markdown gets a chance to normalise
+        # `> ` blockquote prefixes off continuation lines.  Without this,
+        # display math inside a blockquote leaks those `>` characters into
+        # the KaTeX input on every line.  Non-blockquote math never contains
+        # `\n>` at the start of a line, so this is a no-op there.
+        cleaned = _BLOCKQUOTE_LINE_PREFIX_RE.sub("\n", raw)
         token = f"MDBLUEPRINTMATHPLACEHOLDER{len(replacements)}END"
-        replacements.append((token, match.group(0)))
+        replacements.append((token, cleaned))
         return token
 
     protected = TEX_MATH_RE.sub(protect, source)

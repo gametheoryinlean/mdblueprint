@@ -168,6 +168,33 @@ class TestBoundaryConditions:
         with pytest.raises(KeyError):
             node_detail_payload(ctx, "does.not.exist")
 
+    def test_display_math_inside_blockquote_no_leaked_gt(self, tmp_path):
+        """Regression: multi-line $$...$$ inside a `>` blockquote must not
+        leak the `> ` line prefixes into the KaTeX input."""
+        nodes = tmp_path / "nodes"
+        nodes.mkdir(parents=True)
+        (nodes / "bqmath.md").write_text(
+            "---\nid: bqmath.node\ntitle: BQMath\nkind: definition\nstatus: admitted\n---\n"
+            "> **Definition.** For all x,\n"
+            "> $$\n"
+            "> x \\preceq y \\iff\n"
+            "> x = y.\n"
+            "> $$\n"
+        )
+        ctx = KnowledgeContext.load(tmp_path)
+        html = render_node(ctx, "bqmath.node")
+        # Extract the math block and check no stray `>` on interior lines.
+        import re as _re
+        match = _re.search(r"\$\$([\s\S]+?)\$\$", html)
+        assert match is not None, "display math block not found in rendered HTML"
+        body = match.group(1)
+        # Interior lines of the display math must not begin with `>`.
+        interior_lines = [ln for ln in body.split("\n") if ln.strip()]
+        for line in interior_lines:
+            assert not line.lstrip().startswith(">"), (
+                f"blockquote prefix leaked into math body: {line!r}"
+            )
+
     def test_node_with_fenced_code_block(self, tmp_path):
         """Regression: ```lean fenced code blocks must render as <pre><code>,
         not as running <p> text with the triple-backticks visible."""
