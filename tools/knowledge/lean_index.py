@@ -483,6 +483,58 @@ _WHERE_BLOCK_KINDS = frozenset({
 })
 
 
+# Declaration kinds where a top-level `:=` opens a **body that IS the
+# definition** (as opposed to a proof).  For these, if the body is short
+# we prefer to include it in the snippet rather than truncating at `:=`.
+#
+#   * `abbrev`: alias definitions.  The RHS is the whole point
+#     (`abbrev OrbitCat := X` — cutting at `:=` erases the definition).
+#   * `def`, `instance`: term-level definitions and typeclass impls.
+#     Short bodies are informative (`def Mor := {g : G // g • E ≤ E'}`);
+#     long ones (multi-page term or tactic proof) still get cut.
+#
+# `theorem`, `lemma`, `example` are absent by design: their `:=` opens a
+# proof, which the blueprint hides.
+_INCLUDE_BODY_KINDS = frozenset({"abbrev", "def", "instance"})
+
+# Maximum number of *continuation* lines past the `:=` line to include in
+# the snippet.  Beyond this the body is assumed to be a full-blown
+# implementation and we revert to cutting at `:=`.
+_MAX_BODY_LOOKAHEAD = 4
+
+
+def _peek_body_end(
+    lines: list[str],
+    walrus_line_idx: int,
+    header_indent: int,
+) -> int | None:
+    """Return the exclusive end-line index of the body starting at
+    `walrus_line_idx`, if the body terminates within
+    `_MAX_BODY_LOOKAHEAD` continuation lines.  Otherwise return `None`.
+
+    The body is considered to end at the first following line that is
+    blank, starts a new top-level declaration keyword, or dedents back
+    to `header_indent` or shallower.  Callers use this to decide whether
+    the body is compact enough to inline in the snippet.
+    """
+    lookahead_end = walrus_line_idx + 1 + _MAX_BODY_LOOKAHEAD
+    end = min(lookahead_end, len(lines))
+    for i in range(walrus_line_idx + 1, end):
+        raw = lines[i].rstrip()
+        stripped = raw.strip()
+        if not stripped:
+            return i
+        if DECL_KEYWORDS.match(raw.lstrip()):
+            return i
+        if _leading_indent(raw) <= header_indent:
+            return i
+    # End-of-file is a terminator too — a body that runs to EOF is
+    # bounded whether or not we hit the lookahead cap.
+    if end == len(lines):
+        return len(lines)
+    return None
+
+
 def _signature_snippet(
     lines: list[str],
     decl_index: int,
@@ -521,6 +573,7 @@ def _signature_snippet(
     collected: list[str] = []
     in_where_block = False
     allow_where_block = keyword in _WHERE_BLOCK_KINDS
+    include_body = keyword in _INCLUDE_BODY_KINDS
 
     for offset in range(decl_index, min(decl_index + max_lines, len(lines))):
         raw = lines[offset].rstrip()
@@ -539,6 +592,18 @@ def _signature_snippet(
         if not in_where_block:
             walrus = _top_level_walrus_index(raw)
             if walrus is not None:
+                if include_body:
+                    body_end = _peek_body_end(lines, offset, header_indent)
+                    if body_end is not None:
+                        # Include the `:=` line + all continuation lines
+                        # through the body terminator.  Prior header lines
+                        # (offsets `decl_index..offset-1`) are already in
+                        # `collected` via earlier iterations of this loop.
+                        for j in range(offset, body_end):
+                            collected.append(lines[j].rstrip())
+                        break
+                # Cut just before `:=` — body is a long implementation or
+                # this declaration kind hides bodies (theorem/lemma/example).
                 before = raw[:walrus].rstrip()
                 if before:
                     collected.append(before)

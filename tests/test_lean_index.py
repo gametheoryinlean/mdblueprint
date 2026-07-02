@@ -171,9 +171,115 @@ end Example
         assert decl.docstring == "A documented predicate."
         assert "def IsGood" in decl.signature
         assert "(n : Nat) : Prop" in decl.signature
-        assert ":=" not in decl.signature
+        # `def` bodies short enough to fit within the body look-ahead
+        # cap are now inlined (previously always cut at `:=`).
+        assert ":=" in decl.signature
+        assert "n = n" in decl.signature
         assert idx.declarations["Example.Fancy"].kind == "structure"
         assert "structure Fancy where" in idx.declarations["Example.Fancy"].signature
+
+    def test_abbrev_shows_rhs(self, tmp_path):
+        """Regression: `abbrev` should include the RHS of `:=`.
+
+        Truncating an alias like `abbrev OrbitCat := X` at `:=` erases
+        the definition — the reader is left with a header that says
+        nothing about what the alias resolves to.
+        """
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            "abbrev OrbitCat (G X : Type*) : Type _ := X\n"
+            "\n"
+            "abbrev Multi (X : Type*) : Type _ :=\n"
+            "  MyWrapper (X × X)\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+
+        sig1 = idx.declarations["OrbitCat"].signature
+        assert sig1 == "abbrev OrbitCat (G X : Type*) : Type _ := X"
+
+        sig2 = idx.declarations["Multi"].signature
+        assert "abbrev Multi (X : Type*) : Type _ :=" in sig2
+        assert "MyWrapper (X × X)" in sig2
+
+    def test_def_shows_short_body(self, tmp_path):
+        """Compact `def` bodies (up to ~4 lines) should be inlined.
+
+        For a one-liner subtype definition like `def Mor := {g // p g}`,
+        cutting at `:=` hides the whole point of the declaration.
+        """
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            "def Mor (E E' : OrbitCat G X) : Type _ :=\n"
+            "  {g : G // g • (E : X) ≤ (E' : X)}\n"
+            "\n"
+            "def oneLiner (n : Nat) : Nat := n + 1\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+
+        sig_mor = idx.declarations["Mor"].signature
+        assert "def Mor (E E' : OrbitCat G X) : Type _ :=" in sig_mor
+        assert "{g : G // g • (E : X) ≤ (E' : X)}" in sig_mor
+
+        sig_one = idx.declarations["oneLiner"].signature
+        assert sig_one == "def oneLiner (n : Nat) : Nat := n + 1"
+
+    def test_def_with_long_body_still_cuts(self, tmp_path):
+        """A `def` whose body exceeds the look-ahead cap falls back to
+        cutting at `:=` — we don't want to inline sprawling
+        implementations or long tactic proofs."""
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            "def big : Nat := by\n"
+            "  have h1 := someLemma\n"
+            "  have h2 := otherLemma\n"
+            "  have h3 := thirdLemma\n"
+            "  have h4 := fourthLemma\n"
+            "  have h5 := fifthLemma\n"
+            "  exact h1 + h2 + h3 + h4 + h5\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+        sig = idx.declarations["big"].signature
+
+        # We only guarantee the header appears; the body should be cut.
+        assert sig.startswith("def big : Nat")
+        assert "someLemma" not in sig
+        assert "exact" not in sig
+
+    def test_theorem_never_shows_body(self, tmp_path):
+        """`theorem` continues to hide `:=` bodies regardless of length —
+        even a one-line proof should be truncated, so blueprint readers
+        see the statement, not the proof strategy."""
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            "theorem trivial : True := True.intro\n"
+            "\n"
+            "theorem alsoTrivial : True := by exact True.intro\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+
+        sig1 = idx.declarations["trivial"].signature
+        assert sig1 == "theorem trivial : True"
+        assert "True.intro" not in sig1
+
+        sig2 = idx.declarations["alsoTrivial"].signature
+        assert sig2 == "theorem alsoTrivial : True"
+        assert "exact" not in sig2
 
     def test_named_argument_walrus_does_not_truncate_signature(self, tmp_path):
         """Regression: `(name := value)` inside signature must not be treated as `:=`.

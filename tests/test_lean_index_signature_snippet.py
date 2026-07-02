@@ -48,23 +48,39 @@ def test_structure_signature_includes_fields(tmp_path):
     assert "def next" not in sig, "next decl leaked into structure signature"
 
 
-def test_def_signature_still_cuts_at_walrus(tmp_path):
+def test_def_signature_inlines_short_body_cuts_long_body(tmp_path):
+    """`def` should include short bodies (the RHS *is* the definition)
+    and cut at `:=` when the body exceeds the look-ahead cap."""
     lean_root = tmp_path / "lean"
     lean_root.mkdir(parents=True)
     (lean_root / "Foo.lean").write_text(
         "def one : Nat := 1\n"
+        "\n"
         "def two : Nat :=\n"
         "  1 + 1\n"
+        "\n"
+        "def big : Nat := by\n"
+        "  have h1 : True := trivial\n"
+        "  have h2 : True := trivial\n"
+        "  have h3 : True := trivial\n"
+        "  have h4 : True := trivial\n"
+        "  have h5 : True := trivial\n"
+        "  exact 42\n"
     )
     idx = index_lean_project(lean_root)
     sig_one = idx.declarations["one"].signature or ""
     sig_two = idx.declarations["two"].signature or ""
-    assert sig_one.endswith("Nat"), (
-        f"def signature must cut just before `:=`, got {sig_one!r}"
-    )
-    assert "1 + 1" not in sig_one and "1 + 1" not in sig_two, (
-        "def body leaked into signature"
-    )
+    sig_big = idx.declarations["big"].signature or ""
+
+    # Short one-liner: `:= 1` included.
+    assert sig_one == "def one : Nat := 1", sig_one
+
+    # Two-line body: `1 + 1` on continuation line included.
+    assert "def two : Nat :=" in sig_two and "1 + 1" in sig_two, sig_two
+
+    # Body exceeds `_MAX_BODY_LOOKAHEAD`: signature is cut at `:=`.
+    assert sig_big.startswith("def big : Nat"), sig_big
+    assert "exact 42" not in sig_big and "have h" not in sig_big, sig_big
 
 
 def test_class_signature_terminates_at_next_top_level(tmp_path):
