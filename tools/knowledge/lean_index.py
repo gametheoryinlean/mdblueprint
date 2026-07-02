@@ -13,7 +13,9 @@ DECL_KEYWORDS = re.compile(
     r"^(def|theorem|lemma|abbrev|instance|structure|class|inductive|"
     r"noncomputable def|noncomputable instance|"
     r"protected def|protected theorem|protected lemma|"
-    r"private def|private theorem|private lemma)\s+",
+    r"private def|private theorem|private lemma|"
+    r"scoped instance|scoped def|scoped theorem|scoped lemma|"
+    r"scoped abbrev)\s+",
 )
 
 _CANONICAL_KIND: dict[str, str] = {
@@ -25,6 +27,11 @@ _CANONICAL_KIND: dict[str, str] = {
     "private def": "def",
     "private theorem": "theorem",
     "private lemma": "lemma",
+    "scoped instance": "instance",
+    "scoped def": "def",
+    "scoped theorem": "theorem",
+    "scoped lemma": "lemma",
+    "scoped abbrev": "abbrev",
 }
 
 SORRY_RE = re.compile(r"\bsorry\b")
