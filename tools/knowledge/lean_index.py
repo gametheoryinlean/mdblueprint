@@ -429,22 +429,65 @@ def _declaration_blueprint_nodes(docstring: str | None) -> list[str]:
     return unique
 
 
-def _signature_snippet(lines: list[str], decl_index: int, *, max_lines: int = 12) -> str:
+def _leading_indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" \t"))
+
+
+def _signature_snippet(lines: list[str], decl_index: int, *, max_lines: int = 40) -> str:
+    """Extract a signature snippet starting at line index `decl_index`.
+
+    For declarations that open a `where`-block (typically `class`,
+    `structure`, `inductive`) the snippet extends through the block body
+    — the fields *are* the definition, so showing only the header would
+    misrepresent the declaration.  The block ends at the first line whose
+    indentation returns to the declaration's own indent (or shallower)
+    and is non-blank, or when we hit another top-level `DECL_KEYWORDS`
+    match, whichever comes first.
+
+    For declarations bounded by `:=` (typical `def`, `theorem`, `lemma`)
+    the snippet is cut just before `:=`.
+
+    `max_lines` caps the total captured region, so a very long `where`-
+    block stays reasonable.
+    """
+    if decl_index >= len(lines):
+        return ""
+    header_indent = _leading_indent(lines[decl_index])
     collected: list[str] = []
+    in_where_block = False
+
     for offset in range(decl_index, min(decl_index + max_lines, len(lines))):
         raw = lines[offset].rstrip()
-        if offset > decl_index and DECL_KEYWORDS.match(raw.lstrip()):
-            break
-        if ":=" in raw:
+        stripped_full = raw.strip()
+
+        if offset > decl_index:
+            # Bail on the next top-level declaration keyword regardless of block state.
+            if DECL_KEYWORDS.match(raw.lstrip()):
+                break
+            # In a `where` block, terminate when we dedent to the header's
+            # indentation on a non-blank line — that means we've exited the
+            # block body.
+            if in_where_block and stripped_full and _leading_indent(raw) <= header_indent:
+                break
+
+        if ":=" in raw and not in_where_block:
             before = raw.split(":=", 1)[0].rstrip()
             if before:
                 collected.append(before)
             break
         collected.append(raw)
-        stripped = raw.strip()
-        if stripped.endswith(" where") or stripped == "where":
-            break
-    return "\n".join(line for line in collected if line.strip()).strip()
+        if not in_where_block and (
+            stripped_full.endswith(" where") or stripped_full == "where"
+        ):
+            in_where_block = True
+            # keep reading; don't break here anymore
+            continue
+
+    # Drop trailing blank lines but keep interior structure so multi-line
+    # field docstrings stay readable.
+    while collected and not collected[-1].strip():
+        collected.pop()
+    return "\n".join(collected).rstrip()
 
 
 def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | None = None) -> LeanIndex:
