@@ -440,19 +440,77 @@ def _leading_indent(line: str) -> int:
     return len(line) - len(line.lstrip(" \t"))
 
 
-def _signature_snippet(lines: list[str], decl_index: int, *, max_lines: int = 40) -> str:
+def _top_level_walrus_index(raw: str) -> int | None:
+    """Return the byte index of a top-level `:=` in `raw`, or `None`.
+
+    "Top-level" means at bracket depth zero — i.e., NOT inside `()`,
+    `[]`, or `{}`.  This lets us distinguish the definition operator
+    `:=` from Lean 4's *named-argument* syntax
+    `(name := value)`, which routinely appears inside signatures
+    (e.g. `(_d : InductionDatum (G := G) X')`) and must not be
+    misparsed as the start of a definition body.
+    """
+    depth = 0
+    i = 0
+    n = len(raw)
+    while i < n:
+        c = raw[i]
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth = max(0, depth - 1)
+        elif depth == 0 and c == ":" and i + 1 < n and raw[i + 1] == "=":
+            return i
+        i += 1
+    return None
+
+
+# `where` at end of a declaration header opens a block whose semantics
+# depend on the declaration kind:
+#
+#   * For `structure`, `class`, `inductive` the fields *are* the
+#     declaration — the block belongs in the signature snippet.
+#   * For `instance`, `def`, `abbrev` the block is the implementation of
+#     a struct/typeclass; including it is useful (mirrors the historic
+#     behaviour for `scoped instance category : ... where ...`).
+#   * For `theorem`, `lemma`, `example` the block is a *proof body*
+#     (fields like `mem_essImage q := by <tactics>`) which we
+#     deliberately hide — a blueprint should surface the statement,
+#     not the tactic script.
+_WHERE_BLOCK_KINDS = frozenset({
+    "structure", "class", "inductive",
+    "instance", "def", "abbrev",
+})
+
+
+def _signature_snippet(
+    lines: list[str],
+    decl_index: int,
+    *,
+    keyword: str = "",
+    max_lines: int = 40,
+) -> str:
     """Extract a signature snippet starting at line index `decl_index`.
 
     For declarations that open a `where`-block (typically `class`,
-    `structure`, `inductive`) the snippet extends through the block body
-    — the fields *are* the definition, so showing only the header would
-    misrepresent the declaration.  The block ends at the first line whose
-    indentation returns to the declaration's own indent (or shallower)
-    and is non-blank, or when we hit another top-level `DECL_KEYWORDS`
-    match, whichever comes first.
+    `structure`, `inductive`, and typeclass `instance`) the snippet
+    extends through the block body — the fields *are* the definition,
+    so showing only the header would misrepresent the declaration.
+    The block ends at the first line whose indentation returns to the
+    declaration's own indent (or shallower) and is non-blank, or when
+    we hit another top-level `DECL_KEYWORDS` match, whichever comes
+    first.
 
-    For declarations bounded by `:=` (typical `def`, `theorem`, `lemma`)
-    the snippet is cut just before `:=`.
+    For `theorem`, `lemma`, `example` a trailing `where` opens a *proof
+    body* (Prop-valued structure with fields inhabited by tactic
+    scripts); we STOP at the `where` line rather than exposing the
+    proof.  Callers that want the proof body should read the source
+    directly.
+
+    For declarations bounded by a top-level `:=` (typical `def`,
+    `theorem`, `lemma`) the snippet is cut just before that `:=`.
+    Named-argument syntax `(name := value)` inside brackets is *not*
+    treated as the definition operator.
 
     `max_lines` caps the total captured region, so a very long `where`-
     block stays reasonable.
@@ -462,6 +520,7 @@ def _signature_snippet(lines: list[str], decl_index: int, *, max_lines: int = 40
     header_indent = _leading_indent(lines[decl_index])
     collected: list[str] = []
     in_where_block = False
+    allow_where_block = keyword in _WHERE_BLOCK_KINDS
 
     for offset in range(decl_index, min(decl_index + max_lines, len(lines))):
         raw = lines[offset].rstrip()
@@ -477,15 +536,21 @@ def _signature_snippet(lines: list[str], decl_index: int, *, max_lines: int = 40
             if in_where_block and stripped_full and _leading_indent(raw) <= header_indent:
                 break
 
-        if ":=" in raw and not in_where_block:
-            before = raw.split(":=", 1)[0].rstrip()
-            if before:
-                collected.append(before)
-            break
+        if not in_where_block:
+            walrus = _top_level_walrus_index(raw)
+            if walrus is not None:
+                before = raw[:walrus].rstrip()
+                if before:
+                    collected.append(before)
+                break
         collected.append(raw)
         if not in_where_block and (
             stripped_full.endswith(" where") or stripped_full == "where"
         ):
+            if not allow_where_block:
+                # Signature ends at the `where` line — don't include the
+                # proof/impl block body for theorems, lemmas, examples.
+                break
             in_where_block = True
             # keep reading; don't break here anymore
             continue
@@ -596,7 +661,7 @@ def index_lean_project(lean_root: Path, *, repository: LeanRepositoryConfig | No
                 file=lean_file,
                 line=lineno,
                 module=module,
-                signature=_signature_snippet(lines, lineno - 1),
+                signature=_signature_snippet(lines, lineno - 1, keyword=keyword),
                 docstring=_docstring_before(lines, lineno - 1),
                 namespace=prefix or None,
                 has_sorry=has_sorry,

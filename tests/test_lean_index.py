@@ -175,6 +175,85 @@ end Example
         assert idx.declarations["Example.Fancy"].kind == "structure"
         assert "structure Fancy where" in idx.declarations["Example.Fancy"].signature
 
+    def test_named_argument_walrus_does_not_truncate_signature(self, tmp_path):
+        """Regression: `(name := value)` inside signature must not be treated as `:=`.
+
+        In Lean 4, named-argument syntax `(G := G)` uses the `:=` token but
+        is *nested* inside brackets and does not open a definition body.
+        `_signature_snippet` must skip it and keep reading until the real
+        top-level `:=` or the header terminator (`where` / next decl).
+        """
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            "structure PXPrimeOrbitCat {X' : Type*}\n"
+            "    (_d : InductionDatum (G := G) X') : Type _ where\n"
+            "  cell : X'\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+        sig = idx.declarations["PXPrimeOrbitCat"].signature
+
+        # The named-arg `(G := G)` must appear intact in the snippet.
+        assert "(G := G)" in sig, sig
+        # The header must extend to the `where` line and include the
+        # structure body (fields are the definition, see design intent
+        # in `_signature_snippet`).
+        assert "Type _ where" in sig, sig
+        assert "cell : X'" in sig, sig
+
+    def test_theorem_where_block_does_not_expose_proof(self, tmp_path):
+        """Regression: `theorem : ... where field := by <tactics>` must not
+        surface the proof body.  Only `structure`/`class`/`inductive`/
+        `instance`/`def`/`abbrev` extend into a `where` block; for
+        `theorem`/`lemma`/`example` the block is a tactic proof."""
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            "theorem essSurj :\n"
+            "    F.EssSurj where\n"
+            "  mem_essImage q := by\n"
+            "    obtain ⟨g, E, hq⟩ := helper q\n"
+            "    exact ⟨E, ⟨someIso g E⟩⟩\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+        sig = idx.declarations["essSurj"].signature
+
+        # Statement is present.
+        assert "theorem essSurj" in sig
+        assert "F.EssSurj where" in sig
+        # Proof body is NOT surfaced.
+        assert "mem_essImage" not in sig, sig
+        assert "obtain" not in sig, sig
+        assert "by" not in sig.split("where", 1)[1] if "where" in sig else True
+
+    def test_instance_where_block_is_still_included(self, tmp_path):
+        """Instances remain expanded — the field assignments *are* the
+        definition (mirrors the pre-existing behaviour on e.g.
+        `scoped instance category : Category X where Hom := ...`)."""
+        lean_root = tmp_path / "lean"
+        lean_file = lean_root / "Example.lean"
+        lean_file.parent.mkdir(parents=True)
+        lean_file.write_text(
+            "instance category : Category X where\n"
+            "  Hom E E' := Mor E E'\n"
+            "  id E := Mor.id E\n"
+            "  comp α β := Mor.comp α β\n",
+            encoding="utf-8",
+        )
+
+        idx = index_lean_project(lean_root)
+        sig = idx.declarations["category"].signature
+
+        assert "instance category : Category X where" in sig
+        assert "Hom E E' := Mor E E'" in sig
+        assert "comp α β := Mor.comp α β" in sig
+
     def test_sections_do_not_qualify_declaration_names(self, tmp_path):
         lean_root = tmp_path / "lean"
         lean_file = lean_root / "Example.lean"
