@@ -3,8 +3,29 @@ from __future__ import annotations
 
 from tools.knowledge.config import LeanConfig
 from tools.knowledge.lean_index import LeanIndex, suggest_for_unresolved
-from tools.knowledge.models import Node
+from tools.knowledge.models import ADMITTED_STATUSES, Node
 from tools.knowledge.validator import Diagnostic
+
+
+def _unresolved_level(node: Node) -> str:
+    """Severity for a node's unresolved Lean reference.
+
+    A node that has committed to Lean formalization (``kind == "external-theorem"``
+    or ``status ∈ ADMITTED_STATUSES`` = ``admitted`` / ``formalized`` / ``proved``)
+    **must** have all its `lean.declarations:` resolve — otherwise the deployed
+    page will silently drop the auto-extracted signature and the KB claim
+    (formalized / proved / etc.) is unsubstantiated.  For these nodes, unresolved
+    → error.
+
+    Nodes still in WIP status (staged, candidate, needs_*, blocked, deprecated)
+    are allowed to reference not-yet-existing declarations while their Lean
+    work is in flight — warning suffices.
+    """
+    if node.kind == "external-theorem":
+        return "error"
+    if node.status in ADMITTED_STATUSES:
+        return "error"
+    return "warning"
 
 
 def _matching_declarations(decl: str, idx: LeanIndex) -> list[str]:
@@ -37,12 +58,11 @@ def check_lean_references(
 
         nid = node.id
         fp = node.file_path
-        is_external = node.kind == "external-theorem"
 
         # Check modules
         for module in node.lean.modules:
             if module not in idx.modules:
-                level = "error" if is_external else "warning"
+                level = _unresolved_level(node)
                 hints = suggest_for_unresolved(module, idx)
                 hint_suffix = (
                     f"; suggestions: {', '.join(hints)}" if hints else ""
@@ -68,7 +88,7 @@ def check_lean_references(
                 continue
 
             if not matches:
-                level = "error" if is_external else "warning"
+                level = _unresolved_level(node)
                 hints = suggest_for_unresolved(decl, idx)
                 hint_suffix = (
                     f"; suggestions: {', '.join(hints)}" if hints else ""
