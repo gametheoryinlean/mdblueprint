@@ -120,6 +120,7 @@ def _default_detectors(
     )
     from tools.knowledge.lint._detectors import (
         FuzzyTitleDupDetector,
+        HandwrittenLeanBlockDetector,
         HierarchyInversionDetector,
         LeanModuleFragmentedDetector,
         LeanRefKindDetector,
@@ -144,6 +145,7 @@ def _default_detectors(
         StagedAdmittedOverlapDetector(threshold=cfg.fuzzy_threshold),
         RedundantDepDetector(),
         OrphanDetector(),
+        HandwrittenLeanBlockDetector(),
         LeanModuleFragmentedDetector(extra_aliases=dict(cfg.topic_lean_aliases)),
         LeanRefKindDetector(indexes=lean_indexes),
         PlanPromoteDetector(severity=cfg.plan_promote_severity),

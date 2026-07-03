@@ -915,3 +915,93 @@ class LeanModuleFragmentedDetector:
                 related=(lean_root,),
             ))
         return out
+
+
+# ── HandwrittenLeanBlockDetector ──────────────────────────────────────────────
+
+# Match a fenced Lean code block opener in node body prose.  Matches
+# ` ```lean ` at the start of a line (optionally followed by trailing
+# whitespace), which is the standard Markdown code-fence syntax for a
+# Lean language block.
+_HANDWRITTEN_LEAN_FENCE_RE = re.compile(r"(?m)^```lean\s*$")
+
+
+@dataclass
+class HandwrittenLeanBlockDetector:
+    """Flag hand-written ```lean``` fenced blocks in node body prose.
+
+    The rendered blueprint page already exposes each declaration listed
+    in ``lean.declarations:`` frontmatter by feeding it through
+    ``lean_index._signature_snippet`` — a Python extractor that reads
+    the current Lean source at deploy time and emits the signature
+    verbatim.  This auto-extracted view is the **single source of
+    truth**: it is guaranteed to reflect the live code, cannot rot,
+    and updates automatically on every deploy.
+
+    Hand-written ```lean``` blocks embedded in node prose duplicate
+    material that the extractor already provides, and — because they
+    are frozen at authoring time — silently *rot* the moment the
+    referenced Lean declaration is refactored (renamed, changed
+    signature, moved to a different module).  Empirical example: the
+    `TransporterCat abbrev → structure` refactor invalidated hand-
+    written `abbrev TransporterCat := X` snippets across multiple
+    nodes; the auto-extracted signatures on the same pages updated
+    correctly.
+
+    **Convention** (enforced by this detector):
+
+      * Put declaration names in `lean.declarations:` frontmatter.
+      * Reserve body prose for mathematical explanation, design
+        summary, and cross-declaration narrative — the things the
+        extractor cannot express.
+      * Do **not** paste Lean signatures / definitions into
+        ```lean``` fenced blocks in the body.  Use inline `` `code` ``
+        spans for short references, or add the declaration to
+        `lean.declarations:` for full signatures.
+
+    Severity: `warning`.  If a specific block is genuinely load-bearing
+    (e.g. showing a *design idiom* that composes multiple declarations
+    in a way the extractor cannot express), it can be suppressed via
+    per-node lint override (future work) or by refactoring the content
+    out to a design-notes document under `docs/formalization/`.
+    """
+
+    code: str = "LINT_HANDWRITTEN_LEAN"
+    needs_llm: bool = False
+
+    def run(
+        self,
+        nodes: list[Node],
+        graph: KnowledgeGraph,
+        *,
+        llm: LlmRunner | None,
+    ) -> list[Diagnostic]:
+        out: list[Diagnostic] = []
+        for node in nodes:
+            body = node.body or ""
+            for match in _HANDWRITTEN_LEAN_FENCE_RE.finditer(body):
+                # 1-indexed line number inside the body prose (not the
+                # .md file — frontmatter comes before, but authors will
+                # recognise the "body line" convention from other
+                # body-oriented detectors).
+                body_line = body[: match.start()].count("\n") + 1
+                out.append(
+                    Diagnostic(
+                        level="warning",
+                        node_id=node.id,
+                        message=(
+                            f"hand-written ```lean``` fenced block at "
+                            f"body line {body_line}: this duplicates the "
+                            f"auto-extracted signature from Lean source "
+                            f"and will silently rot on refactor. "
+                            f"Move the declaration name to "
+                            f"`lean.declarations:` frontmatter and delete "
+                            f"the block; the deployed page will render "
+                            f"the current signature via "
+                            f"`lean_index._signature_snippet`."
+                        ),
+                        file_path=node.file_path,
+                        code=self.code,
+                    )
+                )
+        return out

@@ -542,7 +542,29 @@ def _signature_snippet(
     keyword: str = "",
     max_lines: int = 40,
 ) -> str:
-    """Extract a signature snippet starting at line index `decl_index`.
+    """Extract a Lean signature snippet from the actual source file.
+
+    **This function is the single source of truth for Lean code display
+    in the rendered blueprint pages.**  For every declaration name
+    listed in a node's ``lean.declarations:`` frontmatter,
+    :func:`index_lean_project` calls this extractor on the current
+    Lean file at deploy time, and the returned string is what the
+    renderer emits as the ``<pre class="lean-signature">`` block on
+    the page.
+
+    Design contract:
+
+      * The signature returned always reflects the live Lean source
+        as of the deploy commit — it cannot rot.
+      * KB authors should NOT paste Lean signatures into
+        ```` ```lean ```` fenced blocks in node body prose.  Such
+        hand-written blocks silently drift out of sync when the
+        underlying Lean is refactored; that failure mode is the whole
+        reason this extractor exists.  The
+        :class:`~tools.knowledge.lint._detectors.HandwrittenLeanBlockDetector`
+        lint enforces this convention.
+
+    Below is the extraction contract itself:
 
     For declarations that open a `where`-block (typically `class`,
     `structure`, `inductive`, and typeclass `instance`) the snippet

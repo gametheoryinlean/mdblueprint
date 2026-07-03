@@ -18,6 +18,7 @@ from tools.knowledge.lint._core import (
 )
 from tools.knowledge.lint._detectors import (
     FuzzyTitleDupDetector,
+    HandwrittenLeanBlockDetector,
     HierarchyInversionDetector,
     LeanModuleFragmentedDetector,
     LeanRefKindDetector,
@@ -49,6 +50,7 @@ __all__ = [
     "StagedAdmittedOverlapDetector",
     "RedundantDepDetector",
     "OrphanDetector",
+    "HandwrittenLeanBlockDetector",
     "LeanModuleFragmentedDetector",
     "LeanRefKindDetector",
     "PlanPromoteDetector",
