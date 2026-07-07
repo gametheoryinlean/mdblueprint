@@ -39,10 +39,11 @@ humans or explicit admission rules decide durable truth
 
 For this project:
 
-- LLM agents may create staged candidates, reviews, Lean proposals, and new-node requests.
+- LLM agents may create staged candidates, reviews, Lean proposals, refactor reports, countercheck reports, adjudication reports, and new-node requests.
 - Python tools parse Markdown, validate structure, build the DAG, check mechanical Lean references, and generate the static website.
 - Only admitted files under `docs/knowledge/nodes/` are durable mathematical knowledge.
 - Anything uncertain remains in `staged/`, `reviews/`, or `requests/`.
+- Lean countercheck and adjudication reports are review artifacts only; they do not overwrite the authored graph directly.
 
 ## Meaning of Agent
 

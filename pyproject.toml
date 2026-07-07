@@ -34,6 +34,16 @@ mdblueprint-lint = "tools.knowledge.lint:main"
 mdblueprint-proof-fill = "tools.knowledge.proof_fill:main"
 mdblueprint-serve = "tools.knowledge.serve:main"
 mdblueprint-stats = "tools.knowledge.stats:main"
+mdblueprint-refactor-pack = "tools.knowledge.refactor_pack:main"
+mdblueprint-refactor-report-check = "tools.knowledge.refactor_report_check:main"
+mdblueprint-refactor-dry-run = "tools.knowledge.refactor_dry_run:main"
+mdblueprint-refactor-countercheck = "tools.knowledge.refactor_countercheck:main"
+mdblueprint-lean-theorem-extraction-legacy = "tools.leangen.extract_theorems:main"
+mdblueprint-lean-dependency-extraction = "tools.leangen.extract_dependencies:main"
+mdblueprint-lean-node-generation = "tools.leangen.generate_nodes:main"
+mdblueprint-lean-blueprint-export = "tools.leangen.generate_mdblueprint:main"
+mdblueprint-lean-countercheck = "tools.knowledge.lean_countercheck:main"
+mdblueprint-lean-run-full = "tools.leangen.run_full:main"
 
 [tool.setuptools.packages.find]
 include = ["tools*"]

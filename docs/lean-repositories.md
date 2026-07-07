@@ -380,10 +380,11 @@ cross-mismatch is present (exit 2), making it suitable as a CI gate. Pass
 
 ### Auto-fix from reverse markers
 
-When the Lean side is the source of truth (a typical formalisation
-workflow), `lean_only` warnings are mechanical fixes: the Lean
+When the Lean side is the formal backing for a node rather than the
+source of truth, `lean_only` warnings are still useful signals: the Lean
 declaration says "I back node X" and we just need to add it to
-node X's `lean.declarations`. The companion CLI does exactly that:
+node X's `lean.declarations` if the authored node should expose that backing.
+The companion CLI does exactly that:
 
 ```bash
 uv run python -m tools.knowledge.lean_reverse_autofix docs/knowledge

@@ -13,6 +13,10 @@ docs/knowledge/nodes/**/*.md
   -> graph.json, graph_topics.json, topic subgraphs, node payloads, HTML pages
 ```
 
+Review artifacts from graph refactor, dry-run, Lean countercheck, and Lean
+adjudication workflows are inputs to human review. They are not generated graph
+artifacts and they must not overwrite `graph.json` or the published site.
+
 LLMs must not generate:
 
 - final `graph.json`;
