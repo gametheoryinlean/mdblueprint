@@ -11,7 +11,7 @@ from tools.knowledge.config import LeanRepositoryConfig
 
 DECL_KEYWORDS = re.compile(
     r"^(def|theorem|lemma|abbrev|instance|structure|class|inductive|"
-    r"noncomputable def|noncomputable instance|"
+    r"noncomputable def|noncomputable instance|noncomputable abbrev|"
     r"protected def|protected theorem|protected lemma|"
     r"private def|private theorem|private lemma|"
     r"scoped instance|scoped def|scoped theorem|scoped lemma|"
