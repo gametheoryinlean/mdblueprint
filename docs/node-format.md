@@ -236,6 +236,12 @@ Reusable macros must be declared in project config under `math.macros`; do not p
 `\newcommand` or TeX preamble commands in the node body. Display environments such
 as `aligned` or `cases` must be wrapped in display delimiters.
 
+Put a blank line between an introductory paragraph and the list that follows it.
+Python-Markdown only starts a list after a blank line, so `intro:` immediately
+followed by `- item` renders as literal text. The publisher inserts the missing
+blank line for you, but `check` reports it as `md-list-needs-blank-line` so the
+source matches what a CommonMark preview (e.g. GitHub) shows.
+
 Run static math diagnostics before publishing:
 
 ```bash

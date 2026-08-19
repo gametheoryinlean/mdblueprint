@@ -16,6 +16,7 @@ from tools.knowledge.graph import build_graph
 from tools.knowledge.latex_check import check_node_math
 from tools.knowledge.lean_check import check_configured_lean_references, check_lean_references
 from tools.knowledge.lean_index import index_lean_project
+from tools.knowledge.markdown_check import check_node_markdown
 from tools.knowledge.models import Node
 from tools.knowledge.node_refs import check_node_body_refs
 from tools.knowledge.parser import scan_directory
@@ -49,6 +50,7 @@ def check_knowledge_base(
                 require_source_spans=require_source_spans,
             ))
             diags.extend(check_node_math(node, declared_macros=set(config.math.macros)))
+            diags.extend(check_node_markdown(node))
             diags.extend(_check_topic_registry(node, config))
             all_nodes.append(node)
 
@@ -61,6 +63,7 @@ def check_knowledge_base(
                 require_source_spans=require_source_spans,
             ))
             diags.extend(check_node_math(node, declared_macros=set(config.math.macros)))
+            diags.extend(check_node_markdown(node))
             diags.extend(_check_topic_registry(node, config))
             all_nodes.append(node)
 

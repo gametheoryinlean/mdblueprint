@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -96,8 +97,29 @@ def child_topic_id(parent_id: str, descendant_id: str) -> str | None:
     return f"{parent_id}.{child_slug}"
 
 
+_TOPIC_CAMEL_BOUNDARY_RE = re.compile(r"(?<!^)(?<![A-Z])(?=[A-Z])")
+
+
+def _humanize_topic_segment(segment: str) -> str:
+    """Split a snake_case or PascalCase topic segment into spaced words.
+
+    ``str.title()`` alone mangles PascalCase ids (``AlgebraicGroups`` ->
+    ``Algebraicgroups``) because it only tracks alpha/non-alpha boundaries,
+    not case changes. Insert word breaks at camelCase boundaries first, and
+    only re-capitalize words that arrived fully lowercase (snake_case),
+    so already-cased words (``Groups``) and proper nouns/acronyms
+    (``Kottwitz``, ``SGA``) pass through unchanged.
+    """
+    words: list[str] = []
+    for part in segment.replace("-", " ").split("_"):
+        for word in _TOPIC_CAMEL_BOUNDARY_RE.sub(" ", part).split(" "):
+            if word:
+                words.append(word.capitalize() if word.islower() else word)
+    return " ".join(words) if words else segment
+
+
 def titleize_topic(topic_id: str) -> str:
-    return topic_id.replace("_", " ").replace("-", " ").title()
+    return ".".join(_humanize_topic_segment(seg) for seg in topic_id.split("."))
 
 
 def _empty_topic_data(topic_id: str) -> dict:

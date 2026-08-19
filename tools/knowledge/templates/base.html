@@ -58,6 +58,10 @@
       <button class="sidebar-toggle sidebar-toggle-keywords" type="button" aria-expanded="true" aria-controls="keyword-list">
         <span class="toggle-icon" aria-hidden="true">▾</span> Keywords
       </button>
+      <input type="search" id="keyword-search" class="keyword-search"
+             placeholder="Search {{ keywords | length }} keywords…"
+             aria-controls="keyword-list" autocomplete="off">
+      <p id="keyword-empty" class="keyword-empty" hidden>No matches</p>
       <ul id="keyword-list" class="keyword-list nav-list">
       {% for keyword in keywords %}
         <li><a href="{{ root }}keywords/{{ keyword }}.html">{{ keyword }}</a></li>
@@ -102,19 +106,43 @@
         });
       });
 
-      // Keywords section toggle
+      // Keywords section toggle (folded by default: the keyword list can run
+      // into the hundreds of entries, so only Topics is open on first visit).
       var keywordBtn = document.querySelector('.sidebar-toggle-keywords');
       var keywordList = document.getElementById('keyword-list');
-      if (keywordBtn && keywordList) {
+      // `hidden` on the list is the single source of fold truth, so a search
+      // that auto-expands the list cannot desync the toggle button.
+      function setKeywordsFolded(folded, remember) {
+        keywordList.hidden = folded;
+        if (keywordBtn) keywordBtn.setAttribute('aria-expanded', String(!folded));
+        if (remember) localStorage.setItem('sidebar-keywords-folded', String(folded));
+      }
+      if (keywordList) {
         var kwStored = localStorage.getItem('sidebar-keywords-folded');
-        var kwFolded = kwStored === 'true';
-        keywordList.hidden = kwFolded;
-        keywordBtn.setAttribute('aria-expanded', String(!kwFolded));
+        setKeywordsFolded(kwStored === null ? true : kwStored === 'true', false);
+      }
+      if (keywordBtn && keywordList) {
         keywordBtn.addEventListener('click', function() {
-          kwFolded = !kwFolded;
-          keywordList.hidden = kwFolded;
-          keywordBtn.setAttribute('aria-expanded', String(!kwFolded));
-          localStorage.setItem('sidebar-keywords-folded', String(kwFolded));
+          setKeywordsFolded(!keywordList.hidden, true);
+        });
+      }
+
+      // Keyword search: client-side filter over the existing <li> entries,
+      // so every keyword page stays a plain reachable link with no JS.
+      var keywordSearch = document.getElementById('keyword-search');
+      var keywordEmpty = document.getElementById('keyword-empty');
+      if (keywordSearch && keywordList) {
+        var keywordItems = Array.prototype.slice.call(keywordList.querySelectorAll('li'));
+        keywordSearch.addEventListener('input', function() {
+          var query = keywordSearch.value.trim().toLowerCase();
+          if (query && keywordList.hidden) setKeywordsFolded(false, false);
+          var visible = 0;
+          keywordItems.forEach(function(item) {
+            var match = !query || item.textContent.toLowerCase().indexOf(query) !== -1;
+            item.hidden = !match;
+            if (match) visible += 1;
+          });
+          if (keywordEmpty) keywordEmpty.hidden = visible !== 0;
         });
       }
     });

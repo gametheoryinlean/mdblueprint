@@ -475,6 +475,20 @@ class TestExampleCorpusPublish:
         assert 'sidebar-toggle-keywords' in page
         assert 'keyword-list' in page
 
+    def test_sidebar_keyword_search_input_exists(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "index.html").read_text()
+        assert 'id="keyword-search"' in page
+        # search box must sit inside the keyword nav section, ahead of the list
+        assert page.index('id="keyword-search"') < page.index('id="keyword-list"')
+
+    def test_keyword_links_remain_in_markup_for_search_to_filter(self, tmp_path):
+        publish(KNOWLEDGE_ROOT, tmp_path / "site")
+        page = (tmp_path / "site" / "index.html").read_text()
+        # search is a client-side filter over real <li> entries, not a fetch-based index
+        assert 'href="keywords/dominance.html"' in page
+        assert 'href="keywords/equilibrium.html"' in page
+
     def test_sidebar_topic_fold_on_topic_page(self, tmp_path):
         publish(KNOWLEDGE_ROOT, tmp_path / "site")
         page = (tmp_path / "site" / "strategic_games" / "index.html").read_text()
@@ -660,6 +674,11 @@ class TestBuildTopicTree:
         tree = self._tree(["mechanism_design", "mechanism_design.basic"])
         assert tree[0]["label"] == "Mechanism Design"
         assert tree[0]["children"][0]["label"] == "Basic"
+
+    def test_label_titleizes_pascal_case_segment(self):
+        tree = self._tree(["AlgebraicGroups", "AlgebraicGroups.AffineGroupSchemes"])
+        assert tree[0]["label"] == "Algebraic Groups"
+        assert tree[0]["children"][0]["label"] == "Affine Group Schemes"
 
     def test_sidebar_html_contains_nested_structure(self, tmp_path):
         from tools.knowledge.publish import publish
