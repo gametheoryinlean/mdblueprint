@@ -10,6 +10,7 @@ from tools.knowledge.export import (
     export_topic_overview_json,
     export_topic_subgraph_json,
     parent_topic_id,
+    titleize_topic,
     topic_depth,
     write_graph_json,
     topic_id_for_node,
@@ -1415,3 +1416,25 @@ class TestUnifiedTopicView:
         assert "child_topic_edges" not in data
         assert "child_boundary_topics" not in data
         assert "child_boundary_edges" not in data
+
+
+class TestTitleizeTopic:
+    """titleize_topic must humanize both snake_case and PascalCase topic ids."""
+
+    def test_snake_case_segment(self):
+        assert titleize_topic("mechanism_design") == "Mechanism Design"
+
+    def test_pascal_case_segment(self):
+        assert titleize_topic("AlgebraicGroups") == "Algebraic Groups"
+
+    def test_pascal_case_dotted_path(self):
+        assert (
+            titleize_topic("AlgebraicGroups.AffineGroupSchemes")
+            == "Algebraic Groups.Affine Group Schemes"
+        )
+
+    def test_preserves_single_word_proper_noun(self):
+        assert titleize_topic("AlgebraicGroups.Kottwitz") == "Algebraic Groups.Kottwitz"
+
+    def test_single_flat_segment_unchanged_by_join(self):
+        assert titleize_topic("Foundations") == "Foundations"

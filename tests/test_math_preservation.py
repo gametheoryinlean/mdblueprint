@@ -64,6 +64,100 @@ def test_escaped_dollars_and_markdown_links_survive_conversion():
     assert r"$p_i \le q_i$" in html
 
 
+def test_preserves_inline_math_wrapped_across_a_soft_line_break():
+    html = _render(r"""
+    The elliptic pairing on class functions: $(f, g)_{\mathrm{ell}} =
+    |W|^{-1}\sum_{w \text{ ell}} f(w)g(w^{-1})$.
+    """)
+
+    assert r"_{\mathrm{ell}}" in html
+    assert r"\sum_{w \text{ ell}}" in html
+    assert "<em>" not in html
+
+
+def test_inline_math_does_not_span_a_paragraph_break():
+    html = _render(r"""
+    A stray dollar $5 sits here.
+
+    Another stray dollar $7 sits in the next paragraph.
+    """)
+
+    # The two lone `$` are in separate paragraphs and must not be paired into
+    # one bogus math span that swallows the intervening text.
+    assert "<p>" in html
+    assert html.count("<p>") == 2
+
+
+def test_list_directly_after_a_paragraph_line_renders_as_a_list():
+    html = _render(r"""
+    Elliptic elements play a key role in:
+    - The elliptic representation theory of $p$-adic groups.
+    - The elliptic pairing on class functions.
+    """)
+
+    assert "<ul>" in html
+    assert html.count("<li>") == 2
+    assert "$p$" in html
+
+
+def test_ordered_list_directly_after_a_paragraph_line_renders_as_a_list():
+    html = _render(r"""
+    The construction proceeds in two steps:
+    1. Choose a maximal torus.
+    2. Take its centralizer.
+    """)
+
+    assert "<ol>" in html
+    assert html.count("<li>") == 2
+
+
+def test_numbered_prose_line_does_not_interrupt_a_paragraph():
+    html = _render(r"""
+    The theorem was first proved in
+    1965. It was later refined.
+    """)
+
+    # CommonMark: an ordered list may interrupt a paragraph only when it
+    # starts at 1, so a stray year like "1965." stays prose.
+    assert "<ol>" not in html
+
+
+def test_bold_lead_in_before_a_list_renders_as_a_list():
+    html = _render(r"""
+    **Examples.**
+    - \(\operatorname{SL}_n\) inside \(\operatorname{GL}_n\).
+    - The additive group.
+    """)
+
+    assert "<ul>" in html
+    assert html.count("<li>") == 2
+
+
+def test_list_inside_fenced_code_block_is_left_alone():
+    html = _render("""
+    Example input:
+
+    ```
+    header line
+    - not a real list
+    ```
+    """)
+
+    assert "<ul>" not in html
+
+
+def test_setext_heading_underline_is_not_treated_as_a_list():
+    html = _render("""
+    Section title
+    -------------
+
+    Body text.
+    """)
+
+    assert "<ul>" not in html
+    assert "<h2>" in html
+
+
 def test_preserves_simple_inline_math_inside_markdown_tables():
     html = _render(r"""
     | object | expression |

@@ -103,8 +103,10 @@ class TestLeanChecks:
             ),
         )
         diags = check_lean_references([node], idx)
-        warnings = [d for d in diags if d.level == "warning"]
-        assert any("Nonexistent.Module" in d.message for d in warnings)
+        # `status: admitted` commits the node to a Lean formalization, so an
+        # unresolved reference is an error rather than a warning.
+        errors = [d for d in diags if d.level == "error"]
+        assert any("Nonexistent.Module" in d.message for d in errors)
 
     def test_missing_declaration(self):
         idx = _make_idx()
@@ -119,11 +121,11 @@ class TestLeanChecks:
             ),
         )
         diags = check_lean_references([node], idx)
-        warnings = [d for d in diags if d.level == "warning"]
-        assert any("NonexistentDecl" in d.message for d in warnings)
+        errors = [d for d in diags if d.level == "error"]
+        assert any("NonexistentDecl" in d.message for d in errors)
 
     def test_missing_declaration_includes_suggestions(self):
-        """When a similar name exists in the index, the warning should
+        """When a similar name exists in the index, the diagnostic should
         include a suggestion so the user can fix the typo quickly."""
         idx = _make_idx()
         # No declaration matches "IsBestResponser" exactly or as suffix,
@@ -141,12 +143,12 @@ class TestLeanChecks:
             ),
         )
         diags = check_lean_references([node], idx)
-        warnings = [d for d in diags if d.level == "warning"]
-        assert any("IsBestResponser" in d.message for d in warnings)
+        errors = [d for d in diags if d.level == "error"]
+        assert any("IsBestResponser" in d.message for d in errors)
         # The token-overlap fallback should propose IsBestResponse.
         assert any(
             "suggestions:" in d.message and "IsBestResponse" in d.message
-            for d in warnings
+            for d in errors
         )
 
     def test_external_theorem_missing_is_error(self):
@@ -262,10 +264,10 @@ class TestConfiguredLeanChecks:
             """,
         )
 
-        warnings = [d for d in check_knowledge_base(knowledge_root) if d.level == "warning"]
+        errors = [d for d in check_knowledge_base(knowledge_root) if d.level == "error"]
 
-        assert any("repository 'main'" in d.message and "Example.Missing" in d.message for d in warnings)
-        assert any("repository 'main'" in d.message and "Example.missing" in d.message for d in warnings)
+        assert any("repository 'main'" in d.message and "Example.Missing" in d.message for d in errors)
+        assert any("repository 'main'" in d.message and "Example.missing" in d.message for d in errors)
 
     def test_ambiguous_partial_declaration_match_is_error(self, tmp_path):
         lean_root = tmp_path / "lean"

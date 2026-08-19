@@ -52,7 +52,10 @@ TEX_MATH_RE = re.compile(
     r"\$\$(?:.|\n)*?\$\$"
     r"|\\\[(?:.|\n)*?\\\]"
     r"|\\\((?:.|\n)*?\\\)"
-    r"|(?<!\\)\$(?!\$)(?:\\.|[^\n$\\])+(?<!\\)\$"
+    # Inline `$...$` may wrap across a soft line break, matching how KaTeX
+    # auto-render treats the rendered text node. `\n(?![ \t]*\n)` stops the
+    # span at a blank line so an unpaired `$` cannot swallow whole paragraphs.
+    r"|(?<!\\)\$(?!\$)(?:\\.|[^\n$\\]|\n(?![ \t]*\n))+(?<!\\)\$"
 )
 
 
@@ -96,7 +99,7 @@ def _build_topic_tree(topic_names: list[str]) -> list[dict]:
     roots: list[dict] = []
     for topic_id in topic_names:
         parts = topic_id.split(".")
-        label = parts[-1].replace("_", " ").title()
+        label = titleize_topic(parts[-1])
         node: dict = {"id": topic_id, "label": label, "children": []}
         tree[topic_id] = node
         if len(parts) == 1:
@@ -135,6 +138,44 @@ def _split_proof_markdown(body: str) -> tuple[str, str | None]:
 
 _BLOCKQUOTE_LINE_PREFIX_RE = re.compile(r"\n>[ \t]?")
 
+# A list marker at column 0 followed by real content. Requiring the trailing
+# space keeps setext underlines (`-------`) and `---` frontmatter rules out.
+_LIST_ITEM_RE = re.compile(r"^(?:[-*+]|(\d+)[.)])[ \t]+\S")
+_FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
+
+
+def _separate_lists_from_preceding_paragraph(source: str) -> str:
+    """Insert the blank line Python-Markdown needs before a list.
+
+    Python-Markdown only starts a list when a blank line precedes it, while
+    CommonMark (what authors see in a GitHub preview) lets a list interrupt a
+    paragraph. Without this, `intro:\\n- item` renders as literal "- item"
+    text. Follows CommonMark's rule that an ordered list may only interrupt a
+    paragraph when it starts at 1, so prose like "written in\\n1965." is safe.
+    """
+    lines = source.split("\n")
+    out: list[str] = []
+    in_fence = False
+    for index, line in enumerate(lines):
+        if _FENCE_RE.match(line):
+            in_fence = not in_fence
+        elif not in_fence and index > 0:
+            match = _LIST_ITEM_RE.match(line)
+            previous = lines[index - 1]
+            interrupts_paragraph = (
+                match is not None
+                and previous.strip() != ""
+                # An indented previous line belongs to a list item
+                # continuation or an indented code block — leave it alone.
+                and not previous.startswith((" ", "\t"))
+                and not _LIST_ITEM_RE.match(previous)
+                and (match.group(1) is None or match.group(1) == "1")
+            )
+            if interrupts_paragraph:
+                out.append("")
+        out.append(line)
+    return "\n".join(out)
+
 
 def _convert_markdown_preserving_tex(md: markdown.Markdown, source: str) -> str:
     replacements: list[tuple[str, str]] = []
@@ -153,7 +194,7 @@ def _convert_markdown_preserving_tex(md: markdown.Markdown, source: str) -> str:
         return token
 
     protected = TEX_MATH_RE.sub(protect, source)
-    rendered = md.convert(protected)
+    rendered = md.convert(_separate_lists_from_preceding_paragraph(protected))
     for token, math_source in replacements:
         rendered = rendered.replace(token, escape(math_source, quote=False))
     return rendered
