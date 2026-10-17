@@ -38,6 +38,18 @@ The generated site should include:
 
 The frontend can use JavaScript to render the graph, but the graph data and presentation semantics must come from Python.
 
+## Definition navigation
+
+An optional `concept-links.yml` beside `mdblueprint.yml` maps ordinary prose
+terms to definition nodes. The Python renderer inserts these links in chapter
+guides, statements, proofs, and graph details. No LLM is called during matching
+or URL construction. See [the registry format](node-format.md#automatic-definition-links).
+
+References resolve through the target node's current `primary_topic`, so stable
+IDs remain valid when chapters move. Graph-detail HTML uses paths relative to
+the site root; full node pages use paths relative to their chapter. Definition
+links are reading aids and do not add `uses` edges to the mathematical DAG.
+
 ## Real-Library Gate
 
 Publisher and graph changes must be validated against a real knowledge base, not

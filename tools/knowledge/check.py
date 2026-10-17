@@ -11,6 +11,7 @@ from tools.knowledge.candidate_layout import (
     validate_canonical_groups,
 )
 from tools.knowledge.config import ProjectConfig, load_project_config
+from tools.knowledge.definition_links import DefinitionLinks
 from tools.knowledge.export import home_topic_for_node, leaf_topic_ids_for_node
 from tools.knowledge.graph import build_graph
 from tools.knowledge.latex_check import check_node_math
@@ -68,6 +69,10 @@ def check_knowledge_base(
             all_nodes.append(node)
 
     diags.extend(_check_duplicate_topic_ids(all_nodes, config))
+    try:
+        DefinitionLinks.load(root, all_nodes)
+    except ValueError as exc:
+        diags.append(Diagnostic("error", "concept-links", str(exc), root / "concept-links.yml"))
 
     all_nodes_index: dict[str, Node] = {n.id: n for n in all_nodes}
     for node in all_nodes:

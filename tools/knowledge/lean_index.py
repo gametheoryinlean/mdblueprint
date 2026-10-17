@@ -37,7 +37,7 @@ _CANONICAL_KIND: dict[str, str] = {
 SORRY_RE = re.compile(r"\bsorry\b")
 ADMIT_RE = re.compile(r"\badmit\b")
 NAMESPACE_RE = re.compile(r"^namespace\s+(\S+)")
-SECTION_RE = re.compile(r"^section(?:\s+(\S+))?\s*$")
+SECTION_RE = re.compile(r"^(?:noncomputable\s+)?section(?:\s+(\S+))?\s*$")
 END_NAMED_RE = re.compile(r"^end\s+(\S+)")
 END_BARE_RE = re.compile(r"^end\s*$")
 

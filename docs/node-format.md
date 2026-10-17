@@ -506,7 +506,42 @@ source_justification: |
 A request file must not contain admitted mathematical truth. It is a proposal awaiting
 human or referee decision.
 
+## Automatic Definition Links
+
+To link mathematical vocabulary without annotating each occurrence, add an
+optional `concept-links.yml` beside `mdblueprint.yml`:
+
+```yaml
+concepts:
+  - node: algebra.bar_involution
+    terms: [bar involution, bar normalization]
+  - node: algebra.hecke_operator
+    terms: [operator, operators]
+    topics: [algebra.hecke]
+```
+
+Targets must exist and have `kind: definition`. `topics` restricts matching to
+the exact listed topic IDs; omit it to match throughout the knowledge base.
+Use scopes for terms whose meaning changes between chapters. Unknown topics,
+missing definitions, malformed entries, and aliases naming different targets
+in an overlapping scope are errors in both the checker and publisher. Invalid
+registries are rejected before the publisher replaces an existing site.
+
+The registry records curated mathematical meaning. Python matches occurrences
+case-insensitively, with word boundaries, flexible whitespace, and longest
+phrases first. It leaves unregistered terms unchanged. Formulas, code,
+headings, existing links, and definition self-references are preserved. Matching
+does not span HTML elements. The static publisher and dev server use the same
+context-local registry; nothing changes in projects without this file.
+
+Keep ordinary prose in Markdown. Do not use an LLM to insert occurrence links,
+and do not turn generated reading links into logical `uses` dependencies.
+
 ## Node References in Body Text
+
+Cross-reference URLs use the target node's current primary topic, not the
+topic implied by its stable ID. This also applies to automatically linked
+inline-code node IDs.
 
 Use the `[[node:id]]` shortcode to create a cross-link to another node from
 within a statement, proof, example, or topic catalog:

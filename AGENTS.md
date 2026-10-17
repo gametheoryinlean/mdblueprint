@@ -117,6 +117,11 @@ uv run --extra browser playwright install chromium
 - Do not hand-edit generated graph or site artifacts such as `graph.json`,
   `graph_topics.json`, `subgraphs/topics/*.json`, `node_payloads/*.json`, or
   generated HTML.
+- Generate vocabulary links in Python from the optional project-owned
+  `concept-links.yml` registry. Curate definitions and aliases as metadata;
+  do not ask an LLM to insert links occurrence by occurrence or infer `uses`
+  edges from those reading links. Validate current-topic destinations in both
+  full pages and graph details.
 - Publish local previews to `/tmp/...` or another build directory outside
   `docs/knowledge`.
 - Keep source nodes mathematical. Do not put process notes, implementation

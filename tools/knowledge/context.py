@@ -13,6 +13,7 @@ from jinja2 import Environment
 
 from tools.knowledge.blueprint_view import build_blueprint_graph
 from tools.knowledge.config import ProjectConfig, load_project_config
+from tools.knowledge.definition_links import DefinitionLinks
 from tools.knowledge.export import (
     home_topic_for_node,
     leaf_topic_ids_for_node,
@@ -41,6 +42,7 @@ class KnowledgeContext:
     keyword_names: list[str]
     lean_indexes: dict[str, LeanIndex]
     jinja_env: Environment
+    definition_links: DefinitionLinks
     dev_mode: bool = False
 
     @classmethod
@@ -120,5 +122,6 @@ class KnowledgeContext:
             keyword_names=sorted(keywords.keys()),
             lean_indexes=lean_indexes,
             jinja_env=build_jinja_env(config),
+            definition_links=DefinitionLinks.load(knowledge_root, all_nodes),
             dev_mode=dev_mode,
         )

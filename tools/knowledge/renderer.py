@@ -27,6 +27,7 @@ from tools.knowledge.lean_index import (
 )
 from tools.knowledge.models import Node
 from tools.knowledge.node_refs import NODE_REF_RE
+from tools.knowledge.definition_links import rebase_payload_links
 
 if TYPE_CHECKING:
     from tools.knowledge.context import KnowledgeContext
@@ -219,7 +220,7 @@ def _resolve_node_refs_in_html(
                 f"{display}</span>"
             )
         display = escape(label_raw or node.title)
-        href = escape(_node_href(node_id, from_topic=from_topic))
+        href = escape(_node_href_for_node(node, from_topic=from_topic))
         return (
             f'<a class="node-ref" data-node-id="{escape(node_id)}" href="{href}">'
             f"{display}</a>"
@@ -263,7 +264,7 @@ def _autolink_bare_node_refs_in_html(
         node_id = match.group(1)
         if node_id not in all_nodes:
             return match.group(0)
-        href = escape(_node_href(node_id, from_topic=from_topic))
+        href = escape(_node_href_for_node(all_nodes[node_id], from_topic=from_topic))
         return (
             f'<a class="node-ref" data-node-id="{escape(node_id)}" '
             f'href="{href}"><code>{escape(node_id)}</code></a>'
@@ -577,6 +578,9 @@ def _build_html_payload(ctx: "KnowledgeContext", node: Node) -> dict:
         all_nodes=ctx.nodes_by_id,
         from_topic=topic,
     )
+    for key in ("body_html", "proof_html"):
+        if rendered[key]:
+            rendered[key] = ctx.definition_links.render(rendered[key], topic, TEX_MATH_RE, node.id)
 
     return {
         "view": ctx.blueprint_nodes[node.id],
@@ -595,6 +599,9 @@ def node_detail_payload(ctx: "KnowledgeContext", node_id: str) -> dict:
         raise KeyError(node_id)
 
     html_payload = _build_html_payload(ctx, node)
+    for key in ("body_html", "proof_html"):
+        if html_payload[key]:
+            html_payload[key] = rebase_payload_links(html_payload[key], home_topic_for_node(node))
 
     deps = [
         p for dep_id in node.uses
@@ -690,6 +697,7 @@ def render_topic(ctx: "KnowledgeContext", topic_id: str) -> str:
         catalog_html = _autolink_bare_node_refs_in_html(
             catalog_html, ctx.nodes_by_id, from_topic=topic_id,
         )
+        catalog_html = ctx.definition_links.render(catalog_html, topic_id, TEX_MATH_RE)
 
     status_counts: dict[str, int] = {}
     for n in topic_nodes:

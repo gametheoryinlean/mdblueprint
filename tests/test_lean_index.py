@@ -663,3 +663,14 @@ def test_multiline_doc_comment_does_not_create_spurious_decls(tmp_path):
     idx = index_lean_project(lean_root)
     assert "real" in idx.declarations
     assert "someProse" not in idx.declarations
+
+
+def test_noncomputable_sections_preserve_enclosing_namespace(tmp_path):
+    (tmp_path / "Example.lean").write_text(
+        "namespace OAI\nnamespace Example\nnoncomputable section\n"
+        "def first : Nat := 0\nend\nnoncomputable section\n"
+        "theorem second : True := True.intro\nend\nend Example\n"
+        "namespace Following\ndef third : Nat := 1\nend Following\nend OAI\n"
+    )
+    index = index_lean_project(tmp_path)
+    assert set(index.declarations) == {"OAI.Example.first", "OAI.Example.second", "OAI.Following.third"}
