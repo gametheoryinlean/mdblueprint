@@ -34,10 +34,10 @@ from tools.knowledge.lean_index import LeanDeclaration, LeanIndex
 
 _STRUCTURED_KINDS = {"structure", "class", "inductive"}
 
-# Field: `  name : type` or `  name :\n    type`, with optional attribute
-# annotations.  Skips docstring lines (`/--`) and closing `-/`.
+# A named field starts with a type annotation. Membership expressions and
+# record assignments inside a field's type/default are not declarations.
 _FIELD_LINE_RE = re.compile(
-    r"^\s+([A-Za-z_][\w']*)\s*[:∈]",
+    r"^\s+([A-Za-z_][\w']*)\s*:(?!=)",
 )
 
 # `/-- (P0) Cosheaf monotonicity: ... -/` — extract the parenthesised
@@ -122,6 +122,7 @@ def extract_fields_from_signature(sig: str) -> list[LeanField]:
     fields: list[LeanField] = []
     pending_doc: list[str] = []
     in_doc = False
+    field_indent: int | None = None
 
     for ln in lines[where_index + 1:]:
         stripped = ln.strip()
@@ -142,6 +143,12 @@ def extract_fields_from_signature(sig: str) -> list[LeanField]:
             continue
         m = _FIELD_LINE_RE.match(ln)
         if m:
+            indent = len(ln) - len(ln.lstrip())
+            if field_indent is None:
+                field_indent = indent
+            if indent != field_indent:
+                # Continuations can contain type ascriptions of their own.
+                continue
             name = m.group(1)
             doc = " ".join(p for p in pending_doc if p).strip() or None
             fields.append(LeanField(name=name, docstring=doc))

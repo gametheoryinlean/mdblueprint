@@ -45,6 +45,48 @@ class TestExtractFields:
         fields = extract_fields_from_signature(sig)
         assert [f.name for f in fields] == ["act"]
 
+    def test_membership_in_field_type_is_not_a_field(self):
+        sig = (
+            "structure OnIso extends Base where\n"
+            "  vertex_graded : ∀ x n v,\n"
+            "    v ∈ piece x n → vertex x v ∈ piece x n\n"
+            "  edge_graded : ∀ e n v,\n"
+            "    v ∈ edgePiece e n → edge e v ∈ edgePiece e n\n"
+        )
+        fields = extract_fields_from_signature(sig)
+        assert [f.name for f in fields] == ["vertex_graded", "edge_graded"]
+
+    def test_nested_default_value_does_not_add_fields(self):
+        sig = (
+            "structure Datum where\n"
+            "  witness : {n : Nat // n > 0} := {\n"
+            "    val := 1\n"
+            "    property := by\n"
+            "      have nested : 1 > 0 := by decide\n"
+            "      exact nested\n"
+            "  }\n"
+            "  /-- The final condition. -/\n"
+            "  condition : True\n"
+        )
+        fields = extract_fields_from_signature(sig)
+        assert [f.name for f in fields] == ["witness", "condition"]
+        assert fields[1].docstring == "The final condition."
+
+    def test_indexed_multiline_field_keeps_only_top_level_fields(self, tmp_path):
+        (tmp_path / "Datum.lean").write_text(
+            "namespace Example\n"
+            "  structure Datum where\n"
+            "    value : Nat\n"
+            "    condition :\n"
+            "      value = (\n"
+            "        value : Nat)\n"
+            "    final : True\n"
+            "end Example\n"
+        )
+        index = index_lean_project(tmp_path)
+        fields = extract_fields_from_signature(index.declarations["Example.Datum"].signature)
+        assert [f.name for f in fields] == ["value", "condition", "final"]
+
 
 class TestFieldCoverage:
     def test_backtick_mention_covers(self):
