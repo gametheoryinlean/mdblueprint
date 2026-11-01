@@ -70,14 +70,24 @@ def _parse_generality(raw: dict | None) -> Generality | None:
     )
 
 
-def parse_node(text: str, file_path: Path | None = None) -> Node:
+def parse_frontmatter(
+    text: str, file_path: Path | None = None, *, required: bool = True,
+) -> tuple[dict, str]:
+    """Read shared YAML/Markdown document syntax, optionally without a header."""
     m = _FRONTMATTER_RE.match(text)
     if m is None:
-        raise ValueError(f"No YAML frontmatter found in {file_path or '<string>'}")
+        if required or text.startswith("---\n"):
+            raise ValueError(f"No YAML frontmatter found in {file_path or '<string>'}")
+        return {}, text
     fm_text, body = m.group(1), m.group(2)
     fm = yaml.safe_load(fm_text)
     if not isinstance(fm, dict):
         raise ValueError(f"Frontmatter is not a mapping in {file_path or '<string>'}")
+    return fm, body
+
+
+def parse_node(text: str, file_path: Path | None = None) -> Node:
+    fm, body = parse_frontmatter(text, file_path)
     return Node(
         id=fm.get("id", ""),
         title=fm.get("title", ""),

@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Keyword: {{ keyword }}</h1>
+<h1>{{ guide_title or ("Keyword: " ~ keyword) }}</h1>
+
+{% if guide_html %}
+<div class="keyword-introduction">
+  {{ guide_html|safe }}
+</div>
+<h2>Entries for this keyword</h2>
+{% endif %}
 
 <div class="blueprint-node-list">
   {% for node in nodes %}

@@ -260,3 +260,40 @@ Minimum test groups:
 - index simple Lean declarations from fixture Lean files;
 - report missing Lean declarations;
 - preserve staged candidates as non-admitted truth.
+
+## Authored keyword guides
+
+A keyword page can introduce its mathematical subject before the generated
+node list. Put a Markdown guide at `docs/knowledge/keywords/<keyword>.md`,
+using the exact tag spelling for the filename. A guide is a navigation
+document, not a graph node.
+
+Optional YAML frontmatter supplies a page title and the mathematical context
+used by the definition-link registry:
+
+```yaml
+---
+title: Roots, orders, and their consequences
+primary_topic: algebra.roots
+---
+```
+
+The body supports the same Markdown, TeX preservation, `[[node:id|label]]`
+references, and bare node-ID links as topic introductions. Explain the
+starting definitions, the order of the main results, their proof
+dependencies, and the applications; the matching-node catalogue follows
+this introduction.
+
+`primary_topic` selects the topic-scoped aliases in `concept-links.yml`.
+The resulting URLs are still generated relative to the keyword page.
+Without that field, only unscoped aliases apply. Links in a guide do not add
+logical `uses` edges to the mathematical graph.
+
+The static publisher and development server use the same renderer.
+Unknown node references, malformed frontmatter, invalid titles or unknown
+topic scopes stop publication. Keyword guides are validated before an
+existing output directory is replaced. Guide paths stay inside the flat
+`keywords/` source directory.
+
+Without a guide, the existing keyword page and matching-node list are
+preserved.

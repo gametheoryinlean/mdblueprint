@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown import Markdown
+import yaml
 
 from tools.knowledge.config import LeanConfig, ProjectConfig, katex_auto_render_options
 from tools.knowledge.export import (
@@ -28,6 +29,7 @@ from tools.knowledge.lean_index import (
 from tools.knowledge.models import Node
 from tools.knowledge.node_refs import NODE_REF_RE
 from tools.knowledge.definition_links import rebase_payload_links
+from tools.knowledge.parser import parse_frontmatter
 
 if TYPE_CHECKING:
     from tools.knowledge.context import KnowledgeContext
@@ -764,20 +766,66 @@ def render_node(ctx: "KnowledgeContext", node_id: str) -> str:
     )
 
 
+def _render_keyword_guide(
+    ctx: "KnowledgeContext", keyword: str,
+) -> tuple[str | None, str | None]:
+    directory = ctx.knowledge_root / "keywords"
+    guide = directory / f"{keyword}.md"
+    if guide.resolve().parent != directory.resolve():
+        raise ValueError(f"Unsafe keyword guide path: {keyword!r}")
+    if not guide.is_file():
+        return None, None
+    try:
+        metadata, body = parse_frontmatter(
+            guide.read_text(encoding="utf-8"), guide, required=False,
+        )
+    except (ValueError, yaml.YAMLError) as exc:
+        raise ValueError(f"Invalid keyword guide {guide}: {exc}") from exc
+
+    title = metadata.get("title")
+    if title is not None and (not isinstance(title, str) or not title.strip()):
+        raise ValueError(f"Invalid keyword guide title in {guide}")
+    scope = metadata.get("primary_topic")
+    if scope is not None and (
+        not isinstance(scope, str) or scope not in ctx.topics
+    ):
+        raise ValueError(f"Invalid keyword guide primary_topic in {guide}")
+
+    md = Markdown(extensions=["tables", "fenced_code"])
+    html = _convert_markdown_preserving_tex(md, body)
+    html, missing = _resolve_node_refs_in_html(
+        html, ctx.nodes_by_id, from_topic="keywords",
+    )
+    if missing:
+        raise ValueError(
+            f"Unknown node references in keyword guide {guide}: {', '.join(missing)}"
+        )
+    html = _autolink_bare_node_refs_in_html(
+        html, ctx.nodes_by_id, from_topic="keywords",
+    )
+    html = ctx.definition_links.render(
+        html, scope or "keywords", TEX_MATH_RE, from_dir="keywords",
+    )
+    return title, html
+
+
 def render_keyword(ctx: "KnowledgeContext", keyword: str) -> str:
     if keyword not in ctx.keywords:
         raise KeyError(keyword)
 
     keyword_nodes = sorted(ctx.keywords[keyword], key=lambda n: n.title)
+    guide_title, guide_html = _render_keyword_guide(ctx, keyword)
     tmpl = ctx.jinja_env.get_template("keyword.html")
     return tmpl.render(
-        title=f"Keyword: {keyword}",
+        title=guide_title or f"Keyword: {keyword}",
         root="../",
         topics=ctx.topic_names,
         topic_tree=ctx.topic_tree,
         active_topic="",
         keywords=ctx.keyword_names,
         keyword=keyword,
+        guide_title=guide_title,
+        guide_html=guide_html,
         nodes=[
             _summary_payload(
                 node, ctx.blueprint_nodes,

@@ -51,6 +51,8 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     keywords = ctx.keywords
     keyword_names = ctx.keyword_names
     env = ctx.jinja_env
+    # Validate authored guides before replacing an existing published site.
+    keyword_pages = {keyword: render_keyword(ctx, keyword) for keyword in keyword_names}
 
     resolved_out = output_dir.resolve()
     resolved_root = knowledge_root.resolve()
@@ -95,7 +97,7 @@ def publish(knowledge_root: Path, output_dir: Path, config_path: Path | None = N
     keyword_dir.mkdir(parents=True, exist_ok=True)
     for keyword in keyword_names:
         (keyword_dir / f"{keyword}.html").write_text(
-            render_keyword(ctx, keyword), encoding="utf-8",
+            keyword_pages[keyword], encoding="utf-8",
         )
 
     for topic, topic_nodes in topics.items():

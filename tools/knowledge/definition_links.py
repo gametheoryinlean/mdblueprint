@@ -193,14 +193,17 @@ class DefinitionLinks:
             registry.aliases_for(topic)
         return registry
 
-    def aliases_for(self, topic: str, current: str | None = None) -> dict[str, LinkTarget]:
+    def aliases_for(
+        self, topic: str, current: str | None = None, *, from_dir: str | None = None,
+    ) -> dict[str, LinkTarget]:
         aliases: dict[str, LinkTarget] = {}
+        source_dir = topic_path(topic) if from_dir is None else from_dir
         for rule in self.rules:
             if rule.topics and topic not in rule.topics:
                 continue
             node = self.nodes[rule.node]
             path = f"{topic_path(home_topic_for_node(node))}/{node.id.replace('.', '_')}.html"
-            target = (node.id, posixpath.relpath(path, topic_path(topic)), node.title)
+            target = (node.id, posixpath.relpath(path, source_dir), node.title)
             for term in rule.terms:
                 key = _term_key(term)
                 if key in aliases and aliases[key] != target:
@@ -208,8 +211,13 @@ class DefinitionLinks:
                 aliases[key] = target
         return {key: target for key, target in aliases.items() if target[0] != current}
 
-    def render(self, html: str, topic: str, math_pattern: re.Pattern, current: str | None = None) -> str:
-        return link_definitions(html, self.aliases_for(topic, current), math_pattern)
+    def render(
+        self, html: str, topic: str, math_pattern: re.Pattern,
+        current: str | None = None, *, from_dir: str | None = None,
+    ) -> str:
+        return link_definitions(
+            html, self.aliases_for(topic, current, from_dir=from_dir), math_pattern,
+        )
 
     def summary(self) -> dict:
         return {"engine": "Python registry matcher; no LLM calls", "registry_sha256": self.registry_sha256,
